@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>echoevm</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-[#1a1a1a] text-gray-300 font-mono flex items-center justify-center min-h-screen px-4">
+
+  <div class="flex flex-col items-center text-center">
+    
+    <!-- Logo with soft background -->
+    <div class="bg-gray-100 rounded-full p-6 mb-8 shadow-lg">
+      <img src="logo.png" alt="echoevm logo" class="w-60 h-60" />
+    </div>
+
+    <!-- Message -->
+    <h1 class="text-lg text-gray-400">
+      initializing<span class="text-blue-400 animate-blink ml-1">_</span>
+    </h1>
+
+  </div>
+
+  <script>
+    // subtle blinking cursor effect
+    document.querySelector('.animate-blink').style.animation = 'blink 1s step-start infinite';
+  </script>
+</body>
+</html>
