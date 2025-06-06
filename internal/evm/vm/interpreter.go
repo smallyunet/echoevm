@@ -101,3 +101,10 @@ func (i *Interpreter) Stack() *core.Stack {
 func (i *Interpreter) Memory() *core.Memory {
 	return i.memory
 }
+
+// ReturnedCode returns the byte slice produced by a RETURN opcode.
+// It is primarily used to obtain the runtime bytecode generated during
+// contract creation.
+func (i *Interpreter) ReturnedCode() []byte {
+	return i.returned
+}
