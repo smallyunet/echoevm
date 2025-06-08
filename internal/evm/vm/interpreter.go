@@ -57,6 +57,7 @@ func init() {
 
 	// environment
 	handlerMap[core.CALLVALUE] = opCallValue
+	handlerMap[core.CALLDATASIZE] = opCallDataSize
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid
