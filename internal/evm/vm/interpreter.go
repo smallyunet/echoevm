@@ -34,6 +34,7 @@ func init() {
 	handlerMap[core.MUL] = opMul
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
+	handlerMap[core.LT] = opLt
 	handlerMap[core.EQ] = opEq
 	handlerMap[core.ISZERO] = opIsZero
 
