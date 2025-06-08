@@ -42,7 +42,13 @@ func main() {
 		fmt.Println("=== Runtime Bytecode ===")
 		utils.PrintBytecode(runtimeCode)
 
-		runtimeInterpreter := vm.New(runtimeCode)
+		// Example calldata for Add.add(uint256,uint256) with arguments
+		// 1 and 2. This is the ABI-encoded function selector and
+		// parameters.
+		callData, _ := hex.DecodeString(
+			"771602f700000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002",
+		)
+		runtimeInterpreter := vm.NewWithCallData(runtimeCode, callData)
 		runtimeInterpreter.Run()
 
 		switch runtimeInterpreter.Stack().Len() {
