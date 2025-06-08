@@ -48,8 +48,21 @@ func init() {
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
 	handlerMap[core.LT] = opLt
+	handlerMap[core.GT] = opGt
+	handlerMap[core.SLT] = opSlt
 	handlerMap[core.EQ] = opEq
 	handlerMap[core.ISZERO] = opIsZero
+	handlerMap[core.SIGNEXTEND] = opSignextend
+
+	// bitwise and shift
+	handlerMap[core.AND] = opAnd
+	handlerMap[core.OR] = opOr
+	handlerMap[core.XOR] = opXor
+	handlerMap[core.NOT] = opNot
+	handlerMap[core.BYTE] = opByte
+	handlerMap[core.SHL] = opShl
+	handlerMap[core.SHR] = opShr
+	handlerMap[core.SAR] = opSar
 
 	// memory and code
 	handlerMap[core.MSTORE] = opMstore
