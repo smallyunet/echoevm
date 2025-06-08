@@ -34,6 +34,7 @@ func init() {
 	handlerMap[core.MUL] = opMul
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
+	handlerMap[core.LT] = opLt
 	handlerMap[core.EQ] = opEq
 	handlerMap[core.ISZERO] = opIsZero
 
@@ -54,9 +55,11 @@ func init() {
 	// control
 	handlerMap[core.STOP] = opStop
 	handlerMap[core.RETURN] = opReturn
+	handlerMap[core.REVERT] = opRevert
 
 	// environment
 	handlerMap[core.CALLVALUE] = opCallValue
+	handlerMap[core.CALLDATASIZE] = opCallDataSize
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid
@@ -87,8 +90,8 @@ func (i *Interpreter) Run() {
 
 		handler(i, op)
 
-		// If RETURN or STOP, exit early
-		if op == core.RETURN || op == core.STOP {
+		// If RETURN, REVERT or STOP, exit early
+		if op == core.RETURN || op == core.REVERT || op == core.STOP {
 			return
 		}
 	}
@@ -100,4 +103,11 @@ func (i *Interpreter) Stack() *core.Stack {
 
 func (i *Interpreter) Memory() *core.Memory {
 	return i.memory
+}
+
+// ReturnedCode returns the byte slice produced by a RETURN opcode.
+// It is primarily used to obtain the runtime bytecode generated during
+// contract creation.
+func (i *Interpreter) ReturnedCode() []byte {
+	return i.returned
 }

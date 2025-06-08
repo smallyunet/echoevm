@@ -26,7 +26,7 @@ func main() {
 	interpreter := vm.New(code)
 	interpreter.Run()
 
-	// --- Step 5: Inspect stack state ---
+	// --- Step 5: Inspect stack state after constructor execution ---
 	switch interpreter.Stack().Len() {
 	case 1:
 		fmt.Printf("Final Result on Stack: %s\n", interpreter.Stack().Peek(0).String())
@@ -34,6 +34,25 @@ func main() {
 		fmt.Println("Execution finished. Stack is empty.")
 	default:
 		fmt.Printf("Execution finished. Stack height = %d\n", interpreter.Stack().Len())
+	}
+
+	// --- Step 6: If constructor returned runtime code, execute it ---
+	runtimeCode := interpreter.ReturnedCode()
+	if len(runtimeCode) > 0 {
+		fmt.Println("=== Runtime Bytecode ===")
+		utils.PrintBytecode(runtimeCode)
+
+		runtimeInterpreter := vm.New(runtimeCode)
+		runtimeInterpreter.Run()
+
+		switch runtimeInterpreter.Stack().Len() {
+		case 1:
+			fmt.Printf("Runtime Result on Stack: %s\n", runtimeInterpreter.Stack().Peek(0).String())
+		case 0:
+			fmt.Println("Runtime execution finished. Stack is empty.")
+		default:
+			fmt.Printf("Runtime execution finished. Stack height = %d\n", runtimeInterpreter.Stack().Len())
+		}
 	}
 }
 

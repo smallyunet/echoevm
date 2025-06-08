@@ -53,3 +53,14 @@ func opIsZero(i *Interpreter, _ byte) {
 		i.stack.Push(big.NewInt(0))
 	}
 }
+
+// opLt compares the top two stack values and pushes 1 if the first
+// is strictly less than the second, otherwise pushes 0.
+func opLt(i *Interpreter, _ byte) {
+	x, y := i.stack.Pop(), i.stack.Pop()
+	if x.Cmp(y) < 0 {
+		i.stack.Push(big.NewInt(1))
+	} else {
+		i.stack.Push(big.NewInt(0))
+	}
+}
