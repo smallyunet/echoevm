@@ -10,6 +10,7 @@ type Interpreter struct {
 	pc       uint64
 	stack    *core.Stack
 	memory   *core.Memory
+	calldata []byte
 	returned []byte
 }
 
@@ -19,6 +20,18 @@ func New(code []byte) *Interpreter {
 		stack:  core.NewStack(),
 		memory: core.NewMemory(),
 	}
+}
+
+// NewWithCallData creates an interpreter with the provided code and calldata.
+func NewWithCallData(code []byte, data []byte) *Interpreter {
+	i := New(code)
+	i.calldata = data
+	return i
+}
+
+// SetCallData sets the calldata that opcodes like CALLDATALOAD operate on.
+func (i *Interpreter) SetCallData(data []byte) {
+	i.calldata = data
 }
 
 // OpcodeHandler defines a function that executes a specific opcode
@@ -35,8 +48,21 @@ func init() {
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
 	handlerMap[core.LT] = opLt
+	handlerMap[core.GT] = opGt
+	handlerMap[core.SLT] = opSlt
 	handlerMap[core.EQ] = opEq
 	handlerMap[core.ISZERO] = opIsZero
+	handlerMap[core.SIGNEXTEND] = opSignextend
+
+	// bitwise and shift
+	handlerMap[core.AND] = opAnd
+	handlerMap[core.OR] = opOr
+	handlerMap[core.XOR] = opXor
+	handlerMap[core.NOT] = opNot
+	handlerMap[core.BYTE] = opByte
+	handlerMap[core.SHL] = opShl
+	handlerMap[core.SHR] = opShr
+	handlerMap[core.SAR] = opSar
 
 	// memory and code
 	handlerMap[core.MSTORE] = opMstore
@@ -60,6 +86,8 @@ func init() {
 	// environment
 	handlerMap[core.CALLVALUE] = opCallValue
 	handlerMap[core.CALLDATASIZE] = opCallDataSize
+	handlerMap[core.CALLDATALOAD] = opCallDataLoad
+	handlerMap[core.CALLDATACOPY] = opCallDataCopy
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid
