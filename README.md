@@ -10,9 +10,13 @@ returned, executes that code as well. Use the following flags to customise the
 behaviour:
 
 ```
-./echoevm -bin path/to/contract.bin -mode [deploy|full] \ 
-          [-calldata HEX | -function "sig" -args "1,2"]
+go run ./cmd/echoevm -bin path/to/contract.bin -mode [deploy|full] \
+        [-calldata HEX | -function "sig" -args "1,2"]
 ```
+
+*Note:* use the directory path (`./cmd/echoevm`) with `go run` so that all
+source files are compiled. Running `go run ./cmd/echoevm/main.go` will omit the
+flag parsing code located in `flags.go`.
 
 - `-bin`  – path to the hex encoded bytecode file (defaults to `build/Add.bin`).
 - `-mode` – `deploy` to only run the constructor or `full` to also execute the
