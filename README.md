@@ -27,11 +27,11 @@ behaviour:
 Run with pre-encoded calldata:
 
 ```bash
-go run ./cmd/echoevm/main.go -mode full -calldata 771602f7...
+go run ./cmd/echoevm -mode full -calldata 771602f7...
 ```
 
 Encode arguments automatically for a function call:
 
 ```bash
-go run ./cmd/echoevm/main.go -mode full -function 'add(uint256,uint256)' -args "1,2"
+go run ./cmd/echoevm -mode full -function 'add(uint256,uint256)' -args "1,2"
 ```
