@@ -21,3 +21,17 @@ behaviour:
 - `-function`/`-args` – alternatively specify a function signature and comma
   separated arguments (e.g. `-function "add(uint256,uint256)" -args "1,2"`)
   which will be ABI encoded automatically.
+
+### Examples
+
+Run with pre-encoded calldata:
+
+```bash
+go run ./cmd/echoevm/main.go -mode full -calldata 771602f7...
+```
+
+Encode arguments automatically for a function call:
+
+```bash
+go run ./cmd/echoevm/main.go -mode full -function 'add(uint256,uint256)' -args "1,2"
+```

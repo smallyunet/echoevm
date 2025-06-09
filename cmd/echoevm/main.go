@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"flag"
 	"fmt"
 	"math/big"
 	"os"
@@ -15,16 +14,10 @@ import (
 )
 
 func main() {
-	// Command line flags
-	binPath := flag.String("bin", "build/Add.bin", "path to contract .bin file")
-	mode := flag.String("mode", "full", "execution mode: deploy or full")
-	functionSig := flag.String("function", "", "function signature, e.g. 'add(uint256,uint256)'")
-	argsStr := flag.String("args", "", "comma separated arguments for the function")
-	calldataHex := flag.String("calldata", "", "hex encoded calldata")
-	flag.Parse()
+	cfg := parseFlags()
 
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
-	data, err := os.ReadFile(*binPath)
+	data, err := os.ReadFile(cfg.Bin)
 	check(err, "failed to read bytecode file")
 
 	// --- Step 2: Decode hex string to bytecode []byte ---
@@ -51,17 +44,17 @@ func main() {
 
 	// --- Step 6: If constructor returned runtime code and mode is "full", execute it ---
 	runtimeCode := interpreter.ReturnedCode()
-	if *mode == "full" && len(runtimeCode) > 0 {
+	if cfg.Mode == "full" && len(runtimeCode) > 0 {
 		fmt.Println("=== Runtime Bytecode ===")
 		utils.PrintBytecode(runtimeCode)
 
 		var callData []byte
 		var err error
 		switch {
-		case *calldataHex != "":
-			callData, err = hex.DecodeString(strings.TrimPrefix(*calldataHex, "0x"))
-		case *functionSig != "" && *argsStr != "":
-			callData, err = buildCallData(*functionSig, *argsStr)
+		case cfg.Calldata != "":
+			callData, err = hex.DecodeString(strings.TrimPrefix(cfg.Calldata, "0x"))
+		case cfg.Function != "" && cfg.Args != "":
+			callData, err = buildCallData(cfg.Function, cfg.Args)
 		default:
 			callData, _ = hex.DecodeString("771602f7000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002")
 		}
