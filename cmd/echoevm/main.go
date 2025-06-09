@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"os"
 
@@ -10,8 +11,13 @@ import (
 )
 
 func main() {
+	// Command line flags
+	binPath := flag.String("bin", "build/Add.bin", "path to contract .bin file")
+	mode := flag.String("mode", "full", "execution mode: deploy or full")
+	flag.Parse()
+
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
-	data, err := os.ReadFile("build/Add.bin")
+	data, err := os.ReadFile(*binPath)
 	check(err, "failed to read bytecode file")
 
 	// --- Step 2: Decode hex string to bytecode []byte ---
@@ -36,9 +42,9 @@ func main() {
 		fmt.Printf("Execution finished. Stack height = %d\n", interpreter.Stack().Len())
 	}
 
-	// --- Step 6: If constructor returned runtime code, execute it ---
+	// --- Step 6: If constructor returned runtime code and mode is "full", execute it ---
 	runtimeCode := interpreter.ReturnedCode()
-	if len(runtimeCode) > 0 {
+	if *mode == "full" && len(runtimeCode) > 0 {
 		fmt.Println("=== Runtime Bytecode ===")
 		utils.PrintBytecode(runtimeCode)
 
