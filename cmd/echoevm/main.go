@@ -6,15 +6,27 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/rs/zerolog"
+	zerologlog "github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/smallyunet/echoevm/utils"
 )
 
 func main() {
 	cfg := parseFlags()
+	lvl, err := zerolog.ParseLevel(strings.ToLower(cfg.LogLevel))
+	if err != nil {
+		lvl = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(lvl)
+	cw := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.Kitchen}
+	logger := zerolog.New(cw).With().Timestamp().Logger()
+	zerologlog.Logger = logger
+	vm.SetLogger(logger)
 
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
 	data, err := os.ReadFile(cfg.Bin)
@@ -25,8 +37,8 @@ func main() {
 	check(err, "failed to decode hex bytecode")
 
 	// --- Step 3: Optional debug output ---
-	fmt.Println("=== Disassembled Bytecode ===")
-	utils.PrintBytecode(code)
+	logger.Info().Msg("=== Disassembled Bytecode ===")
+	utils.PrintBytecode(logger, code)
 
 	// --- Step 4: Create and run the interpreter with constructor bytecode ---
 	interpreter := vm.New(code)
@@ -35,18 +47,18 @@ func main() {
 	// --- Step 5: Inspect stack state after constructor execution ---
 	switch interpreter.Stack().Len() {
 	case 1:
-		fmt.Printf("Final Result on Stack: %s\n", interpreter.Stack().Peek(0).String())
+		logger.Info().Msgf("Final Result on Stack: %s", interpreter.Stack().Peek(0).String())
 	case 0:
-		fmt.Println("Execution finished. Stack is empty.")
+		logger.Info().Msg("Execution finished. Stack is empty.")
 	default:
-		fmt.Printf("Execution finished. Stack height = %d\n", interpreter.Stack().Len())
+		logger.Info().Msgf("Execution finished. Stack height = %d", interpreter.Stack().Len())
 	}
 
 	// --- Step 6: If constructor returned runtime code and mode is "full", execute it ---
 	runtimeCode := interpreter.ReturnedCode()
 	if cfg.Mode == "full" && len(runtimeCode) > 0 {
-		fmt.Println("=== Runtime Bytecode ===")
-		utils.PrintBytecode(runtimeCode)
+		logger.Info().Msg("=== Runtime Bytecode ===")
+		utils.PrintBytecode(logger, runtimeCode)
 
 		var callData []byte
 		var err error
@@ -65,11 +77,11 @@ func main() {
 
 		switch runtimeInterpreter.Stack().Len() {
 		case 1:
-			fmt.Printf("Runtime Result on Stack: %s\n", runtimeInterpreter.Stack().Peek(0).String())
+			logger.Info().Msgf("Runtime Result on Stack: %s", runtimeInterpreter.Stack().Peek(0).String())
 		case 0:
-			fmt.Println("Runtime execution finished. Stack is empty.")
+			logger.Info().Msg("Runtime execution finished. Stack is empty.")
 		default:
-			fmt.Printf("Runtime execution finished. Stack height = %d\n", runtimeInterpreter.Stack().Len())
+			logger.Info().Msgf("Runtime execution finished. Stack height = %d", runtimeInterpreter.Stack().Len())
 		}
 	}
 }
