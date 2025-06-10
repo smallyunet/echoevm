@@ -37,8 +37,9 @@ func main() {
 	check(err, "failed to decode hex bytecode")
 
 	// --- Step 3: Optional debug output ---
+	logger.Info().Msgf("Executing contract file: %s", cfg.Bin)
 	logger.Info().Msg("=== Disassembled Bytecode ===")
-	utils.PrintBytecode(logger, code)
+	utils.PrintBytecode(logger, code, zerolog.InfoLevel)
 
 	// --- Step 4: Create and run the interpreter with constructor bytecode ---
 	interpreter := vm.New(code)
@@ -57,8 +58,8 @@ func main() {
 	// --- Step 6: If constructor returned runtime code and mode is "full", execute it ---
 	runtimeCode := interpreter.ReturnedCode()
 	if cfg.Mode == "full" && len(runtimeCode) > 0 {
-		logger.Info().Msg("=== Runtime Bytecode ===")
-		utils.PrintBytecode(logger, runtimeCode)
+		logger.Debug().Msg("=== Runtime Bytecode ===")
+		utils.PrintBytecode(logger, runtimeCode, zerolog.DebugLevel)
 
 		var callData []byte
 		var err error
@@ -77,11 +78,11 @@ func main() {
 
 		switch runtimeInterpreter.Stack().Len() {
 		case 1:
-			logger.Info().Msgf("Runtime Result on Stack: %s", runtimeInterpreter.Stack().Peek(0).String())
+			logger.Info().Msgf("Contract %s result: %s", cfg.Bin, runtimeInterpreter.Stack().Peek(0).String())
 		case 0:
-			logger.Info().Msg("Runtime execution finished. Stack is empty.")
+			logger.Info().Msgf("Contract %s finished. Stack empty.", cfg.Bin)
 		default:
-			logger.Info().Msgf("Runtime execution finished. Stack height = %d", runtimeInterpreter.Stack().Len())
+			logger.Info().Msgf("Contract %s finished. Stack height = %d", cfg.Bin, runtimeInterpreter.Stack().Len())
 		}
 	}
 }
