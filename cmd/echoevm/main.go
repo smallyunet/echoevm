@@ -38,8 +38,8 @@ func main() {
 
 	// --- Step 3: Optional debug output ---
 	logger.Info().Msgf("Executing contract file: %s", cfg.Bin)
-	logger.Info().Msg("=== Disassembled Bytecode ===")
-	utils.PrintBytecode(logger, code, zerolog.InfoLevel)
+	logger.Debug().Msg("=== Disassembled Bytecode ===")
+	utils.PrintBytecode(logger, code, zerolog.DebugLevel)
 
 	// --- Step 4: Create and run the interpreter with constructor bytecode ---
 	interpreter := vm.New(code)
