@@ -12,8 +12,8 @@ import (
 // and the mnemonic name (e.g., ADD, PUSH1), with push data if applicable.
 // PrintBytecode logs EVM bytecode in a human-readable format using the provided logger.
 func PrintBytecode(log zerolog.Logger, code []byte, level zerolog.Level) {
-	e := log.WithLevel(level)
-	e.Msg("=== Bytecode ===")
+	// Emit a header at the provided log level
+	log.WithLevel(level).Msg("=== Bytecode ===")
 
 	// pc represents the current position in the bytecode (like the program counter in EVM)
 	for pc := 0; pc < len(code); {
@@ -43,7 +43,7 @@ func PrintBytecode(log zerolog.Logger, code []byte, level zerolog.Level) {
 			// Move to next byte (each non-PUSH opcode is 1 byte)
 			pc += 1
 		}
-		e.Msg(line)
+		log.WithLevel(level).Msg(line)
 	}
 }
 
