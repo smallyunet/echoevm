@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -22,7 +23,9 @@ func main() {
 		lvl = zerolog.InfoLevel
 	}
 	zerolog.SetGlobalLevel(lvl)
-	logger := zerologlog.Logger
+	cw := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.Kitchen}
+	logger := zerolog.New(cw).With().Timestamp().Logger()
+	zerologlog.Logger = logger
 	vm.SetLogger(logger)
 
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
