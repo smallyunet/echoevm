@@ -1,10 +1,6 @@
 // op_control.go
 package vm
 
-import (
-	"fmt"
-)
-
 func opStop(_ *Interpreter, _ byte) {
 	// halt execution
 }
@@ -14,7 +10,7 @@ func opReturn(i *Interpreter, _ byte) {
 	size := i.stack.Pop().Uint64()
 	ret := i.memory.Get(offset)[:size]
 	i.returned = ret
-	fmt.Printf("RETURN: 0x%x\n", ret)
+	logger.Info().Msgf("RETURN: 0x%x", ret)
 }
 
 // opRevert halts execution and marks the returned data as an error payload.
@@ -25,5 +21,5 @@ func opRevert(i *Interpreter, _ byte) {
 	size := i.stack.Pop().Uint64()
 	ret := i.memory.Get(offset)[:size]
 	i.returned = ret
-	fmt.Printf("REVERT: 0x%x\n", ret)
+	logger.Info().Msgf("REVERT: 0x%x", ret)
 }

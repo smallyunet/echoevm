@@ -63,3 +63,12 @@ func (s *Stack) Swap(n int) {
 func (s *Stack) Len() int {
 	return len(s.data)
 }
+
+// Snapshot returns a slice of hex strings representing the stack contents from bottom to top.
+func (s *Stack) Snapshot() []string {
+	snap := make([]string, len(s.data))
+	for i, v := range s.data {
+		snap[i] = fmt.Sprintf("0x%x", v)
+	}
+	return snap
+}

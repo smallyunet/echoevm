@@ -2,8 +2,16 @@ package vm
 
 import (
 	"fmt"
+	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
+
+var logger = zerolog.Nop()
+
+// SetLogger allows overriding the package level logger.
+func SetLogger(l zerolog.Logger) {
+	logger = l
+}
 
 type Interpreter struct {
 	code     []byte
@@ -95,8 +103,14 @@ func init() {
 
 func (i *Interpreter) Run() {
 	for i.pc < uint64(len(i.code)) {
+		pc := i.pc
 		op := i.code[i.pc]
 		i.pc++
+		logger.Trace().
+			Str("pc", fmt.Sprintf("0x%04x", pc)).
+			Str("op", core.OpcodeName(op)).
+			Int("stack", i.stack.Len()).
+			Msg("step")
 
 		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
 			opPush(i, op)
@@ -117,6 +131,11 @@ func (i *Interpreter) Run() {
 		}
 
 		handler(i, op)
+		logger.Trace().
+			Str("pc", fmt.Sprintf("0x%04x", i.pc)).
+			Str("op", core.OpcodeName(op)).
+			Any("stack", i.stack.Snapshot()).
+			Msg("after")
 
 		// If RETURN, REVERT or STOP, exit early
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {
