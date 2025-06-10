@@ -39,3 +39,11 @@ Encode arguments automatically for a function call:
 ```bash
 go run ./cmd/echoevm -mode full -function 'add(uint256,uint256)' -args "1,2"
 ```
+
+## Testing
+
+Some example contracts and an integration script are included in the `test/` directory. Run the script below to compile them with `solc` and execute each using `echoevm`:
+
+```bash
+./test/run_tests.sh
+```
