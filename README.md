@@ -18,13 +18,13 @@ go run ./cmd/echoevm -bin path/to/contract.bin -mode [deploy|full] \
 source files are compiled. Running `go run ./cmd/echoevm/main.go` will omit the
 flag parsing code located in `flags.go`.
 
-- `-bin`  – path to the hex encoded bytecode file (defaults to `build/Add.bin`).
+- `-bin`  – path to the hex encoded bytecode file (**required**).
 - `-mode` – `deploy` to only run the constructor or `full` to also execute the
   returned runtime code (default `full`).
 - `-calldata` – hex-encoded calldata to supply when running the runtime code.
 - `-function`/`-args` – alternatively specify a function signature and comma
   separated arguments (e.g. `-function "add(uint256,uint256)" -args "1,2"`)
-  which will be ABI encoded automatically.
+  which will be ABI encoded automatically. One of `-calldata` or `-function`/`-args` is required when running in `full` mode.
 
 ### Examples
 
