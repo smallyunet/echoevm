@@ -8,7 +8,7 @@ func opStop(_ *Interpreter, _ byte) {
 func opReturn(i *Interpreter, _ byte) {
 	offset := i.stack.Pop().Uint64()
 	size := i.stack.Pop().Uint64()
-	ret := i.memory.Get(offset)[:size]
+	ret := i.memory.Read(offset, size)
 	i.returned = ret
 	logger.Info().Msgf("RETURN: 0x%x", ret)
 }
@@ -19,7 +19,7 @@ func opReturn(i *Interpreter, _ byte) {
 func opRevert(i *Interpreter, _ byte) {
 	offset := i.stack.Pop().Uint64()
 	size := i.stack.Pop().Uint64()
-	ret := i.memory.Get(offset)[:size]
+	ret := i.memory.Read(offset, size)
 	i.returned = ret
 	logger.Info().Msgf("REVERT: 0x%x", ret)
 }

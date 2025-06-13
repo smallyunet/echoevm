@@ -1,3 +1,5 @@
+//go:build evmcli
+
 package main
 
 import (
@@ -68,8 +70,8 @@ func main() {
 			callData, err = hex.DecodeString(strings.TrimPrefix(cfg.Calldata, "0x"))
 		case cfg.Function != "" && cfg.Args != "":
 			callData, err = buildCallData(cfg.Function, cfg.Args)
-                default:
-                        logger.Fatal().Msg("provide -calldata or -function and -args")
+		default:
+			logger.Fatal().Msg("provide -calldata or -function and -args")
 		}
 		check(err, "failed to process calldata")
 
