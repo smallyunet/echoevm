@@ -19,7 +19,7 @@ func TestCallDataLoad(t *testing.T) {
 	i.stack.Push(big.NewInt(0))
 	opCallDataLoad(i, 0)
 	val := i.stack.Pop().Bytes()
-	if len(val) < 32 || val[len(val)-3] != 1 || val[len(val)-2] != 2 || val[len(val)-1] != 3 {
+	if len(val) != 32 || val[0] != 1 || val[1] != 2 || val[2] != 3 {
 		t.Fatalf("calldataload wrong")
 	}
 }

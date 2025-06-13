@@ -8,8 +8,8 @@ import (
 func TestReturn(t *testing.T) {
 	i := newInterp()
 	i.memory.Write(0, []byte{1, 2, 3})
-	i.stack.Push(big.NewInt(0))
-	i.stack.Push(big.NewInt(3))
+	i.stack.Push(big.NewInt(3)) // size
+	i.stack.Push(big.NewInt(0)) // offset (top)
 	opReturn(i, 0)
 	if string(i.returned) != "\x01\x02\x03" {
 		t.Fatalf("return failed")
@@ -19,8 +19,8 @@ func TestReturn(t *testing.T) {
 func TestRevert(t *testing.T) {
 	i := newInterp()
 	i.memory.Write(0, []byte{4, 5})
-	i.stack.Push(big.NewInt(0))
-	i.stack.Push(big.NewInt(2))
+	i.stack.Push(big.NewInt(2)) // size
+	i.stack.Push(big.NewInt(0)) // offset
 	opRevert(i, 0)
 	if len(i.returned) != 2 || i.returned[0] != 4 {
 		t.Fatalf("revert failed")

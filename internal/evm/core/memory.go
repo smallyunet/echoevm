@@ -40,3 +40,21 @@ func (m *Memory) Write(offset uint64, data []byte) {
 	}
 	copy(m.data[offset:end], data)
 }
+
+// Read returns a copy of `size` bytes starting at `offset`.
+// Bytes beyond the current memory length are zero-filled.
+func (m *Memory) Read(offset, size uint64) []byte {
+	end := offset + size
+	out := make([]byte, size)
+	if offset < uint64(len(m.data)) {
+		copy(out, m.data[offset:min(end, uint64(len(m.data)))])
+	}
+	return out
+}
+
+func min(a, b uint64) uint64 {
+	if a < b {
+		return a
+	}
+	return b
+}

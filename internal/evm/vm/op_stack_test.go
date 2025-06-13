@@ -22,12 +22,14 @@ func TestOpPushDupSwap(t *testing.T) {
 	if i.stack.Pop().Int64() != 1 {
 		t.Fatalf("push1 failed")
 	}
+	// test DUP1
 	i.stack.Push(big.NewInt(1))
-	i.stack.Push(big.NewInt(2))
 	opDup(i, core.DUP1)
-	if i.stack.Peek(0).Int64() != 2 {
+	if i.stack.Peek(0).Int64() != 1 {
 		t.Fatalf("dup failed")
 	}
+	// test SWAP1
+	i.stack.Push(big.NewInt(2))
 	opSwap(i, core.SWAP1)
 	if i.stack.Peek(0).Int64() != 1 {
 		t.Fatalf("swap failed")
