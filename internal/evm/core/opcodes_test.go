@@ -13,7 +13,7 @@ func TestOpcodeName(t *testing.T) {
 		{SWAP1, "SWAP1"},
 		{0xff, "SELFDESTRUCT"},
 		{0xfe, "INVALID"},
-		{0xaa, "LOG5"},
+		{0xaa, "UNKNOWN"},
 	}
 	for _, tt := range tests {
 		if got := OpcodeName(tt.op); got != tt.name {

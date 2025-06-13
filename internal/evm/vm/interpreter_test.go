@@ -2,7 +2,6 @@ package vm
 
 import (
 	"github.com/smallyunet/echoevm/internal/evm/core"
-	"math/big"
 	"testing"
 )
 

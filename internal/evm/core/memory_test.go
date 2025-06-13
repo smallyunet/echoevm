@@ -19,9 +19,8 @@ func TestMemoryWrite(t *testing.T) {
 	m := NewMemory()
 	data := []byte{1, 2, 3}
 	m.Write(0, data)
-	got := m.Get(0)[:3]
 	for i, b := range data {
-		if got[i] != b {
+		if m.data[i] != b {
 			t.Fatalf("byte %d mismatch", i)
 		}
 	}
