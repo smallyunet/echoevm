@@ -21,7 +21,7 @@ run_contract() {
     local bin=$1
     shift
     echo "Executing $bin $*"
-    go run ./cmd/echoevm -bin "$bin" "$@"
+    go run -tags evmcli ./cmd/echoevm -bin "$bin" "$@"
     echo
 }
 

@@ -17,6 +17,7 @@ require (
        github.com/mattn/go-isatty v0.0.20 // indirect
        github.com/mmcloughlin/addchain v0.4.0 // indirect
        github.com/rs/zerolog v1.34.0
+       github.com/rs/zerolog/log v0.0.0
        github.com/supranational/blst v0.3.14 // indirect
        golang.org/x/crypto v0.35.0 // indirect
        golang.org/x/sync v0.11.0 // indirect
@@ -25,3 +26,4 @@ require (
 )
 
 replace github.com/rs/zerolog => ./stubs/zerolog
+replace github.com/rs/zerolog/log => ./stubs/zerolog/log
