@@ -1,6 +1,9 @@
 package zerolog
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Minimal stub of zerolog for offline builds.
 
@@ -55,7 +58,29 @@ func (l Logger) Debug() *Event                { return &Event{out: l.out} }
 func (l Logger) Info() *Event                 { return &Event{out: l.out} }
 func (l Logger) Warn() *Event                 { return &Event{out: l.out} }
 func (l Logger) Error() *Event                { return &Event{out: l.out} }
+func (l Logger) Fatal() *Event                { return &Event{out: l.out} }
 func SetGlobalLevel(level Level)              {}
+
+func ParseLevel(s string) (Level, error) {
+	switch strings.ToLower(s) {
+	case "trace":
+		return TraceLevel, nil
+	case "debug":
+		return DebugLevel, nil
+	case "info":
+		return InfoLevel, nil
+	case "warn", "warning":
+		return WarnLevel, nil
+	case "error":
+		return ErrorLevel, nil
+	case "fatal":
+		return FatalLevel, nil
+	case "panic":
+		return PanicLevel, nil
+	default:
+		return InfoLevel, fmt.Errorf("invalid level: %s", s)
+	}
+}
 
 type ConsoleWriter struct {
 	Out        interface{}
