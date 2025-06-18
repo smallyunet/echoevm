@@ -86,3 +86,12 @@ type ConsoleWriter struct {
 	Out        interface{}
 	TimeFormat string
 }
+
+// Write implements io.Writer so ConsoleWriter can be used with New(). It
+// simply forwards bytes to the configured Out writer.
+func (cw ConsoleWriter) Write(p []byte) (int, error) {
+	if w, ok := cw.Out.(interface{ Write([]byte) (int, error) }); ok {
+		return w.Write(p)
+	}
+	return len(p), nil
+}
