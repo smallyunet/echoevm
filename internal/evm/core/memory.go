@@ -1,6 +1,9 @@
 package core
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 type Memory struct {
 	data []byte
@@ -50,6 +53,11 @@ func (m *Memory) Read(offset, size uint64) []byte {
 		copy(out, m.data[offset:min(end, uint64(len(m.data)))])
 	}
 	return out
+}
+
+// Snapshot returns the current memory contents as a hex string.
+func (m *Memory) Snapshot() string {
+	return fmt.Sprintf("0x%x", m.data)
 }
 
 func min(a, b uint64) uint64 {

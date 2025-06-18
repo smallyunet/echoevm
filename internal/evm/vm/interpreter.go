@@ -102,46 +102,56 @@ func init() {
 }
 
 func (i *Interpreter) Run() {
-	for i.pc < uint64(len(i.code)) {
-		pc := i.pc
-		op := i.code[i.pc]
-		i.pc++
-		logger.Trace().
-			Str("pc", fmt.Sprintf("0x%04x", pc)).
-			Str("op", core.OpcodeName(op)).
-			Int("stack", i.stack.Len()).
-			Msg("step")
+	for {
+		_, cont := i.Step()
+		if !cont {
+			break
+		}
+	}
+}
 
-		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
-			opPush(i, op)
-			continue
-		}
-		if op >= 0x80 && op <= 0x8f { // DUP1~DUP16
-			opDup(i, op)
-			continue
-		}
-		if op >= 0x90 && op <= 0x9f { // SWAP1~SWAP16
-			opSwap(i, op)
-			continue
-		}
+// Step executes a single opcode and returns the opcode byte and whether
+// execution should continue.
+func (i *Interpreter) Step() (byte, bool) {
+	if i.pc >= uint64(len(i.code)) {
+		return 0, false
+	}
 
+	pc := i.pc
+	op := i.code[i.pc]
+	i.pc++
+
+	logger.Trace().
+		Str("pc", fmt.Sprintf("0x%04x", pc)).
+		Str("op", core.OpcodeName(op)).
+		Int("stack", i.stack.Len()).
+		Msg("step")
+
+	if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
+		opPush(i, op)
+	} else if op >= 0x80 && op <= 0x8f { // DUP1~DUP16
+		opDup(i, op)
+	} else if op >= 0x90 && op <= 0x9f { // SWAP1~SWAP16
+		opSwap(i, op)
+	} else {
 		handler, ok := handlerMap[op]
 		if !ok {
 			panic(fmt.Sprintf("unsupported opcode 0x%02x", op))
 		}
-
 		handler(i, op)
-		logger.Trace().
-			Str("pc", fmt.Sprintf("0x%04x", i.pc)).
-			Str("op", core.OpcodeName(op)).
-			Any("stack", i.stack.Snapshot()).
-			Msg("after")
-
-		// If RETURN, REVERT or STOP, exit early
-		if op == core.RETURN || op == core.REVERT || op == core.STOP {
-			return
-		}
 	}
+
+	logger.Trace().
+		Str("pc", fmt.Sprintf("0x%04x", i.pc)).
+		Str("op", core.OpcodeName(op)).
+		Any("stack", i.stack.Snapshot()).
+		Str("mem", i.memory.Snapshot()).
+		Msg("after")
+
+	if op == core.RETURN || op == core.REVERT || op == core.STOP {
+		return op, false
+	}
+	return op, true
 }
 
 func (i *Interpreter) Stack() *core.Stack {
@@ -150,6 +160,11 @@ func (i *Interpreter) Stack() *core.Stack {
 
 func (i *Interpreter) Memory() *core.Memory {
 	return i.memory
+}
+
+// PC returns the current program counter.
+func (i *Interpreter) PC() uint64 {
+	return i.pc
 }
 
 // ReturnedCode returns the byte slice produced by a RETURN opcode.
