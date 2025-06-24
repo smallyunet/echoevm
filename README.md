@@ -12,6 +12,7 @@ behaviour:
 ```
 go run ./cmd/echoevm -bin path/to/contract.bin -mode [deploy|full] \
         [-calldata HEX | -function "sig" -args "1,2"]
+go run ./cmd/echoevm -block 1 [-rpc URL]
 ```
 
 *Note:* use the directory path (`./cmd/echoevm`) with `go run` so that all
@@ -25,6 +26,8 @@ flag parsing code located in `flags.go`.
 - `-function`/`-args` – alternatively specify a function signature and comma
   separated arguments (e.g. `-function "add(uint256,uint256)" -args "1,2"`)
   which will be ABI encoded automatically. One of `-calldata` or `-function`/`-args` is required when running in `full` mode.
+- `-block`/`-rpc` – fetch a block via RPC and execute all contract transactions
+  it contains. By default `-rpc` uses `https://cloudflare-eth.com`.
 
 ### Examples
 

@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 	zerologlog "github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
@@ -29,6 +31,11 @@ func main() {
 	logger := zerolog.New(cw).With().Timestamp().Logger()
 	zerologlog.Logger = logger
 	vm.SetLogger(logger)
+
+	if cfg.Block >= 0 {
+		runBlock(cfg)
+		return
+	}
 
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
 	data, err := os.ReadFile(cfg.Bin)
@@ -168,5 +175,41 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 		return val, nil
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", typ.String())
+	}
+}
+
+// runBlock connects to an Ethereum RPC endpoint and executes all contract
+// transactions in the specified block using the echoevm interpreter.
+func runBlock(cfg *cliConfig) {
+	ctx := context.Background()
+	client, err := ethclient.DialContext(ctx, cfg.RPC)
+	check(err, "failed to connect to RPC endpoint")
+	blockNum := big.NewInt(int64(cfg.Block))
+	block, err := client.BlockByNumber(ctx, blockNum)
+	check(err, "failed to fetch block")
+
+	logger.Info().Msgf("Executing contract txs from block %d", cfg.Block)
+	for idx, tx := range block.Transactions() {
+		data := tx.Data()
+		if len(data) == 0 {
+			continue
+		}
+
+		if tx.To() == nil {
+			logger.Info().Msgf("tx %d: contract creation", idx)
+			interpreter := vm.New(data)
+			interpreter.Run()
+			logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
+			continue
+		}
+
+		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+		if err != nil || len(code) == 0 {
+			continue
+		}
+		logger.Info().Msgf("tx %d: call %s", idx, tx.To().Hex())
+		interpreter := vm.NewWithCallData(code, data)
+		interpreter.Run()
+		logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
 	}
 }
