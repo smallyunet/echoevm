@@ -1,11 +1,10 @@
-//go:build evmcli
-
 package main
 
 import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/rs/zerolog"
 	"math/big"
 	"os"
 	"strings"
@@ -14,11 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rs/zerolog"
-	zerologlog "github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/smallyunet/echoevm/utils"
 )
+
+// Package-level logger
+var logger zerolog.Logger
 
 func main() {
 	cfg := parseFlags()
@@ -28,8 +28,7 @@ func main() {
 	}
 	zerolog.SetGlobalLevel(lvl)
 	cw := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.Kitchen}
-	logger := zerolog.New(cw).With().Timestamp().Logger()
-	zerologlog.Logger = logger
+	logger = zerolog.New(cw).With().Timestamp().Logger()
 	vm.SetLogger(logger)
 
 	if cfg.Block >= 0 {
