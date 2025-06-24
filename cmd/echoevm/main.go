@@ -3,21 +3,22 @@
 package main
 
 import (
-	"context"
-	"encoding/hex"
-	"fmt"
-	"math/big"
-	"os"
-	"strings"
-	"time"
+       "context"
+       "encoding/hex"
+       "fmt"
+       "math/big"
+       "os"
+       "strings"
+       "time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/rs/zerolog"
-	zerologlog "github.com/rs/zerolog/log"
-	"github.com/smallyunet/echoevm/internal/evm/vm"
-	"github.com/smallyunet/echoevm/utils"
+       "github.com/ethereum/go-ethereum/accounts/abi"
+       "github.com/ethereum/go-ethereum/core/types"
+       "github.com/ethereum/go-ethereum/crypto"
+       "github.com/ethereum/go-ethereum/ethclient"
+       "github.com/rs/zerolog"
+       zerologlog "github.com/rs/zerolog/log"
+       "github.com/smallyunet/echoevm/internal/evm/vm"
+       "github.com/smallyunet/echoevm/utils"
 )
 
 func main() {
@@ -181,35 +182,72 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 // runBlock connects to an Ethereum RPC endpoint and executes all contract
 // transactions in the specified block using the echoevm interpreter.
 func runBlock(cfg *cliConfig) {
-	ctx := context.Background()
-	client, err := ethclient.DialContext(ctx, cfg.RPC)
-	check(err, "failed to connect to RPC endpoint")
-	blockNum := big.NewInt(int64(cfg.Block))
-	block, err := client.BlockByNumber(ctx, blockNum)
-	check(err, "failed to fetch block")
+       ctx := context.Background()
+       client, err := ethclient.DialContext(ctx, cfg.RPC)
+       check(err, "failed to connect to RPC endpoint")
+       blockNum := big.NewInt(int64(cfg.Block))
+       block, err := client.BlockByNumber(ctx, blockNum)
+       check(err, "failed to fetch block")
 
-	logger.Info().Msgf("Executing contract txs from block %d", cfg.Block)
-	for idx, tx := range block.Transactions() {
-		data := tx.Data()
-		if len(data) == 0 {
-			continue
-		}
+       contractTxs := []*types.Transaction{}
+       for _, tx := range block.Transactions() {
+               data := tx.Data()
+               if len(data) == 0 {
+                       continue
+               }
 
-		if tx.To() == nil {
-			logger.Info().Msgf("tx %d: contract creation", idx)
-			interpreter := vm.New(data)
-			interpreter.Run()
-			logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
-			continue
-		}
+               if tx.To() == nil {
+                       contractTxs = append(contractTxs, tx)
+                       continue
+               }
 
-		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
-		if err != nil || len(code) == 0 {
-			continue
-		}
-		logger.Info().Msgf("tx %d: call %s", idx, tx.To().Hex())
-		interpreter := vm.NewWithCallData(code, data)
-		interpreter.Run()
-		logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
-	}
+               code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+               if err == nil && len(code) > 0 {
+                       contractTxs = append(contractTxs, tx)
+               }
+       }
+
+       logger.Info().Msgf("Block %d contains %d contract transactions", cfg.Block, len(contractTxs))
+
+       run := func(i *vm.Interpreter) (err error) {
+               defer func() {
+                       if r := recover(); r != nil {
+                               err = fmt.Errorf("%v", r)
+                       }
+               }()
+               i.Run()
+               return nil
+       }
+
+       success := 0
+       for idx, tx := range contractTxs {
+               data := tx.Data()
+               if tx.To() == nil {
+                       logger.Info().Msgf("tx %d: contract creation", idx)
+                       interpreter := vm.New(data)
+                       if err := run(interpreter); err != nil {
+                               logger.Error().Msgf("tx %d failed: %v", idx, err)
+                               continue
+                       }
+                       success++
+                       logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
+                       continue
+               }
+
+               code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+               if err != nil || len(code) == 0 {
+                       logger.Warn().Msgf("tx %d: missing contract code", idx)
+                       continue
+               }
+               logger.Info().Msgf("tx %d: call %s", idx, tx.To().Hex())
+               interpreter := vm.NewWithCallData(code, data)
+               if err := run(interpreter); err != nil {
+                       logger.Error().Msgf("tx %d failed: %v", idx, err)
+                       continue
+               }
+               success++
+               logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
+       }
+
+       logger.Info().Msgf("Executed block %d - %d/%d transactions succeeded", cfg.Block, success, len(contractTxs))
 }
