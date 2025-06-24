@@ -1,22 +1,24 @@
-//go:build evmcli
-
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/evm/vm"
+	"github.com/smallyunet/echoevm/utils"
 	"math/big"
 	"os"
 	"strings"
 	"time"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/rs/zerolog"
-	zerologlog "github.com/rs/zerolog/log"
-	"github.com/smallyunet/echoevm/internal/evm/vm"
-	"github.com/smallyunet/echoevm/utils"
 )
+
+// Package-level logger
+var logger zerolog.Logger
 
 func main() {
 	cfg := parseFlags()
@@ -26,9 +28,13 @@ func main() {
 	}
 	zerolog.SetGlobalLevel(lvl)
 	cw := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.Kitchen}
-	logger := zerolog.New(cw).With().Timestamp().Logger()
-	zerologlog.Logger = logger
+	logger = zerolog.New(cw).With().Timestamp().Logger()
 	vm.SetLogger(logger)
+
+	if cfg.Block >= 0 {
+		runBlock(cfg)
+		return
+	}
 
 	// --- Step 1: Read hex-encoded constructor bytecode from file ---
 	data, err := os.ReadFile(cfg.Bin)
@@ -169,4 +175,77 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", typ.String())
 	}
+}
+
+// runBlock connects to an Ethereum RPC endpoint and executes all contract
+// transactions in the specified block using the echoevm interpreter.
+func runBlock(cfg *cliConfig) {
+	ctx := context.Background()
+	client, err := ethclient.DialContext(ctx, cfg.RPC)
+	check(err, "failed to connect to RPC endpoint")
+	blockNum := big.NewInt(int64(cfg.Block))
+	block, err := client.BlockByNumber(ctx, blockNum)
+	check(err, "failed to fetch block")
+
+	contractTxs := []*types.Transaction{}
+	for _, tx := range block.Transactions() {
+		data := tx.Data()
+		if len(data) == 0 {
+			continue
+		}
+
+		if tx.To() == nil {
+			contractTxs = append(contractTxs, tx)
+			continue
+		}
+
+		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+		if err == nil && len(code) > 0 {
+			contractTxs = append(contractTxs, tx)
+		}
+	}
+
+	logger.Info().Msgf("Block %d contains %d contract transactions", cfg.Block, len(contractTxs))
+
+	run := func(i *vm.Interpreter) (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("%v", r)
+			}
+		}()
+		i.Run()
+		return nil
+	}
+
+	success := 0
+	for idx, tx := range contractTxs {
+		data := tx.Data()
+		if tx.To() == nil {
+			logger.Info().Msgf("tx %d: contract creation", idx)
+			interpreter := vm.New(data)
+			if err := run(interpreter); err != nil {
+				logger.Error().Msgf("tx %d failed: %v", idx, err)
+				continue
+			}
+			success++
+			logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
+			continue
+		}
+
+		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+		if err != nil || len(code) == 0 {
+			logger.Warn().Msgf("tx %d: missing contract code", idx)
+			continue
+		}
+		logger.Info().Msgf("tx %d: call %s", idx, tx.To().Hex())
+		interpreter := vm.NewWithCallData(code, data)
+		if err := run(interpreter); err != nil {
+			logger.Error().Msgf("tx %d failed: %v", idx, err)
+			continue
+		}
+		success++
+		logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
+	}
+
+	logger.Info().Msgf("Executed block %d - %d/%d transactions succeeded", cfg.Block, success, len(contractTxs))
 }
