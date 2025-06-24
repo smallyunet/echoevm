@@ -31,8 +31,16 @@ func main() {
 	logger = zerolog.New(cw).With().Timestamp().Logger()
 	vm.SetLogger(logger)
 
+	if cfg.StartBlock >= 0 && cfg.EndBlock >= 0 {
+		runBlockRange(cfg)
+		return
+	}
+
 	if cfg.Block >= 0 {
-		runBlock(cfg)
+		ctx := context.Background()
+		client, err := ethclient.DialContext(ctx, cfg.RPC)
+		check(err, "failed to connect to RPC endpoint")
+		runBlock(ctx, client, cfg.Block)
 		return
 	}
 
@@ -179,12 +187,9 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 
 // runBlock connects to an Ethereum RPC endpoint and executes all contract
 // transactions in the specified block using the echoevm interpreter.
-func runBlock(cfg *cliConfig) {
-	ctx := context.Background()
-	client, err := ethclient.DialContext(ctx, cfg.RPC)
-	check(err, "failed to connect to RPC endpoint")
-	blockNum := big.NewInt(int64(cfg.Block))
-	block, err := client.BlockByNumber(ctx, blockNum)
+func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
+	bnum := big.NewInt(int64(blockNum))
+	block, err := client.BlockByNumber(ctx, bnum)
 	check(err, "failed to fetch block")
 
 	contractTxs := []*types.Transaction{}
@@ -199,13 +204,13 @@ func runBlock(cfg *cliConfig) {
 			continue
 		}
 
-		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+		code, err := client.CodeAt(ctx, *tx.To(), bnum)
 		if err == nil && len(code) > 0 {
 			contractTxs = append(contractTxs, tx)
 		}
 	}
 
-	logger.Info().Msgf("Block %d contains %d contract transactions", cfg.Block, len(contractTxs))
+	logger.Info().Msgf("Block %d contains %d contract transactions", blockNum, len(contractTxs))
 
 	run := func(i *vm.Interpreter) (err error) {
 		defer func() {
@@ -232,7 +237,7 @@ func runBlock(cfg *cliConfig) {
 			continue
 		}
 
-		code, err := client.CodeAt(ctx, *tx.To(), blockNum)
+		code, err := client.CodeAt(ctx, *tx.To(), bnum)
 		if err != nil || len(code) == 0 {
 			logger.Warn().Msgf("tx %d: missing contract code", idx)
 			continue
@@ -247,5 +252,15 @@ func runBlock(cfg *cliConfig) {
 		logger.Info().Msgf("stack height %d", interpreter.Stack().Len())
 	}
 
-	logger.Info().Msgf("Executed block %d - %d/%d transactions succeeded", cfg.Block, success, len(contractTxs))
+	logger.Info().Msgf("Executed block %d - %d/%d transactions succeeded", blockNum, success, len(contractTxs))
+}
+
+func runBlockRange(cfg *cliConfig) {
+	ctx := context.Background()
+	client, err := ethclient.DialContext(ctx, cfg.RPC)
+	check(err, "failed to connect to RPC endpoint")
+	for n := cfg.StartBlock; n <= cfg.EndBlock; n++ {
+		logger.Info().Msgf("=== Executing block %d ===", n)
+		runBlock(ctx, client, n)
+	}
 }
