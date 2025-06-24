@@ -28,6 +28,8 @@ flag parsing code located in `flags.go`.
   which will be ABI encoded automatically. One of `-calldata` or `-function`/`-args` is required when running in `full` mode.
 - `-block`/`-rpc` – fetch a block via RPC and execute all contract transactions
   it contains. By default `-rpc` uses `https://cloudflare-eth.com`.
+  The CLI prints the block number, how many contract transactions were found and
+  how many executed successfully.
 
 ### Examples
 
