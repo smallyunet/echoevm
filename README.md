@@ -13,6 +13,7 @@ behaviour:
 go run ./cmd/echoevm -bin path/to/contract.bin -mode [deploy|full] \
         [-calldata HEX | -function "sig" -args "1,2"]
 go run ./cmd/echoevm -block 1 [-rpc URL]
+go run ./cmd/echoevm -start-block 1 -end-block 50 [-rpc URL]
 ```
 
 *Note:* use the directory path (`./cmd/echoevm`) with `go run` so that all
@@ -30,6 +31,7 @@ flag parsing code located in `flags.go`.
   it contains. By default `-rpc` uses `https://cloudflare-eth.com`.
   The CLI prints the block number, how many contract transactions were found and
   how many executed successfully.
+- `-start-block`/`-end-block` – execute a range of blocks via RPC.
 
 ### Examples
 
