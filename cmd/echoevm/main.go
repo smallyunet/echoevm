@@ -4,23 +4,17 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"math/big"
-	"os"
-	"strings"
-	"time"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/smallyunet/echoevm/internal/evm/vm"
-	"github.com/smallyunet/echoevm/utils"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
+	"github.com/smallyunet/echoevm/utils"
+	"math/big"
+	"os"
+	"strings"
+	"time"
 )
 
 // Package-level logger
