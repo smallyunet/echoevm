@@ -2,6 +2,8 @@ package vm
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
@@ -20,13 +22,15 @@ type Interpreter struct {
 	memory   *core.Memory
 	calldata []byte
 	returned []byte
+	storage  map[string]*big.Int
 }
 
 func New(code []byte) *Interpreter {
 	return &Interpreter{
-		code:   code,
-		stack:  core.NewStack(),
-		memory: core.NewMemory(),
+		code:    code,
+		stack:   core.NewStack(),
+		memory:  core.NewMemory(),
+		storage: make(map[string]*big.Int),
 	}
 }
 
@@ -53,10 +57,12 @@ func init() {
 	handlerMap[core.ADD] = opAdd
 	handlerMap[core.SUB] = opSub
 	handlerMap[core.MUL] = opMul
+	handlerMap[core.EXP] = opExp
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
 	handlerMap[core.LT] = opLt
 	handlerMap[core.GT] = opGt
+	handlerMap[core.SGT] = opSgt
 	handlerMap[core.SLT] = opSlt
 	handlerMap[core.EQ] = opEq
 	handlerMap[core.ISZERO] = opIsZero
@@ -76,6 +82,7 @@ func init() {
 	handlerMap[core.MSTORE] = opMstore
 	handlerMap[core.MLOAD] = opMload
 	handlerMap[core.CODECOPY] = opCodecopy
+	handlerMap[core.SLOAD] = opSload
 
 	// stack
 	handlerMap[core.POP] = opPop
@@ -96,6 +103,7 @@ func init() {
 	handlerMap[core.CALLDATASIZE] = opCallDataSize
 	handlerMap[core.CALLDATALOAD] = opCallDataLoad
 	handlerMap[core.CALLDATACOPY] = opCallDataCopy
+	handlerMap[core.GAS] = opGas
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid

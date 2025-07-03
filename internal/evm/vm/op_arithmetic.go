@@ -18,6 +18,14 @@ func opMul(i *Interpreter, _ byte) {
 	i.stack.Push(new(big.Int).Mul(x, y))
 }
 
+func opExp(i *Interpreter, _ byte) {
+	exp := i.stack.Pop()
+	base := i.stack.Pop()
+	r := new(big.Int).Exp(base, exp, nil)
+	r.And(r, mask256)
+	i.stack.Push(r)
+}
+
 func opDiv(i *Interpreter, _ byte) {
 	x, y := i.stack.Pop(), i.stack.Pop()
 	if y.Sign() == 0 {
@@ -70,6 +78,23 @@ func opLt(i *Interpreter, _ byte) {
 func opGt(i *Interpreter, _ byte) {
 	x, y := i.stack.Pop(), i.stack.Pop()
 	if x.Cmp(y) > 0 {
+		i.stack.Push(big.NewInt(1))
+	} else {
+		i.stack.Push(big.NewInt(0))
+	}
+}
+
+func opSgt(i *Interpreter, _ byte) {
+	x, y := i.stack.Pop(), i.stack.Pop()
+	sx := new(big.Int).Set(x)
+	if x.Bit(255) == 1 {
+		sx.Sub(sx, twoTo256)
+	}
+	sy := new(big.Int).Set(y)
+	if y.Bit(255) == 1 {
+		sy.Sub(sy, twoTo256)
+	}
+	if sx.Cmp(sy) > 0 {
 		i.stack.Push(big.NewInt(1))
 	} else {
 		i.stack.Push(big.NewInt(0))

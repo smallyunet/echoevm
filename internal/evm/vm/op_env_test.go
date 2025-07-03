@@ -23,3 +23,11 @@ func TestCallDataLoad(t *testing.T) {
 		t.Fatalf("calldataload wrong")
 	}
 }
+
+func TestGas(t *testing.T) {
+	i := newInterp()
+	opGas(i, 0)
+	if i.stack.Pop().Sign() != 0 {
+		t.Fatalf("gas should push 0")
+	}
+}

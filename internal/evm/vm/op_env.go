@@ -39,6 +39,10 @@ func opCallDataCopy(i *Interpreter, _ byte) {
 	i.memory.Write(memOffset, segment)
 }
 
+func opGas(i *Interpreter, _ byte) {
+	i.stack.Push(big.NewInt(0))
+}
+
 func min(a, b uint64) uint64 {
 	if a < b {
 		return a

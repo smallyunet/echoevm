@@ -7,7 +7,7 @@ import (
 )
 
 func newInterp() *Interpreter {
-	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory()}
+	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory(), storage: make(map[string]*big.Int)}
 }
 
 func TestOpAdd(t *testing.T) {
@@ -37,5 +37,26 @@ func TestOpEq(t *testing.T) {
 	opEq(i, 0)
 	if i.stack.Pop().Int64() != 1 {
 		t.Fatalf("eq failed")
+	}
+}
+
+func TestOpExp(t *testing.T) {
+	i := newInterp()
+	i.stack.Push(big.NewInt(2)) // base
+	i.stack.Push(big.NewInt(3)) // exponent
+	opExp(i, 0)
+	if i.stack.Pop().Int64() != 8 {
+		t.Fatalf("exp failed")
+	}
+}
+
+func TestOpSgt(t *testing.T) {
+	i := newInterp()
+	negOne := new(big.Int).Sub(twoTo256, big.NewInt(1))
+	i.stack.Push(negOne)        // y = -1
+	i.stack.Push(big.NewInt(1)) // x = 1
+	opSgt(i, 0)
+	if i.stack.Pop().Int64() != 1 {
+		t.Fatalf("sgt failed")
 	}
 }
