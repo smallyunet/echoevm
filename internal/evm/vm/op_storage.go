@@ -15,6 +15,13 @@ func opSload(i *Interpreter, _ byte) {
 	}
 }
 
+func opSstore(i *Interpreter, _ byte) {
+	val := i.stack.Pop()
+	key := i.stack.Pop()
+	k := storageKey(key)
+	i.storage[k] = new(big.Int).Set(val)
+}
+
 func storageKey(k *big.Int) string {
 	b := make([]byte, 32)
 	k.FillBytes(b)

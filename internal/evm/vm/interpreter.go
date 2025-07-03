@@ -83,6 +83,7 @@ func init() {
 	handlerMap[core.MLOAD] = opMload
 	handlerMap[core.CODECOPY] = opCodecopy
 	handlerMap[core.SLOAD] = opSload
+	handlerMap[core.SSTORE] = opSstore
 
 	// stack
 	handlerMap[core.POP] = opPop
@@ -100,10 +101,13 @@ func init() {
 
 	// environment
 	handlerMap[core.CALLVALUE] = opCallValue
+	handlerMap[core.CALLER] = opCaller
 	handlerMap[core.CALLDATASIZE] = opCallDataSize
 	handlerMap[core.CALLDATALOAD] = opCallDataLoad
 	handlerMap[core.CALLDATACOPY] = opCallDataCopy
 	handlerMap[core.GAS] = opGas
+
+	handlerMap[core.DELEGATECALL] = opDelegateCall
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid

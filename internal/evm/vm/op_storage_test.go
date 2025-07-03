@@ -15,3 +15,14 @@ func TestOpSload(t *testing.T) {
 		t.Fatalf("sload failed")
 	}
 }
+
+func TestOpSstore(t *testing.T) {
+	i := newInterp()
+	key := big.NewInt(1)
+	i.stack.Push(key)
+	i.stack.Push(big.NewInt(7))
+	opSstore(i, 0)
+	if i.storage[storageKey(key)].Int64() != 7 {
+		t.Fatalf("sstore failed")
+	}
+}

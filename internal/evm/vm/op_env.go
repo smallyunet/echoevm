@@ -7,6 +7,12 @@ func opCallValue(i *Interpreter, _ byte) {
 	i.stack.Push(big.NewInt(0)) // default to 0
 }
 
+// opCaller pushes the address of the caller. Since this interpreter does not
+// model accounts, the value is always zero.
+func opCaller(i *Interpreter, _ byte) {
+	i.stack.Push(big.NewInt(0))
+}
+
 // opCallDataSize pushes the size of the calldata onto the stack. If no calldata
 // is provided it returns 0.
 func opCallDataSize(i *Interpreter, _ byte) {
