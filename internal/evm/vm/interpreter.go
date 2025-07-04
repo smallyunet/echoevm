@@ -16,13 +16,14 @@ func SetLogger(l zerolog.Logger) {
 }
 
 type Interpreter struct {
-	code     []byte
-	pc       uint64
-	stack    *core.Stack
-	memory   *core.Memory
-	calldata []byte
-	returned []byte
-	storage  map[string]*big.Int
+	code        []byte
+	pc          uint64
+	stack       *core.Stack
+	memory      *core.Memory
+	calldata    []byte
+	returned    []byte
+	storage     map[string]*big.Int
+	blockNumber uint64
 }
 
 func New(code []byte) *Interpreter {
@@ -44,6 +45,11 @@ func NewWithCallData(code []byte, data []byte) *Interpreter {
 // SetCallData sets the calldata that opcodes like CALLDATALOAD operate on.
 func (i *Interpreter) SetCallData(data []byte) {
 	i.calldata = data
+}
+
+// SetBlockNumber sets the block number used by environment opcodes like NUMBER.
+func (i *Interpreter) SetBlockNumber(num uint64) {
+	i.blockNumber = num
 }
 
 // OpcodeHandler defines a function that executes a specific opcode
@@ -106,6 +112,7 @@ func init() {
 	handlerMap[core.CALLDATALOAD] = opCallDataLoad
 	handlerMap[core.CALLDATACOPY] = opCallDataCopy
 	handlerMap[core.GAS] = opGas
+	handlerMap[core.NUMBER] = opNumber
 
 	handlerMap[core.DELEGATECALL] = opDelegateCall
 

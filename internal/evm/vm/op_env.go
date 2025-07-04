@@ -49,6 +49,10 @@ func opGas(i *Interpreter, _ byte) {
 	i.stack.Push(big.NewInt(0))
 }
 
+func opNumber(i *Interpreter, _ byte) {
+	i.stack.Push(big.NewInt(int64(i.blockNumber)))
+}
+
 func min(a, b uint64) uint64 {
 	if a < b {
 		return a

@@ -228,6 +228,7 @@ func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
 		if tx.To() == nil {
 			logger.Info().Msgf("tx %d: contract creation", idx)
 			interpreter := vm.New(data)
+			interpreter.SetBlockNumber(block.NumberU64())
 			if err := run(interpreter); err != nil {
 				logger.Error().Msgf("tx %d failed: %v", idx, err)
 				continue
@@ -244,6 +245,7 @@ func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
 		}
 		logger.Info().Msgf("tx %d: call %s", idx, tx.To().Hex())
 		interpreter := vm.NewWithCallData(code, data)
+		interpreter.SetBlockNumber(block.NumberU64())
 		if err := run(interpreter); err != nil {
 			logger.Error().Msgf("tx %d failed: %v", idx, err)
 			continue
