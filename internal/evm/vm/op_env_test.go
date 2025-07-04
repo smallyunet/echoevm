@@ -39,3 +39,12 @@ func TestCaller(t *testing.T) {
 		t.Fatalf("caller should push 0")
 	}
 }
+
+func TestNumber(t *testing.T) {
+	i := newInterp()
+	i.SetBlockNumber(123)
+	opNumber(i, 0)
+	if i.stack.Pop().Int64() != 123 {
+		t.Fatalf("number wrong")
+	}
+}
