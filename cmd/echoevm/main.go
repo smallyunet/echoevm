@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,16 +44,31 @@ func main() {
 		return
 	}
 
-	// --- Step 1: Read hex-encoded constructor bytecode from file ---
-	data, err := os.ReadFile(cfg.Bin)
-	check(err, "failed to read bytecode file")
+	// --- Step 1: Load hex encoded bytecode ---
+	var hexCode string
+	if cfg.Artifact != "" {
+		data, err := os.ReadFile(cfg.Artifact)
+		check(err, "failed to read artifact file")
+		var art struct {
+			Bytecode         string `json:"bytecode"`
+			DeployedBytecode string `json:"deployedBytecode"`
+		}
+		err = json.Unmarshal(data, &art)
+		check(err, "failed to decode artifact JSON")
+		hexCode = strings.TrimPrefix(art.DeployedBytecode, "0x")
+		logger.Info().Msgf("Executing artifact file: %s", cfg.Artifact)
+	} else {
+		data, err := os.ReadFile(cfg.Bin)
+		check(err, "failed to read bytecode file")
+		hexCode = strings.TrimSpace(string(data))
+		logger.Info().Msgf("Executing contract file: %s", cfg.Bin)
+	}
 
 	// --- Step 2: Decode hex string to bytecode []byte ---
-	code, err := hex.DecodeString(string(data))
+	code, err := hex.DecodeString(hexCode)
 	check(err, "failed to decode hex bytecode")
 
 	// --- Step 3: Optional debug output ---
-	logger.Info().Msgf("Executing contract file: %s", cfg.Bin)
 	logger.Debug().Msg("=== Disassembled Bytecode ===")
 	utils.PrintBytecode(logger, code, zerolog.DebugLevel)
 
