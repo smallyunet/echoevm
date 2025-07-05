@@ -21,7 +21,7 @@ import (
 var logger zerolog.Logger
 
 func main() {
-	cfg := parseFlags()
+	cmd, cfg := parseFlags()
 	lvl, err := zerolog.ParseLevel(strings.ToLower(cfg.LogLevel))
 	if err != nil {
 		lvl = zerolog.InfoLevel
@@ -31,12 +31,11 @@ func main() {
 	logger = zerolog.New(cw).With().Timestamp().Logger()
 	vm.SetLogger(logger)
 
-	if cfg.StartBlock >= 0 && cfg.EndBlock >= 0 {
+	switch cmd {
+	case "range":
 		runBlockRange(cfg)
 		return
-	}
-
-	if cfg.Block >= 0 {
+	case "block":
 		ctx := context.Background()
 		client, err := ethclient.DialContext(ctx, cfg.RPC)
 		check(err, "failed to connect to RPC endpoint")
