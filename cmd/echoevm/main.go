@@ -55,7 +55,7 @@ func main() {
 		}
 		err = json.Unmarshal(data, &art)
 		check(err, "failed to decode artifact JSON")
-		hexCode = strings.TrimPrefix(art.DeployedBytecode, "0x")
+		hexCode = strings.TrimPrefix(art.Bytecode, "0x")
 		logger.Info().Msgf("Executing artifact file: %s", cfg.Artifact)
 	} else {
 		data, err := os.ReadFile(cfg.Bin)
