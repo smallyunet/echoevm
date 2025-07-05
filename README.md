@@ -11,7 +11,9 @@ customise the behaviour:
 
 ```
 go run ./cmd/echoevm run -bin path/to/contract.bin -mode [deploy|full] \
-        [-calldata HEX | -function "sig" -args "1,2"]
+       [-calldata HEX | -function "sig" -args "1,2"]
+go run ./cmd/echoevm run -artifact path/to/Contract.json -mode [deploy|full] \
+       [-calldata HEX | -function "sig" -args "1,2"]
 go run ./cmd/echoevm block -block 1 [-rpc URL]
 go run ./cmd/echoevm range -start 1 -end 50 [-rpc URL]
 ```
@@ -21,7 +23,8 @@ source files are compiled. Running `go run ./cmd/echoevm/main.go` will omit the
 flag parsing code located in `flags.go`.
 
 - `run` subcommand:
-  - `-bin`  – path to the hex encoded bytecode file (**required**).
+  - `-bin`  – path to the hex encoded bytecode file.
+  - `-artifact` – path to a Hardhat artifact JSON file containing bytecode.
   - `-mode` – `deploy` to only run the constructor or `full` to also execute the
     returned runtime code (default `full`).
   - `-calldata` – hex-encoded calldata for the runtime code.

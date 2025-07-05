@@ -9,6 +9,7 @@ import (
 // cliConfig holds command line parameters for echoevm.
 type cliConfig struct {
 	Bin        string
+	Artifact   string
 	Mode       string
 	Function   string
 	Args       string
@@ -36,16 +37,17 @@ func parseFlags() (string, *cliConfig) {
 	case "run":
 		fs := flag.NewFlagSet("run", flag.ExitOnError)
 		cfg := &cliConfig{}
-		fs.StringVar(&cfg.Bin, "bin", "", "path to contract .bin file (required)")
+		fs.StringVar(&cfg.Bin, "bin", "", "path to contract .bin file")
+		fs.StringVar(&cfg.Artifact, "artifact", "", "path to Hardhat artifact JSON")
 		fs.StringVar(&cfg.Mode, "mode", "full", "execution mode: deploy or full")
 		fs.StringVar(&cfg.Function, "function", "", "function signature, e.g. 'add(uint256,uint256)'")
 		fs.StringVar(&cfg.Args, "args", "", "comma separated arguments for the function")
 		fs.StringVar(&cfg.Calldata, "calldata", "", "hex encoded calldata")
 		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
-		if cfg.Bin == "" {
+		if cfg.Bin == "" && cfg.Artifact == "" {
 			fs.Usage()
-			panic("-bin flag is required")
+			panic("-bin or -artifact flag is required")
 		}
 		return "run", cfg
 
@@ -93,7 +95,7 @@ func parseFlags() (string, *cliConfig) {
 func usage() {
 	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <command> [options]\n", os.Args[0])
 	fmt.Fprintln(flag.CommandLine.Output(), "Commands:")
-	fmt.Fprintln(flag.CommandLine.Output(), "  run   execute contract bytecode from a .bin file")
+	fmt.Fprintln(flag.CommandLine.Output(), "  run   execute contract bytecode from a .bin or Hardhat artifact")
 	fmt.Fprintln(flag.CommandLine.Output(), "  block execute all contract transactions in a block")
 	fmt.Fprintln(flag.CommandLine.Output(), "  range execute a range of blocks")
 }
