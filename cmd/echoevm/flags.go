@@ -1,6 +1,10 @@
 package main
 
-import "flag"
+import (
+	"flag"
+	"fmt"
+	"os"
+)
 
 // cliConfig holds command line parameters for echoevm.
 type cliConfig struct {
@@ -16,31 +20,80 @@ type cliConfig struct {
 	EndBlock   int
 }
 
-// parseFlags parses command line flags into a cliConfig.
-func parseFlags() *cliConfig {
-	cfg := &cliConfig{}
-	flag.StringVar(&cfg.Bin, "bin", "", "path to contract .bin file (required)")
-	flag.StringVar(&cfg.Mode, "mode", "full", "execution mode: deploy or full")
-	flag.StringVar(&cfg.Function, "function", "", "function signature, e.g. 'add(uint256,uint256)'")
-	flag.StringVar(&cfg.Args, "args", "", "comma separated arguments for the function")
-	flag.StringVar(&cfg.Calldata, "calldata", "", "hex encoded calldata")
-	flag.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
-	flag.StringVar(&cfg.RPC, "rpc", "https://cloudflare-eth.com", "ethereum RPC endpoint")
-	flag.IntVar(&cfg.Block, "block", -1, "block number to execute contract transactions from")
-	flag.IntVar(&cfg.StartBlock, "start-block", -1, "start block number for range execution")
-	flag.IntVar(&cfg.EndBlock, "end-block", -1, "end block number for range execution")
-	flag.Parse()
-	if (cfg.StartBlock >= 0 || cfg.EndBlock >= 0) && !(cfg.StartBlock >= 0 && cfg.EndBlock >= 0) {
-		flag.Usage()
-		panic("both -start-block and -end-block must be provided")
+// parseFlags parses subcommand flags and returns the chosen command name along with
+// its configuration. Supported subcommands are:
+//
+//	run   - execute contract bytecode from a .bin file
+//	block - execute all contract transactions in a block
+//	range - execute a range of blocks
+func parseFlags() (string, *cliConfig) {
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(1)
 	}
-	if cfg.StartBlock >= 0 && cfg.EndBlock >= 0 && cfg.StartBlock > cfg.EndBlock {
-		flag.Usage()
-		panic("-start-block must be less than or equal to -end-block")
+
+	switch os.Args[1] {
+	case "run":
+		fs := flag.NewFlagSet("run", flag.ExitOnError)
+		cfg := &cliConfig{}
+		fs.StringVar(&cfg.Bin, "bin", "", "path to contract .bin file (required)")
+		fs.StringVar(&cfg.Mode, "mode", "full", "execution mode: deploy or full")
+		fs.StringVar(&cfg.Function, "function", "", "function signature, e.g. 'add(uint256,uint256)'")
+		fs.StringVar(&cfg.Args, "args", "", "comma separated arguments for the function")
+		fs.StringVar(&cfg.Calldata, "calldata", "", "hex encoded calldata")
+		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.Parse(os.Args[2:])
+		if cfg.Bin == "" {
+			fs.Usage()
+			panic("-bin flag is required")
+		}
+		return "run", cfg
+
+	case "block":
+		fs := flag.NewFlagSet("block", flag.ExitOnError)
+		cfg := &cliConfig{}
+		fs.IntVar(&cfg.Block, "block", -1, "block number to execute contract transactions from")
+		fs.StringVar(&cfg.RPC, "rpc", "https://cloudflare-eth.com", "ethereum RPC endpoint")
+		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.Parse(os.Args[2:])
+		if cfg.Block < 0 {
+			fs.Usage()
+			panic("-block must be provided")
+		}
+		return "block", cfg
+
+	case "range":
+		fs := flag.NewFlagSet("range", flag.ExitOnError)
+		cfg := &cliConfig{}
+		fs.IntVar(&cfg.StartBlock, "start", -1, "start block number for range execution")
+		fs.IntVar(&cfg.EndBlock, "end", -1, "end block number for range execution")
+		fs.StringVar(&cfg.RPC, "rpc", "https://cloudflare-eth.com", "ethereum RPC endpoint")
+		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.Parse(os.Args[2:])
+		if cfg.StartBlock < 0 || cfg.EndBlock < 0 {
+			fs.Usage()
+			panic("both -start and -end must be provided")
+		}
+		if cfg.StartBlock > cfg.EndBlock {
+			fs.Usage()
+			panic("-start must be less than or equal to -end")
+		}
+		return "range", cfg
+
+	default:
+		usage()
+		fmt.Fprintf(os.Stderr, "unknown subcommand %s\n", os.Args[1])
+		os.Exit(1)
 	}
-	if cfg.Block == -1 && cfg.StartBlock == -1 && cfg.EndBlock == -1 && cfg.Bin == "" {
-		flag.Usage()
-		panic("-bin flag is required")
-	}
-	return cfg
+
+	return "", nil // unreachable
+}
+
+// usage prints general help information.
+func usage() {
+	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <command> [options]\n", os.Args[0])
+	fmt.Fprintln(flag.CommandLine.Output(), "Commands:")
+	fmt.Fprintln(flag.CommandLine.Output(), "  run   execute contract bytecode from a .bin file")
+	fmt.Fprintln(flag.CommandLine.Output(), "  block execute all contract transactions in a block")
+	fmt.Fprintln(flag.CommandLine.Output(), "  range execute a range of blocks")
 }
