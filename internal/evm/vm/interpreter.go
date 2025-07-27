@@ -24,6 +24,7 @@ type Interpreter struct {
 	returned    []byte
 	storage     map[string]*big.Int
 	blockNumber uint64
+	reverted    bool
 }
 
 func New(code []byte) *Interpreter {
@@ -179,4 +180,9 @@ func (i *Interpreter) Memory() *core.Memory {
 // contract creation.
 func (i *Interpreter) ReturnedCode() []byte {
 	return i.returned
+}
+
+// IsReverted returns true if the execution ended with a REVERT opcode.
+func (i *Interpreter) IsReverted() bool {
+	return i.reverted
 }

@@ -21,5 +21,6 @@ func opRevert(i *Interpreter, _ byte) {
 	size := i.stack.Pop().Uint64()
 	ret := i.memory.Read(offset, size)
 	i.returned = ret
+	i.reverted = true
 	logger.Info().Msgf("REVERT: 0x%x", ret)
 }

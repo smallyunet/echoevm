@@ -116,6 +116,11 @@ func main() {
 		default:
 			logger.Info().Msgf("Contract %s finished. Stack height = %d", cfg.Bin, runtimeInterpreter.Stack().Len())
 		}
+
+		// Exit with error code if execution reverted
+		if runtimeInterpreter.IsReverted() {
+			os.Exit(1)
+		}
 	}
 }
 
