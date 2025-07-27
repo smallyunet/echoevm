@@ -75,22 +75,24 @@ describe("AddressType", function () {
   describe("Low-level Calls", function () {
     it("should perform call operation", async function () {
       const data = "0x";
-      const result = await addressType.call(user1.address, data);
+      const result = await addressType.call.staticCall(user1.address, data);
       // The result should be a tuple with (bool success, bytes memory data)
       expect(Array.isArray(result)).to.equal(true);
       expect(result.length).to.equal(2);
-      // Call to EOA will fail (no code), which is expected behavior
-      expect(result[0]).to.equal(false);
+      // Call to EOA with empty data should succeed
+      expect(result[0]).to.equal(true);
+      expect(result[1]).to.equal("0x"); // Empty return data
     });
 
     it("should perform delegatecall operation", async function () {
       const data = "0x";
-      const result = await addressType.delegateCall(user1.address, data);
+      const result = await addressType.delegateCall.staticCall(user1.address, data);
       // The result should be a tuple with (bool success, bytes memory data)
       expect(Array.isArray(result)).to.equal(true);
       expect(result.length).to.equal(2);
-      // Delegatecall to EOA will fail (no code), which is expected behavior
-      expect(result[0]).to.equal(false);
+      // Delegatecall to EOA with empty data should succeed
+      expect(result[0]).to.equal(true);
+      expect(result[1]).to.equal("0x"); // Empty return data
     });
 
     it("should perform staticcall operation", async function () {

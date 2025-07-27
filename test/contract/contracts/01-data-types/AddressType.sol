@@ -23,11 +23,13 @@ contract AddressType {
     }
     
     function call(address _target, bytes calldata _data) public returns (bool, bytes memory) {
-        return _target.call(_data);
+        (bool success, bytes memory data) = _target.call(_data);
+        return (success, data);
     }
     
     function delegateCall(address _target, bytes calldata _data) public returns (bool, bytes memory) {
-        return _target.delegatecall(_data);
+        (bool success, bytes memory data) = _target.delegatecall(_data);
+        return (success, data);
     }
     
     function staticCall(address _target, bytes calldata _data) public view returns (bool, bytes memory) {
@@ -41,4 +43,7 @@ contract AddressType {
     function getCodeSize(address _address) public view returns (uint256) {
         return _address.code.length;
     }
+    
+    // Add receive function to accept ETH
+    receive() external payable {}
 } 
