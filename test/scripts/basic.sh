@@ -33,8 +33,8 @@ go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-t
 go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/IntegerTypes.sol/IntegerTypes.json -function "decrement(uint256)" -args "10"
 
 echo "2.3 Boolean operations:"
-go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "isActive()" -args ""
-go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "getActiveStatus()" -args ""
+go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "isActive()"
+go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "getActiveStatus()"
 
 echo "2.4 Factorial calculation:"
 go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json -function "fact(uint256)" -args "5"

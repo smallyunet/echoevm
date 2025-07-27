@@ -5,6 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -12,10 +17,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/smallyunet/echoevm/utils"
-	"math/big"
-	"os"
-	"strings"
-	"time"
 )
 
 // Package-level logger
@@ -97,7 +98,7 @@ func main() {
 		switch {
 		case cfg.Calldata != "":
 			callData, err = hex.DecodeString(strings.TrimPrefix(cfg.Calldata, "0x"))
-		case cfg.Function != "" && cfg.Args != "":
+		case cfg.Function != "":
 			callData, err = buildCallData(cfg.Function, cfg.Args)
 		default:
 			logger.Fatal().Msg("provide -calldata or -function and -args")

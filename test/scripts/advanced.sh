@@ -102,7 +102,7 @@ run_test "Integer operations - increment" \
     'go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/IntegerTypes.sol/IntegerTypes.json -function "increment(uint256)" -args "999"'
 
 run_test "Boolean operations - isActive" \
-    'go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "isActive()" -args ""'
+    'go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/BoolType.sol/BoolType.json -function "isActive()"'
 
 run_test "Factorial calculation (small)" \
     'go run ./cmd/echoevm run -artifact ./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json -function "fact(uint256)" -args "4"'
