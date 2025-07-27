@@ -137,14 +137,14 @@ fi
 
 if [ "$RUN_BASIC_TESTS" = true ]; then
     # Make sure script is executable
-    chmod +x tests/scripts/basic.sh
-    run_test_suite "Basic Integration Tests" "./tests/scripts/basic.sh" false
+    chmod +x test/scripts/basic.sh
+    run_test_suite "Basic Integration Tests" "./test/scripts/basic.sh" false
 fi
 
 if [ "$RUN_ADVANCED_TESTS" = true ]; then
     # Make sure script is executable
-    chmod +x tests/scripts/advanced.sh
-    run_test_suite "Advanced Integration Tests" "./tests/scripts/advanced.sh" true
+    chmod +x test/scripts/advanced.sh
+    run_test_suite "Advanced Integration Tests" "./test/scripts/advanced.sh" true
 fi
 
 # Calculate total time
