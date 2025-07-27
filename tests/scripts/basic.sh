@@ -1,7 +1,12 @@
 #!/bin/bash
 
-# EchoEVM Test Script
+# EchoEVM Basic Test Script
 # This script tests various smart contract functionalities using the EchoEVM
+
+# Get the script directory to handle relative paths correctly
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+cd "$PROJECT_ROOT"
 
 echo "========================================="
 echo "EchoEVM Comprehensive Test Suite"
@@ -99,4 +104,3 @@ echo ""
 echo "========================================="
 echo "Test Suite Completed"
 echo "========================================="
-

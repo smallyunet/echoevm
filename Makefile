@@ -15,16 +15,20 @@ build: $(BIN_DIR)/$(BINARY_NAME)
 run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
 
-test: $(BIN_DIR)/$(BINARY_NAME) ## Run integration tests
-	./test.sh
+test: $(BIN_DIR)/$(BINARY_NAME) ## Run basic integration tests
+	./tests/scripts/basic.sh
 
 test-advanced: $(BIN_DIR)/$(BINARY_NAME) ## Run advanced tests with detailed reporting
-	./test_advanced.sh
+	./tests/scripts/advanced.sh
 
 test-unit: ## Run Go unit tests
 	go test ./...
 
 test-all: test-unit test-advanced ## Run all tests (unit + integration)
+	@echo "All test suites completed"
+
+test-run-all: $(BIN_DIR)/$(BINARY_NAME) ## Run all test suites with the master runner
+	./tests/scripts/run_all.sh
 
 clean: ## Clean build artifacts
 	rm -rf $(BIN_DIR)

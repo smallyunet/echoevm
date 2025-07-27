@@ -11,7 +11,7 @@ import (
 func TestOpSha3(t *testing.T) {
 	// Test data: "Hello World"
 	testData := []byte("Hello World")
-	
+
 	// Create interpreter with memory and stack
 	stack := core.NewStack()
 	memory := core.NewMemory()
@@ -36,7 +36,7 @@ func TestOpSha3(t *testing.T) {
 	}
 
 	result := stack.Pop()
-	
+
 	// Compute expected hash using the same method
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write(testData)
@@ -70,7 +70,7 @@ func TestOpSha3Empty(t *testing.T) {
 	}
 
 	result := stack.Pop()
-	
+
 	// Compute expected hash for empty data
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write([]byte{})
@@ -88,7 +88,7 @@ func TestOpSha3LargeData(t *testing.T) {
 	for i := range testData {
 		testData[i] = byte(i)
 	}
-	
+
 	stack := core.NewStack()
 	memory := core.NewMemory()
 	interpreter := &Interpreter{
@@ -112,7 +112,7 @@ func TestOpSha3LargeData(t *testing.T) {
 	}
 
 	result := stack.Pop()
-	
+
 	// Compute expected hash
 	hasher := sha3.NewLegacyKeccak256()
 	hasher.Write(testData)

@@ -1,0 +1,55 @@
+# EchoEVM Test Environment Configuration
+
+[environments.development]
+name = "Development"
+timeout_seconds = 30
+retry_count = 3
+parallel_execution = false
+log_level = "info"
+output_format = "console"
+
+[environments.ci]
+name = "Continuous Integration"
+timeout_seconds = 60
+retry_count = 1
+parallel_execution = true
+log_level = "debug"
+output_format = "junit"
+
+[environments.performance]
+name = "Performance Testing"
+timeout_seconds = 300
+retry_count = 1
+parallel_execution = false
+log_level = "warn"
+output_format = "benchmark"
+
+# Test execution settings
+[execution]
+default_environment = "development"
+max_concurrent_tests = 4
+output_directory = "./tests/reports"
+capture_outputs = true
+cleanup_after_tests = true
+
+# Contract paths and settings
+[contracts]
+artifacts_path = "./test/contract/artifacts/contracts"
+binary_path = "./test/bins/build"
+default_timeout = 10
+
+# EVM settings for testing
+[evm]
+gas_limit = 10000000
+gas_price = 1
+chain_id = 1
+block_number = 1
+timestamp = 1640995200  # 2022-01-01 00:00:00 UTC
+
+# Logging configuration
+[logging]
+enabled = true
+file_path = "./tests/reports/test.log"
+max_file_size_mb = 10
+max_backup_files = 5
+compress_backups = true
