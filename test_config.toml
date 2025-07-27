@@ -1,0 +1,128 @@
+# EchoEVM Test Configuration
+# This file contains test cases and their expected behaviors
+
+# Basic Data Type Tests
+[data_types.basic]
+add_simple = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json",
+    function = "add(uint256,uint256)",
+    args = "10,20",
+    expected_success = true,
+    description = "Simple addition test"
+}
+
+sub_simple = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Sub.sol/Sub.json",
+    function = "sub(uint256,uint256)",
+    args = "50,20",
+    expected_success = true,
+    description = "Simple subtraction test"
+}
+
+# Integer Operations Tests
+[data_types.integers]
+divide_normal = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/IntegerTypes.sol/IntegerTypes.json",
+    function = "divide(uint256,uint256)",
+    args = "100,5",
+    expected_success = true,
+    description = "Normal division"
+}
+
+increment_test = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/IntegerTypes.sol/IntegerTypes.json",
+    function = "increment(uint256)",
+    args = "42",
+    expected_success = true,
+    description = "Increment operation"
+}
+
+# Factorial Tests
+[algorithms.factorial]
+fact_small = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json",
+    function = "fact(uint256)",
+    args = "5",
+    expected_success = true,
+    description = "Factorial of 5"
+}
+
+fact_zero = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json",
+    function = "fact(uint256)",
+    args = "0",
+    expected_success = true,
+    description = "Factorial of 0"
+}
+
+# Control Flow Tests
+[control_flow.require]
+require_pass = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/Require.sol/Require.json",
+    function = "test(uint256)",
+    args = "5",
+    expected_success = true,
+    description = "Require statement should pass"
+}
+
+require_fail = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/Require.sol/Require.json",
+    function = "test(uint256)",
+    args = "0",
+    expected_success = false,
+    description = "Require statement should fail"
+}
+
+# Loop Tests
+[control_flow.loops]
+for_loop_small = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/Loops.sol/Loops.json",
+    function = "forLoop(uint256)",
+    args = "5",
+    expected_success = true,
+    description = "Small for loop"
+}
+
+do_while_loop = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/Loops.sol/Loops.json",
+    function = "doWhileLoop(uint256)",
+    args = "10",
+    expected_success = true,
+    description = "Do-while loop test"
+}
+
+# If-Else Tests
+[control_flow.conditional]
+if_else_true = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/IfElse.sol/IfElse.json",
+    function = "ifElse(uint256)",
+    args = "5",
+    expected_success = true,
+    description = "If-else with condition true"
+}
+
+if_else_false = {
+    artifact = "./test/contract/artifacts/contracts/03-control-flow/IfElse.sol/IfElse.json",
+    function = "ifElse(uint256)",
+    args = "15",
+    expected_success = true,
+    description = "If-else with condition false"
+}
+
+# Edge Cases
+[edge_cases]
+large_numbers = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json",
+    function = "add(uint256,uint256)",
+    args = "1000000,2000000",
+    expected_success = true,
+    description = "Large number addition"
+}
+
+zero_values = {
+    artifact = "./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json",
+    function = "add(uint256,uint256)",
+    args = "0,0",
+    expected_success = true,
+    description = "Zero value addition"
+}
