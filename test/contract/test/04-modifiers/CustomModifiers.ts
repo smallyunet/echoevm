@@ -74,12 +74,14 @@ describe("CustomModifiers", function () {
 
   describe("BeforeAndAfter Modifier", function () {
     it("should execute code before and after function", async function () {
+      // First set a value that meets the onlyValue(10) requirement
+      await customModifiers.setValue(15);
       const initialValue = await customModifiers.getValue();
       await customModifiers.incrementValue();
       const finalValue = await customModifiers.getValue();
       
       // Value should be increased by 7: 1 (before) + 5 (function) + 1 (after)
-      expect(finalValue).to.equal(initialValue + 7);
+      expect(finalValue).to.equal(initialValue + 7n);
     });
   });
 

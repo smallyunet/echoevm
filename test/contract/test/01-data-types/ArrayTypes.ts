@@ -46,14 +46,14 @@ describe("ArrayTypes", function () {
     it("should add elements to dynamic array", async function () {
       const initialLength = await arrayTypes.getDynamicArrayLength();
       await arrayTypes.addToDynamicArray(40);
-      expect(await arrayTypes.getDynamicArrayLength()).to.equal(initialLength + 1);
+      expect(await arrayTypes.getDynamicArrayLength()).to.equal(initialLength + 1n);
       expect(await arrayTypes.getDynamicArrayElement(3)).to.equal(40);
     });
 
     it("should remove elements from dynamic array", async function () {
       const initialLength = await arrayTypes.getDynamicArrayLength();
       await arrayTypes.removeFromDynamicArray();
-      expect(await arrayTypes.getDynamicArrayLength()).to.equal(initialLength - 1);
+      expect(await arrayTypes.getDynamicArrayLength()).to.equal(initialLength - 1n);
     });
 
     it("should set dynamic array element", async function () {
@@ -103,7 +103,7 @@ describe("ArrayTypes", function () {
     it("should add string to array", async function () {
       const initialLength = await arrayTypes.getStringArrayLength();
       await arrayTypes.addToStringArray("Test");
-      expect(await arrayTypes.getStringArrayLength()).to.equal(initialLength + 1);
+      expect(await arrayTypes.getStringArrayLength()).to.equal(initialLength + 1n);
       expect(await arrayTypes.getStringArrayElement(2)).to.equal("Test");
     });
   });

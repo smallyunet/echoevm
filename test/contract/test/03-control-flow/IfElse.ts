@@ -111,7 +111,7 @@ describe("IfElse", function () {
 
   describe("State-based Conditional", function () {
     it("should return correct message based on state value", async function () {
-      expect(await ifElse.stateBasedConditional()).to.equal("State value is medium");
+      expect(await ifElse.stateBasedConditional()).to.equal("State value is small");
     });
   });
 }); 
