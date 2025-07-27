@@ -51,11 +51,31 @@ Configuration file containing test cases and expected behaviors for systematic t
 - **Loops**: For loops and do-while loops
 - **Complex Conditionals**: Multi-branch logic
 
+### Cryptographic Operations
+- **SHA3/Keccak256**: Hash function testing with various data sizes
+- **Memory Operations**: Reading and writing to memory for hash calculations
+
 ### Edge Cases
 - **Large Numbers**: Testing with big integers
 - **Zero Values**: Boundary condition testing
 - **Division Edge Cases**: Division by 1, large dividends
 - **Performance Limits**: Testing computational boundaries
+
+## Recent Fixes
+
+### SHA3 (0x20) Opcode Implementation
+**Fixed Issue**: `panic: unsupported opcode 0x20`
+
+Previously, the SHA3 (Keccak256) opcode was defined but not implemented, causing crashes when smart contracts used hash functions (common in loops and complex logic).
+
+**Implementation Details**:
+- Added `opSha3` function in `op_sha3.go`
+- Reads data from memory using offset and size from stack
+- Uses `golang.org/x/crypto/sha3.NewLegacyKeccak256()` for Ethereum compatibility
+- Pushes 32-byte hash result back to stack
+- Includes comprehensive unit tests
+
+**Affected Contracts**: Loops, complex conditionals, and any contract using hash functions.
 
 ## Smart Contracts Tested
 

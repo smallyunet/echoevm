@@ -84,6 +84,9 @@ func init() {
 	handlerMap[core.SHR] = opShr
 	handlerMap[core.SAR] = opSar
 
+	// cryptographic
+	handlerMap[core.SHA3] = opSha3
+
 	// memory and code
 	handlerMap[core.MSTORE] = opMstore
 	handlerMap[core.MLOAD] = opMload
