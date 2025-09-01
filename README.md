@@ -10,6 +10,7 @@ echoevm is a minimal Ethereum Virtual Machine (EVM) implementation in Go, focusi
 - **Testing Framework**: Comprehensive test suites for validation and debugging
 - **Block Processing**: Fetch and execute blocks from Ethereum networks via RPC
 - **Logging**: Detailed execution tracing with configurable log levels
+- **JSON-RPC API**: Geth-compatible RPC server for seamless integration with existing Ethereum tools
 
 ## Requirements
 
@@ -46,6 +47,7 @@ go run ./cmd/echoevm run -artifact path/to/Contract.json -mode [deploy|full] \
        [-calldata HEX | -function "sig" -args "1,2"]
 go run ./cmd/echoevm block -block 1 [-rpc URL]
 go run ./cmd/echoevm range -start 1 -end 50 [-rpc URL]
+go run ./cmd/echoevm serve [-http localhost:8545]
 ```
 
 *Note:* use the directory path (`./cmd/echoevm`) with `go run` so that all
@@ -66,6 +68,9 @@ flag parsing code located in `flags.go`.
     `https://cloudflare-eth.com`.
 - `range` subcommand:
   - `-start`/`-end`/`-rpc` – execute a range of blocks via RPC.
+- `serve` subcommand:
+  - `-http` – HTTP RPC endpoint address (default: localhost:8545). Starts a JSON-RPC server
+    compatible with Ethereum clients.
 
 ### Examples
 
@@ -134,6 +139,16 @@ Process a range of blocks:
 ```bash
 go run ./cmd/echoevm range -start 1 -end 10 -rpc https://cloudflare-eth.com
 ```
+
+#### JSON-RPC Server
+
+Start a Geth-compatible JSON-RPC server:
+
+```bash
+go run ./cmd/echoevm serve -http localhost:8545
+```
+
+You can then use any Ethereum client tools (like web3.js, ethers.js, or web3.py) to connect to your local echoevm instance as if it were a real Ethereum node.
 
 ## Testing
 

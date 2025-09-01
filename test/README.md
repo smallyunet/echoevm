@@ -1,72 +1,72 @@
-# EchoEVM 测试目录
+# EchoEVM Test Directory
 
-这个目录包含了 EchoEVM 项目的所有测试相关文件，包括智能合约、测试脚本和工具。
+This directory contains all test-related files for the EchoEVM project, including smart contracts, test scripts, and tools.
 
-## 目录结构
+## Directory Structure
 
 ```
 test/
-├── bins/                   # 二进制合约文件
+├── bins/                   # Binary contract files
 │   ├── Add.sol
 │   ├── Multiply.sol
 │   ├── Sum.sol
-│   └── build/              # 编译后的二进制文件
-├── contract/               # Hardhat 合约开发环境
-│   ├── contracts/          # Solidity 源码
-│   ├── artifacts/          # 编译产物
-│   ├── test/              # Hardhat 单元测试
-│   └── hardhat.config.ts   # Hardhat 配置
-├── scripts/                # 测试执行脚本
-│   ├── basic.sh            # 基础测试
-│   ├── advanced.sh         # 高级测试
-│   └── run_all.sh          # 运行所有测试
-├── config/                 # 测试配置文件
-│   ├── test_cases.toml     # 测试用例定义
-│   └── environments.toml   # 环境配置
-├── utils/                  # 测试工具函数
-│   ├── helpers.sh          # 通用辅助函数
-│   └── contract_utils.sh   # 合约相关工具
-├── docs/                   # 测试文档
-│   ├── TESTING_GUIDE.md    # 测试指南
-│   └── examples/           # 测试示例
-└── reports/                # 测试报告
-    ├── latest/             # 最新测试结果
-    └── history/            # 历史测试记录
+│   └── build/              # Compiled binary files
+├── contract/               # Hardhat contract development environment
+│   ├── contracts/          # Solidity source code
+│   ├── artifacts/          # Compilation artifacts
+│   ├── test/               # Hardhat unit tests
+│   └── hardhat.config.ts   # Hardhat configuration
+├── scripts/                # Test execution scripts
+│   ├── basic.sh            # Basic tests
+│   ├── advanced.sh         # Advanced tests
+│   └── run_all.sh          # Run all tests
+├── config/                 # Test configuration files
+│   ├── test_cases.toml     # Test case definitions
+│   └── environments.toml   # Environment configuration
+├── utils/                  # Test utility functions
+│   ├── helpers.sh          # Common helper functions
+│   └── contract_utils.sh   # Contract-related tools
+├── docs/                   # Test documentation
+│   ├── TESTING_GUIDE.md    # Testing guide
+│   └── examples/           # Test examples
+└── reports/                # Test reports
+    ├── latest/             # Latest test results
+    └── history/            # Historical test records
 ```
 
-## 使用方法
+## Usage
 
-### 运行测试
+### Running Tests
 ```bash
-# 运行所有测试
+# Run all tests
 cd test/scripts && ./run_all.sh
 
-# 运行基础测试
+# Run basic tests
 cd test/scripts && ./basic.sh
 
-# 运行高级测试
+# Run advanced tests
 cd test/scripts && ./advanced.sh
 ```
 
-### 添加新测试
-1. 在 `config/test_cases.toml` 中定义新的测试用例
-2. 如需要，在 `contracts/` 中添加新的合约
-3. 运行测试验证
+### Adding New Tests
+1. Define new test cases in `config/test_cases.toml`
+2. Add new contracts in `contracts/` if needed
+3. Run tests to verify
 
-### 查看测试结果
-测试结果保存在 `reports/` 目录中，包括：
-- 执行日志
-- 性能数据
-- 错误报告
+### Viewing Test Results
+Test results are saved in the `reports/` directory, including:
+- Execution logs
+- Performance data
+- Error reports
 
-## 开发工具
+## Development Tools
 
-- **合约开发**: 使用 `contract/` 目录下的 Hardhat 环境
-- **二进制合约**: 使用 `bins/` 目录下的预编译合约
-- **测试工具**: 使用 `utils/` 目录下的辅助函数
+- **Contract Development**: Use the Hardhat environment in the `contract/` directory
+- **Binary Contracts**: Use pre-compiled contracts in the `bins/` directory
+- **Testing Tools**: Use helper functions in the `utils/` directory
 
-## 注意事项
+## Notes
 
-1. 确保安装了必要的依赖（Go、Node.js、jq）
-2. 运行测试前先编译项目：`make build`
-3. 测试脚本需要执行权限：`chmod +x test/scripts/*.sh`
+1. Ensure necessary dependencies are installed (Go, Node.js, jq)
+2. Compile the project before running tests: `make build`
+3. Test scripts need execution permissions: `chmod +x test/scripts/*.sh`

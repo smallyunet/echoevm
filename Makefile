@@ -1,7 +1,7 @@
 BINARY_NAME ?= echoevm
 BIN_DIR ?= bin
 
-.PHONY: install build run test clean
+.PHONY: install build run run-rpc test clean
 
 install: ## Install the echoevm binary to GOPATH/bin
 	go install ./cmd/echoevm
@@ -14,6 +14,9 @@ build: $(BIN_DIR)/$(BINARY_NAME)
 
 run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
+
+run-rpc: $(BIN_DIR)/$(BINARY_NAME) ## Start the RPC server
+	$(BIN_DIR)/$(BINARY_NAME) serve -http ${HTTP_ADDR:-localhost:8545}
 
 test: $(BIN_DIR)/$(BINARY_NAME) ## Run basic integration tests
 	./test/scripts/basic.sh

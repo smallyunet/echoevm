@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
+	"github.com/smallyunet/echoevm/internal/rpc"
 	"github.com/smallyunet/echoevm/utils"
 )
 
@@ -24,6 +27,11 @@ var logger zerolog.Logger
 
 func main() {
 	cmd, cfg := parseFlags()
+
+	// Debug information to help troubleshoot
+	fmt.Printf("Command: %s\n", cmd)
+	fmt.Printf("Config: %+v\n", *cfg)
+
 	lvl, err := zerolog.ParseLevel(strings.ToLower(cfg.LogLevel))
 	if err != nil {
 		lvl = zerolog.InfoLevel
@@ -34,6 +42,10 @@ func main() {
 	vm.SetLogger(logger)
 
 	switch cmd {
+	case "serve":
+		fmt.Println("Starting RPC server...")
+		runRPCServer(cfg)
+		return
 	case "range":
 		runBlockRange(cfg)
 		return
@@ -285,5 +297,33 @@ func runBlockRange(cfg *cliConfig) {
 	for n := cfg.StartBlock; n <= cfg.EndBlock; n++ {
 		logger.Info().Msgf("=== Executing block %d ===", n)
 		runBlock(ctx, client, n)
+	}
+}
+
+// runRPCServer starts a JSON-RPC server compatible with Geth
+func runRPCServer(cfg *cliConfig) {
+	logger.Info().Msgf("Starting EchoEVM RPC server on %s", cfg.RPCEndpoint)
+
+	// Create new RPC server instance
+	rpcServer := rpc.NewServer(cfg.RPCEndpoint, logger)
+
+	// Start the server
+	err := rpcServer.Start()
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to start RPC server")
+	}
+
+	// Wait for interrupt signal to gracefully shutdown the server
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Block until we receive a signal
+	<-c
+
+	// Shutdown the server
+	logger.Info().Msg("Shutting down RPC server...")
+	err = rpcServer.Stop()
+	if err != nil {
+		logger.Error().Err(err).Msg("Error shutting down RPC server")
 	}
 }

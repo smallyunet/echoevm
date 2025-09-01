@@ -1,0 +1,111 @@
+package rpc
+
+import (
+	"context"
+	"fmt"
+	"net"
+	"net/http"
+
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/rs/zerolog"
+)
+
+// Server represents the RPC server for echoevm
+type Server struct {
+	endpoint    string
+	apis        []rpc.API
+	httpServer  *http.Server
+	rpcServer   *rpc.Server
+	listener    net.Listener
+	logger      zerolog.Logger
+	shutdownCtx context.Context
+}
+
+// NewServer creates a new RPC server with the specified configuration
+func NewServer(endpoint string, logger zerolog.Logger) *Server {
+	return &Server{
+		endpoint: endpoint,
+		logger:   logger,
+	}
+}
+
+// Start initializes and starts the RPC server
+func (s *Server) Start() error {
+	// Create a new RPC server
+	s.rpcServer = rpc.NewServer()
+
+	// Register APIs
+	apis := s.GetAPIs()
+	for _, api := range apis {
+		if err := s.rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
+			return fmt.Errorf("error registering API %s: %w", api.Namespace, err)
+		}
+	}
+
+	// Create HTTP server
+	s.httpServer = &http.Server{
+		Handler: s.rpcHandler(),
+	}
+
+	// Start listening
+	s.logger.Info().Msgf("Starting RPC server on %s", s.endpoint)
+	listener, err := net.Listen("tcp", s.endpoint)
+	if err != nil {
+		return fmt.Errorf("failed to start RPC server: %w", err)
+	}
+	s.listener = listener
+
+	// Start HTTP server in a separate goroutine
+	go func() {
+		err := s.httpServer.Serve(listener)
+		if err != nil && err != http.ErrServerClosed {
+			s.logger.Error().Err(err).Msg("HTTP server error")
+		}
+	}()
+
+	return nil
+}
+
+// Stop gracefully shuts down the RPC server
+func (s *Server) Stop() error {
+	if s.httpServer != nil {
+		if err := s.httpServer.Shutdown(context.Background()); err != nil {
+			return err
+		}
+	}
+	if s.listener != nil {
+		return s.listener.Close()
+	}
+	return nil
+}
+
+// GetAPIs returns all the APIs that this server provides
+func (s *Server) GetAPIs() []rpc.API {
+	return []rpc.API{
+		{
+			Namespace: "eth",
+			Version:   "1.0",
+			Service:   NewEthAPI(s),
+			Public:    true,
+		},
+		{
+			Namespace: "web3",
+			Version:   "1.0",
+			Service:   NewWeb3API(s),
+			Public:    true,
+		},
+		{
+			Namespace: "net",
+			Version:   "1.0",
+			Service:   NewNetAPI(s),
+			Public:    true,
+		},
+	}
+}
+
+// rpcHandler creates an HTTP handler for the RPC server
+func (s *Server) rpcHandler() http.Handler {
+	// Create a new handler for the RPC server
+	// Note: This is simplified as go-ethereum has more complex handlers
+	return s.rpcServer
+}

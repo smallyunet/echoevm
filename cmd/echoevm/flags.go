@@ -8,17 +8,18 @@ import (
 
 // cliConfig holds command line parameters for echoevm.
 type cliConfig struct {
-	Bin        string
-	Artifact   string
-	Mode       string
-	Function   string
-	Args       string
-	Calldata   string
-	LogLevel   string
-	RPC        string
-	Block      int
-	StartBlock int
-	EndBlock   int
+	Bin         string
+	Artifact    string
+	Mode        string
+	Function    string
+	Args        string
+	Calldata    string
+	LogLevel    string
+	RPC         string
+	RPCEndpoint string
+	Block       int
+	StartBlock  int
+	EndBlock    int
 }
 
 // parseFlags parses subcommand flags and returns the chosen command name along with
@@ -33,7 +34,10 @@ func parseFlags() (string, *cliConfig) {
 		os.Exit(1)
 	}
 
-	switch os.Args[1] {
+	// Get the subcommand
+	subCmd := os.Args[1]
+
+	switch subCmd {
 	case "run":
 		fs := flag.NewFlagSet("run", flag.ExitOnError)
 		cfg := &cliConfig{}
@@ -82,6 +86,14 @@ func parseFlags() (string, *cliConfig) {
 		}
 		return "range", cfg
 
+	case "serve":
+		fs := flag.NewFlagSet("serve", flag.ExitOnError)
+		cfg := &cliConfig{}
+		fs.StringVar(&cfg.RPCEndpoint, "http", "localhost:8545", "HTTP RPC endpoint address")
+		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.Parse(os.Args[2:])
+		return "serve", cfg
+
 	default:
 		usage()
 		fmt.Fprintf(os.Stderr, "unknown subcommand %s\n", os.Args[1])
@@ -95,7 +107,8 @@ func parseFlags() (string, *cliConfig) {
 func usage() {
 	fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <command> [options]\n", os.Args[0])
 	fmt.Fprintln(flag.CommandLine.Output(), "Commands:")
-	fmt.Fprintln(flag.CommandLine.Output(), "  run   execute contract bytecode from a .bin or Hardhat artifact")
-	fmt.Fprintln(flag.CommandLine.Output(), "  block execute all contract transactions in a block")
-	fmt.Fprintln(flag.CommandLine.Output(), "  range execute a range of blocks")
+	fmt.Fprintln(flag.CommandLine.Output(), "  run    execute contract bytecode from a .bin or Hardhat artifact")
+	fmt.Fprintln(flag.CommandLine.Output(), "  block  execute all contract transactions in a block")
+	fmt.Fprintln(flag.CommandLine.Output(), "  range  execute a range of blocks")
+	fmt.Fprintln(flag.CommandLine.Output(), "  serve  start a JSON-RPC server compatible with Geth")
 }
