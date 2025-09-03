@@ -154,9 +154,12 @@ You can then use any Ethereum client tools (like web3.js, ethers.js, or web3.py)
 
 The project includes comprehensive test suites to validate EVM functionality:
 
-### Available Test Commands
+### Quick Start
 
 ```bash
+# Run all tests
+make test-all
+
 # Run basic integration tests
 make test
 
@@ -165,12 +168,6 @@ make test-advanced
 
 # Run Go unit tests
 make test-unit
-
-# Run all tests (unit + integration)
-make test-all
-
-# Run comprehensive test suites with master runner
-make test-run-all
 ```
 
 ### Test Coverage
@@ -195,6 +192,8 @@ Test specific functionality manually:
 # Advanced test scenarios
 ./test/scripts/advanced.sh
 ```
+
+For detailed testing documentation, see [docs/TESTING_QUICK.md](docs/TESTING_QUICK.md) and [test/docs/README.md](test/docs/README.md).
 
 ## Architecture
 

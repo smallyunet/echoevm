@@ -1,12 +1,10 @@
-# EchoEVM Testing
+# EchoEVM Testing Quick Start
 
-For comprehensive testing documentation, see [`tests/docs/README.md`](./tests/docs/README.md).
-
-## Quick Start
+## Quick Commands
 
 ```bash
 # Run all tests
-make test-run-all
+make test-all
 
 # Run specific test suites
 make test-unit      # Unit tests only
@@ -14,22 +12,37 @@ make test           # Basic integration tests
 make test-advanced  # Advanced integration tests with detailed reporting
 ```
 
-## Test Directory Structure
+## Manual Testing
+
+```bash
+# Test arithmetic operations
+./test/scripts/basic.sh
+
+# Advanced test scenarios
+./test/scripts/advanced.sh
+```
+
+## Test Structure
 
 ```
-tests/
+test/
 ├── scripts/           # Test execution scripts
 ├── config/           # Test configuration files
 ├── docs/             # Detailed documentation
 └── reports/          # Auto-generated test reports
 ```
 
-## Legacy Test Files
+## Documentation
+
+- **Quick Start**: This file
+- **Comprehensive Guide**: [test/docs/README.md](../test/docs/README.md)
+- **Contract Testing**: [test/contract/README.md](../test/contract/README.md)
+- **Test Directory**: [test/README.md](../test/README.md)
+
+## Legacy Files
 
 The following files have been reorganized:
-- `test.sh` → `tests/scripts/basic.sh`
-- `test_advanced.sh` → `tests/scripts/advanced.sh`  
-- `test_config.toml` → `tests/config/test_cases.toml`
-- `TESTING.md` → `tests/docs/README.md`
-
-For detailed information, see the [comprehensive testing guide](./tests/docs/README.md).
+- `test.sh` → `test/scripts/basic.sh`
+- `test_advanced.sh` → `test/scripts/advanced.sh`  
+- `test_config.toml` → `test/config/test_cases.toml`
+- `TESTING.md` → `test/docs/README.md`
