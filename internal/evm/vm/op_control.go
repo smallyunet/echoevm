@@ -6,8 +6,8 @@ func opStop(_ *Interpreter, _ byte) {
 }
 
 func opReturn(i *Interpreter, _ byte) {
-	offset := i.stack.Pop().Uint64()
-	size := i.stack.Pop().Uint64()
+	offset := i.stack.PopSafe().Uint64()
+	size := i.stack.PopSafe().Uint64()
 	ret := i.memory.Read(offset, size)
 	i.returned = ret
 	logger.Info().Msgf("RETURN: 0x%x", ret)
@@ -17,8 +17,8 @@ func opReturn(i *Interpreter, _ byte) {
 // This simplified EVM does not differentiate between revert and return beyond
 // printing a message and storing the payload.
 func opRevert(i *Interpreter, _ byte) {
-	offset := i.stack.Pop().Uint64()
-	size := i.stack.Pop().Uint64()
+	offset := i.stack.PopSafe().Uint64()
+	size := i.stack.PopSafe().Uint64()
 	ret := i.memory.Read(offset, size)
 	i.returned = ret
 	i.reverted = true

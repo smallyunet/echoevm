@@ -12,40 +12,40 @@ func newInterp() *Interpreter {
 
 func TestOpAdd(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(1))
-	i.stack.Push(big.NewInt(2))
+	i.stack.PushSafe(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(2))
 	opAdd(i, 0)
-	if i.stack.Pop().Int64() != 3 {
+	if i.stack.PopSafe().Int64() != 3 {
 		t.Fatalf("add failed")
 	}
 }
 
 func TestOpDivByZero(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(1))
-	i.stack.Push(big.NewInt(0))
+	i.stack.PushSafe(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(0))
 	opDiv(i, 0)
-	if i.stack.Pop().Sign() != 0 {
+	if i.stack.PopSafe().Sign() != 0 {
 		t.Fatalf("div by zero should push 0")
 	}
 }
 
 func TestOpEq(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(2))
-	i.stack.Push(big.NewInt(2))
+	i.stack.PushSafe(big.NewInt(2))
+	i.stack.PushSafe(big.NewInt(2))
 	opEq(i, 0)
-	if i.stack.Pop().Int64() != 1 {
+	if i.stack.PopSafe().Int64() != 1 {
 		t.Fatalf("eq failed")
 	}
 }
 
 func TestOpExp(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(2)) // base
-	i.stack.Push(big.NewInt(3)) // exponent
+	i.stack.PushSafe(big.NewInt(2)) // base
+	i.stack.PushSafe(big.NewInt(3)) // exponent
 	opExp(i, 0)
-	if i.stack.Pop().Int64() != 8 {
+	if i.stack.PopSafe().Int64() != 8 {
 		t.Fatalf("exp failed")
 	}
 }
@@ -53,10 +53,10 @@ func TestOpExp(t *testing.T) {
 func TestOpSgt(t *testing.T) {
 	i := newInterp()
 	negOne := new(big.Int).Sub(twoTo256, big.NewInt(1))
-	i.stack.Push(negOne)        // y = -1
-	i.stack.Push(big.NewInt(1)) // x = 1
+	i.stack.PushSafe(negOne)        // y = -1
+	i.stack.PushSafe(big.NewInt(1)) // x = 1
 	opSgt(i, 0)
-	if i.stack.Pop().Int64() != 1 {
+	if i.stack.PopSafe().Int64() != 1 {
 		t.Fatalf("sgt failed")
 	}
 }

@@ -11,8 +11,8 @@ import (
 // Pops offset and size from stack, reads memory data, computes Keccak256 hash, and pushes result
 func opSha3(i *Interpreter, _ byte) {
 	// Pop offset and size from the stack
-	offset := i.stack.Pop()
-	size := i.stack.Pop()
+	offset := i.stack.PopSafe()
+	size := i.stack.PopSafe()
 
 	// Get data from memory
 	data := i.memory.Read(offset.Uint64(), size.Uint64())
@@ -24,5 +24,5 @@ func opSha3(i *Interpreter, _ byte) {
 
 	// Push the hash result onto the stack as a big.Int
 	result := new(big.Int).SetBytes(hash)
-	i.stack.Push(result)
+	i.stack.PushSafe(result)
 }

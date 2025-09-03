@@ -150,7 +150,9 @@ func (i *Interpreter) Run() {
 
 		handler, ok := handlerMap[op]
 		if !ok {
-			panic(fmt.Sprintf("unsupported opcode 0x%02x", op))
+			// Instead of panicking, we'll set the reverted flag
+			i.reverted = true
+			return
 		}
 
 		handler(i, op)

@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+
+	"github.com/smallyunet/echoevm/internal/errors"
 )
 
 // cliConfig holds command line parameters for echoevm.
@@ -28,10 +30,10 @@ type cliConfig struct {
 //	run   - execute contract bytecode from a .bin file
 //	block - execute all contract transactions in a block
 //	range - execute a range of blocks
-func parseFlags() (string, *cliConfig) {
+func parseFlags() (string, *cliConfig, error) {
 	if len(os.Args) < 2 {
 		usage()
-		os.Exit(1)
+		return "", nil, fmt.Errorf("insufficient arguments")
 	}
 
 	// Get the subcommand
@@ -51,9 +53,9 @@ func parseFlags() (string, *cliConfig) {
 		fs.Parse(os.Args[2:])
 		if cfg.Bin == "" && cfg.Artifact == "" {
 			fs.Usage()
-			panic("-bin or -artifact flag is required")
+			return "", nil, errors.ErrMissingBinOrArtifact
 		}
-		return "run", cfg
+		return "run", cfg, nil
 
 	case "block":
 		fs := flag.NewFlagSet("block", flag.ExitOnError)
@@ -64,9 +66,9 @@ func parseFlags() (string, *cliConfig) {
 		fs.Parse(os.Args[2:])
 		if cfg.Block < 0 {
 			fs.Usage()
-			panic("-block must be provided")
+			return "", nil, errors.ErrMissingBlockNumber
 		}
-		return "block", cfg
+		return "block", cfg, nil
 
 	case "range":
 		fs := flag.NewFlagSet("range", flag.ExitOnError)
@@ -78,13 +80,13 @@ func parseFlags() (string, *cliConfig) {
 		fs.Parse(os.Args[2:])
 		if cfg.StartBlock < 0 || cfg.EndBlock < 0 {
 			fs.Usage()
-			panic("both -start and -end must be provided")
+			return "", nil, errors.ErrMissingStartEnd
 		}
 		if cfg.StartBlock > cfg.EndBlock {
 			fs.Usage()
-			panic("-start must be less than or equal to -end")
+			return "", nil, errors.ErrInvalidRange
 		}
-		return "range", cfg
+		return "range", cfg, nil
 
 	case "serve":
 		fs := flag.NewFlagSet("serve", flag.ExitOnError)
@@ -92,15 +94,12 @@ func parseFlags() (string, *cliConfig) {
 		fs.StringVar(&cfg.RPCEndpoint, "http", "localhost:8545", "HTTP RPC endpoint address")
 		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
-		return "serve", cfg
+		return "serve", cfg, nil
 
 	default:
 		usage()
-		fmt.Fprintf(os.Stderr, "unknown subcommand %s\n", os.Args[1])
-		os.Exit(1)
+		return "", nil, fmt.Errorf("unknown subcommand %s", os.Args[1])
 	}
-
-	return "", nil // unreachable
 }
 
 // usage prints general help information.

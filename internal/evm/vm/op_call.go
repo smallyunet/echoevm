@@ -7,8 +7,8 @@ import "math/big"
 func opDelegateCall(i *Interpreter, _ byte) {
 	for n := 0; n < 6; n++ {
 		if i.stack.Len() > 0 {
-			i.stack.Pop()
+			i.stack.PopSafe()
 		}
 	}
-	i.stack.Push(big.NewInt(0))
+	i.stack.PushSafe(big.NewInt(0))
 }

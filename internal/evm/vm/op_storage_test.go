@@ -9,9 +9,9 @@ func TestOpSload(t *testing.T) {
 	i := newInterp()
 	key := big.NewInt(1)
 	i.storage[storageKey(key)] = big.NewInt(42)
-	i.stack.Push(key)
+	i.stack.PushSafe(key)
 	opSload(i, 0)
-	if i.stack.Pop().Int64() != 42 {
+	if i.stack.PopSafe().Int64() != 42 {
 		t.Fatalf("sload failed")
 	}
 }
@@ -19,8 +19,8 @@ func TestOpSload(t *testing.T) {
 func TestOpSstore(t *testing.T) {
 	i := newInterp()
 	key := big.NewInt(1)
-	i.stack.Push(key)
-	i.stack.Push(big.NewInt(7))
+	i.stack.PushSafe(key)
+	i.stack.PushSafe(big.NewInt(7))
 	opSstore(i, 0)
 	if i.storage[storageKey(key)].Int64() != 7 {
 		t.Fatalf("sstore failed")

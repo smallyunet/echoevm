@@ -6,29 +6,31 @@ import (
 )
 
 func opPush0(i *Interpreter, _ byte) {
-	i.stack.Push(big.NewInt(0))
+	i.stack.PushSafe(big.NewInt(0))
 }
 
 func opPop(i *Interpreter, _ byte) {
-	i.stack.Pop()
+	i.stack.PopSafe()
 }
 
 func opPush(i *Interpreter, op byte) {
 	n := int(op - 0x5f)
 	if int(i.pc)+n > len(i.code) {
-		panic("invalid PUSH: out of range")
+		// Instead of panicking, we'll set the reverted flag
+		i.reverted = true
+		return
 	}
 	val := new(big.Int).SetBytes(i.code[i.pc : i.pc+uint64(n)])
 	i.pc += uint64(n)
-	i.stack.Push(val)
+	i.stack.PushSafe(val)
 }
 
 func opDup(i *Interpreter, op byte) {
 	n := int(op - 0x7f)
-	i.stack.Dup(n)
+	i.stack.DupSafe(n)
 }
 
 func opSwap(i *Interpreter, op byte) {
 	n := int(op - 0x8f)
-	i.stack.Swap(n)
+	i.stack.SwapSafe(n)
 }

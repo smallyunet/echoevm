@@ -1,9 +1,9 @@
 package vm
 
-import (
-	"fmt"
-)
-
-func opInvalid(_ *Interpreter, op byte) {
-	panic(fmt.Sprintf("execution hit INVALID opcode: 0x%02x", op))
+func opInvalid(i *Interpreter, op byte) {
+	// In a proper EVM implementation, this should cause a revert
+	// For now, we'll just set the reverted flag
+	i.reverted = true
+	// Note: In a real implementation, you might want to return an error instead
+	// of just setting the reverted flag
 }

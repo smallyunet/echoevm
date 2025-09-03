@@ -26,7 +26,12 @@ import (
 var logger zerolog.Logger
 
 func main() {
-	cmd, cfg := parseFlags()
+	cmd, cfg, err := parseFlags()
+	if err != nil {
+		logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+		logger.Fatal().Err(err).Msg("Failed to parse flags")
+		os.Exit(1)
+	}
 
 	// Debug information to help troubleshoot
 	fmt.Printf("Command: %s\n", cmd)
@@ -52,7 +57,10 @@ func main() {
 	case "block":
 		ctx := context.Background()
 		client, err := ethclient.DialContext(ctx, cfg.RPC)
-		check(err, "failed to connect to RPC endpoint")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to connect to RPC endpoint")
+			os.Exit(1)
+		}
 		runBlock(ctx, client, cfg.Block)
 		return
 	}
@@ -61,25 +69,37 @@ func main() {
 	var hexCode string
 	if cfg.Artifact != "" {
 		data, err := os.ReadFile(cfg.Artifact)
-		check(err, "failed to read artifact file")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to read artifact file")
+			os.Exit(1)
+		}
 		var art struct {
 			Bytecode         string `json:"bytecode"`
 			DeployedBytecode string `json:"deployedBytecode"`
 		}
 		err = json.Unmarshal(data, &art)
-		check(err, "failed to decode artifact JSON")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to decode artifact JSON")
+			os.Exit(1)
+		}
 		hexCode = strings.TrimPrefix(art.Bytecode, "0x")
 		logger.Info().Msgf("Executing artifact file: %s", cfg.Artifact)
 	} else {
 		data, err := os.ReadFile(cfg.Bin)
-		check(err, "failed to read bytecode file")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to read bytecode file")
+			os.Exit(1)
+		}
 		hexCode = strings.TrimSpace(string(data))
 		logger.Info().Msgf("Executing contract file: %s", cfg.Bin)
 	}
 
 	// --- Step 2: Decode hex string to bytecode []byte ---
 	code, err := hex.DecodeString(hexCode)
-	check(err, "failed to decode hex bytecode")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to decode hex bytecode")
+		os.Exit(1)
+	}
 
 	// --- Step 3: Optional debug output ---
 	logger.Debug().Msg("=== Disassembled Bytecode ===")
@@ -92,7 +112,7 @@ func main() {
 	// --- Step 5: Inspect stack state after constructor execution ---
 	switch interpreter.Stack().Len() {
 	case 1:
-		logger.Info().Msgf("Final Result on Stack: %s", interpreter.Stack().Peek(0).String())
+		logger.Info().Msgf("Final Result on Stack: %s", interpreter.Stack().PeekSafe(0).String())
 	case 0:
 		logger.Info().Msg("Execution finished. Stack is empty.")
 	default:
@@ -114,15 +134,19 @@ func main() {
 			callData, err = buildCallData(cfg.Function, cfg.Args)
 		default:
 			logger.Fatal().Msg("provide -calldata or -function and -args")
+			os.Exit(1)
 		}
-		check(err, "failed to process calldata")
+		if err != nil {
+			logger.Fatal().Err(err).Msg("Failed to process calldata")
+			os.Exit(1)
+		}
 
 		runtimeInterpreter := vm.NewWithCallData(runtimeCode, callData)
 		runtimeInterpreter.Run()
 
 		switch runtimeInterpreter.Stack().Len() {
 		case 1:
-			logger.Info().Msgf("Contract %s result: %s", cfg.Bin, runtimeInterpreter.Stack().Peek(0).String())
+			logger.Info().Msgf("Contract %s result: %s", cfg.Bin, runtimeInterpreter.Stack().PeekSafe(0).String())
 		case 0:
 			logger.Info().Msgf("Contract %s finished. Stack empty.", cfg.Bin)
 		default:
@@ -136,7 +160,7 @@ func main() {
 	}
 }
 
-// check is a helper to panic with context on error
+// check is a helper to panic with context on error - DEPRECATED: Use proper error handling instead
 func check(err error, msg string) {
 	if err != nil {
 		panic(fmt.Sprintf("%s: %v", msg, err))
@@ -223,7 +247,10 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
 	bnum := big.NewInt(int64(blockNum))
 	block, err := client.BlockByNumber(ctx, bnum)
-	check(err, "failed to fetch block")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to fetch block")
+		os.Exit(1)
+	}
 
 	contractTxs := []*types.Transaction{}
 	for _, tx := range block.Transactions() {
@@ -293,7 +320,10 @@ func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
 func runBlockRange(cfg *cliConfig) {
 	ctx := context.Background()
 	client, err := ethclient.DialContext(ctx, cfg.RPC)
-	check(err, "failed to connect to RPC endpoint")
+	if err != nil {
+		logger.Fatal().Err(err).Msg("Failed to connect to RPC endpoint")
+		os.Exit(1)
+	}
 	for n := cfg.StartBlock; n <= cfg.EndBlock; n++ {
 		logger.Info().Msgf("=== Executing block %d ===", n)
 		runBlock(ctx, client, n)

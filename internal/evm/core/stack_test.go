@@ -7,11 +7,17 @@ import (
 
 func TestStackPushPop(t *testing.T) {
 	s := NewStack()
-	s.Push(big.NewInt(1))
+	err := s.Push(big.NewInt(1))
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
 	if s.Len() != 1 {
 		t.Fatalf("expected length 1, got %d", s.Len())
 	}
-	v := s.Pop()
+	v, err := s.Pop()
+	if err != nil {
+		t.Fatalf("Pop failed: %v", err)
+	}
 	if v.Int64() != 1 {
 		t.Fatalf("expected 1, got %s", v)
 	}
@@ -22,42 +28,83 @@ func TestStackPushPop(t *testing.T) {
 
 func TestStackPeek(t *testing.T) {
 	s := NewStack()
-	s.Push(big.NewInt(1))
-	s.Push(big.NewInt(2))
-	if s.Peek(0).Int64() != 2 {
+	err := s.Push(big.NewInt(1))
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
+	err = s.Push(big.NewInt(2))
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
+	v, err := s.Peek(0)
+	if err != nil {
+		t.Fatalf("Peek failed: %v", err)
+	}
+	if v.Int64() != 2 {
 		t.Fatalf("peek top failed")
 	}
-	if s.Peek(1).Int64() != 1 {
+	v, err = s.Peek(1)
+	if err != nil {
+		t.Fatalf("Peek failed: %v", err)
+	}
+	if v.Int64() != 1 {
 		t.Fatalf("peek second failed")
 	}
 }
 
 func TestStackDupSwap(t *testing.T) {
 	s := NewStack()
-	s.Push(big.NewInt(1))
-	s.Push(big.NewInt(2))
-	s.Dup(1)
-	if s.Peek(0).Int64() != 2 {
+	err := s.Push(big.NewInt(1))
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
+	err = s.Push(big.NewInt(2))
+	if err != nil {
+		t.Fatalf("Push failed: %v", err)
+	}
+	err = s.Dup(1)
+	if err != nil {
+		t.Fatalf("Dup failed: %v", err)
+	}
+	v, err := s.Peek(0)
+	if err != nil {
+		t.Fatalf("Peek failed: %v", err)
+	}
+	if v.Int64() != 2 {
 		t.Fatalf("dup failed")
 	}
-	s.Swap(2)
-	if s.Peek(0).Int64() != 1 {
+	err = s.Swap(2)
+	if err != nil {
+		t.Fatalf("Swap failed: %v", err)
+	}
+	v, err = s.Peek(0)
+	if err != nil {
+		t.Fatalf("Peek failed: %v", err)
+	}
+	if v.Int64() != 1 {
 		t.Fatalf("swap failed")
 	}
 }
 
 func TestStackUnderflow(t *testing.T) {
-	defer func() { recover() }()
 	s := NewStack()
-	s.Pop()
-	t.Fatal("expected panic on underflow")
+	_, err := s.Pop()
+	if err == nil {
+		t.Fatal("expected error on underflow")
+	}
 }
 
 func TestStackOverflow(t *testing.T) {
-	defer func() { recover() }()
 	s := NewStack()
-	for i := 0; i < StackLimit+1; i++ {
-		s.Push(big.NewInt(int64(i)))
+	for i := 0; i < StackLimit; i++ {
+		err := s.Push(big.NewInt(int64(i)))
+		if err != nil {
+			t.Fatalf("Push failed at %d: %v", i, err)
+		}
 	}
-	t.Fatal("expected panic on overflow")
+	// This should fail
+	err := s.Push(big.NewInt(999))
+	if err == nil {
+		t.Fatal("expected error on overflow")
+	}
 }

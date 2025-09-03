@@ -35,7 +35,7 @@ func TestOpSha3(t *testing.T) {
 		t.Fatalf("Expected stack size 1, got %d", stack.Len())
 	}
 
-	result := stack.Pop()
+	result := stack.PopSafe()
 
 	// Compute expected hash using the same method
 	hasher := sha3.NewLegacyKeccak256()
@@ -69,7 +69,7 @@ func TestOpSha3Empty(t *testing.T) {
 		t.Fatalf("Expected stack size 1, got %d", stack.Len())
 	}
 
-	result := stack.Pop()
+	result := stack.PopSafe()
 
 	// Compute expected hash for empty data
 	hasher := sha3.NewLegacyKeccak256()
@@ -111,7 +111,7 @@ func TestOpSha3LargeData(t *testing.T) {
 		t.Fatalf("Expected stack size 1, got %d", stack.Len())
 	}
 
-	result := stack.Pop()
+	result := stack.PopSafe()
 
 	// Compute expected hash
 	hasher := sha3.NewLegacyKeccak256()

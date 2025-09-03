@@ -7,20 +7,20 @@ import (
 
 func TestOpAnd(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(3))
-	i.stack.Push(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(3))
+	i.stack.PushSafe(big.NewInt(1))
 	opAnd(i, 0)
-	if i.stack.Pop().Int64() != 1 {
+	if i.stack.PopSafe().Int64() != 1 {
 		t.Fatalf("and failed")
 	}
 }
 
 func TestOpShl(t *testing.T) {
 	i := newInterp()
-	i.stack.Push(big.NewInt(1))
-	i.stack.Push(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(1))
 	opShl(i, 0)
-	if i.stack.Pop().Int64() != 2 {
+	if i.stack.PopSafe().Int64() != 2 {
 		t.Fatalf("shl failed")
 	}
 }
