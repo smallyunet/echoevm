@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/errors"
 )
 
@@ -45,11 +46,11 @@ func parseFlags() (string, *cliConfig, error) {
 		cfg := &cliConfig{}
 		fs.StringVar(&cfg.Bin, "bin", "", "path to contract .bin file")
 		fs.StringVar(&cfg.Artifact, "artifact", "", "path to Hardhat artifact JSON")
-		fs.StringVar(&cfg.Mode, "mode", "full", "execution mode: deploy or full")
+		fs.StringVar(&cfg.Mode, "mode", config.DefaultExecutionMode, "execution mode: deploy or full")
 		fs.StringVar(&cfg.Function, "function", "", "function signature, e.g. 'add(uint256,uint256)'")
 		fs.StringVar(&cfg.Args, "args", "", "comma separated arguments for the function")
 		fs.StringVar(&cfg.Calldata, "calldata", "", "hex encoded calldata")
-		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
 		if cfg.Bin == "" && cfg.Artifact == "" {
 			fs.Usage()
@@ -61,8 +62,8 @@ func parseFlags() (string, *cliConfig, error) {
 		fs := flag.NewFlagSet("block", flag.ExitOnError)
 		cfg := &cliConfig{}
 		fs.IntVar(&cfg.Block, "block", -1, "block number to execute contract transactions from")
-		fs.StringVar(&cfg.RPC, "rpc", "https://cloudflare-eth.com", "ethereum RPC endpoint")
-		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.StringVar(&cfg.RPC, "rpc", config.DefaultEthereumRPC, "ethereum RPC endpoint")
+		fs.StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
 		if cfg.Block < 0 {
 			fs.Usage()
@@ -75,8 +76,8 @@ func parseFlags() (string, *cliConfig, error) {
 		cfg := &cliConfig{}
 		fs.IntVar(&cfg.StartBlock, "start", -1, "start block number for range execution")
 		fs.IntVar(&cfg.EndBlock, "end", -1, "end block number for range execution")
-		fs.StringVar(&cfg.RPC, "rpc", "https://cloudflare-eth.com", "ethereum RPC endpoint")
-		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.StringVar(&cfg.RPC, "rpc", config.DefaultEthereumRPC, "ethereum RPC endpoint")
+		fs.StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
 		if cfg.StartBlock < 0 || cfg.EndBlock < 0 {
 			fs.Usage()
@@ -91,8 +92,8 @@ func parseFlags() (string, *cliConfig, error) {
 	case "serve":
 		fs := flag.NewFlagSet("serve", flag.ExitOnError)
 		cfg := &cliConfig{}
-		fs.StringVar(&cfg.RPCEndpoint, "http", "localhost:8545", "HTTP RPC endpoint address")
-		fs.StringVar(&cfg.LogLevel, "log-level", "info", "log level: trace, debug, info, warn, error")
+		fs.StringVar(&cfg.RPCEndpoint, "http", config.DefaultRPCEndpoint, "HTTP RPC endpoint address")
+		fs.StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "log level: trace, debug, info, warn, error")
 		fs.Parse(os.Args[2:])
 		return "serve", cfg, nil
 

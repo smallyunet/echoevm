@@ -3,6 +3,8 @@ package core
 import (
 	"math/big"
 	"testing"
+
+	"github.com/smallyunet/echoevm/internal/config"
 )
 
 func TestStackPushPop(t *testing.T) {
@@ -96,7 +98,7 @@ func TestStackUnderflow(t *testing.T) {
 
 func TestStackOverflow(t *testing.T) {
 	s := NewStack()
-	for i := 0; i < StackLimit; i++ {
+	for i := 0; i < config.StackLimit; i++ {
 		err := s.Push(big.NewInt(int64(i)))
 		if err != nil {
 			t.Fatalf("Push failed at %d: %v", i, err)

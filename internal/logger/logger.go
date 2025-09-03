@@ -60,7 +60,7 @@ func New(config *Config) (*Logger, error) {
 	case "stderr":
 		output = zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: config.TimeFormat}
 	default:
-		file, err := os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		file, err := os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, config.DefaultLogFileMode)
 		if err != nil {
 			return nil, errors.NewLogError(errors.LogLevelError, "failed to open log file", config.Component)
 		}

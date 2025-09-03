@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/config"
 )
 
 // Server represents the RPC server for echoevm
@@ -121,22 +122,22 @@ func (s *Server) Stop() error {
 func (s *Server) GetAPIs() []rpc.API {
 	return []rpc.API{
 		{
-			Namespace: "eth",
-			Version:   "1.0",
+			Namespace: config.DefaultAPINamespace,
+			Version:   config.DefaultAPIVersion,
 			Service:   NewEthAPI(s),
-			Public:    true,
+			Public:    config.DefaultAPIPublic,
 		},
 		{
 			Namespace: "web3",
-			Version:   "1.0",
+			Version:   config.DefaultAPIVersion,
 			Service:   NewWeb3API(s),
-			Public:    true,
+			Public:    config.DefaultAPIPublic,
 		},
 		{
 			Namespace: "net",
-			Version:   "1.0",
+			Version:   config.DefaultAPIVersion,
 			Service:   NewNetAPI(s),
-			Public:    true,
+			Public:    config.DefaultAPIPublic,
 		},
 	}
 }

@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/errors"
 )
-
-const StackLimit = 1024 // EVM stack size limit
 
 type Stack struct {
 	data []*big.Int
@@ -20,7 +19,7 @@ func NewStack() *Stack {
 
 // Push pushes an item onto the stack.
 func (s *Stack) Push(x *big.Int) error {
-	if len(s.data) >= StackLimit {
+	if len(s.data) >= config.StackLimit {
 		return errors.ErrStackOverflow
 	}
 	s.data = append(s.data, new(big.Int).Set(x)) // make a copy to prevent mutation

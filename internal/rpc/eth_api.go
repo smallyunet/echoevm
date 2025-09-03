@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 )
 
@@ -53,7 +54,7 @@ func (api *EthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber,
 	block["parentHash"] = common.Hash{}
 	block["nonce"] = hexutil.Uint64(0)
 	block["sha3Uncles"] = common.Hash{}
-	block["logsBloom"] = hexutil.Bytes(make([]byte, 256))
+	block["logsBloom"] = hexutil.Bytes(make([]byte, config.LogsBloomSize))
 	block["transactionsRoot"] = common.Hash{}
 	block["stateRoot"] = common.Hash{}
 	block["receiptsRoot"] = common.Hash{}
@@ -62,9 +63,9 @@ func (api *EthAPI) GetBlockByNumber(ctx context.Context, number rpc.BlockNumber,
 	block["totalDifficulty"] = (*hexutil.Big)(big.NewInt(0))
 	block["extraData"] = hexutil.Bytes([]byte{})
 	block["size"] = hexutil.Uint64(0)
-	block["gasLimit"] = hexutil.Uint64(15000000)
+	block["gasLimit"] = hexutil.Uint64(config.DefaultBlockGasLimit)
 	block["gasUsed"] = hexutil.Uint64(0)
-	block["timestamp"] = hexutil.Uint64(0)
+	block["timestamp"] = hexutil.Uint64(config.DefaultTimestamp)
 	block["transactions"] = []interface{}{}
 	block["uncles"] = []common.Hash{}
 
@@ -131,7 +132,7 @@ func (api *EthAPI) GetTransactionReceipt(ctx context.Context, hash common.Hash) 
 	receipt["gasUsed"] = hexutil.Uint64(0)
 	receipt["contractAddress"] = nil
 	receipt["logs"] = []interface{}{}
-	receipt["logsBloom"] = hexutil.Bytes(make([]byte, 256))
+	receipt["logsBloom"] = hexutil.Bytes(make([]byte, config.LogsBloomSize))
 	receipt["status"] = hexutil.Uint64(1)
 
 	return receipt, nil
