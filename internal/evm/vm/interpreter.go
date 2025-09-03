@@ -129,11 +129,16 @@ func (i *Interpreter) Run() {
 		pc := i.pc
 		op := i.code[i.pc]
 		i.pc++
+
+		// Log execution step with structured data
 		logger.Trace().
-			Str("pc", fmt.Sprintf("0x%04x", pc)).
-			Str("op", core.OpcodeName(op)).
-			Int("stack", i.stack.Len()).
-			Msg("step")
+			Uint64("pc", pc).
+			Str("pc_hex", fmt.Sprintf("0x%04x", pc)).
+			Uint8("opcode", op).
+			Str("opcode_name", core.OpcodeName(op)).
+			Int("stack_size", i.stack.Len()).
+			Strs("stack", i.stack.Snapshot()).
+			Msg("EVM execution step")
 
 		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
 			opPush(i, op)
@@ -150,17 +155,31 @@ func (i *Interpreter) Run() {
 
 		handler, ok := handlerMap[op]
 		if !ok {
+			// Log invalid opcode error with context
+			logger.Error().
+				Uint64("pc", pc).
+				Uint8("opcode", op).
+				Str("opcode_hex", fmt.Sprintf("0x%02x", op)).
+				Int("stack_size", i.stack.Len()).
+				Strs("stack", i.stack.Snapshot()).
+				Msg("Invalid opcode encountered")
+
 			// Instead of panicking, we'll set the reverted flag
 			i.reverted = true
 			return
 		}
 
 		handler(i, op)
+
+		// Log post-execution state
 		logger.Trace().
-			Str("pc", fmt.Sprintf("0x%04x", i.pc)).
-			Str("op", core.OpcodeName(op)).
-			Any("stack", i.stack.Snapshot()).
-			Msg("after")
+			Uint64("pc", i.pc).
+			Str("pc_hex", fmt.Sprintf("0x%04x", i.pc)).
+			Uint8("opcode", op).
+			Str("opcode_name", core.OpcodeName(op)).
+			Int("stack_size", i.stack.Len()).
+			Strs("stack", i.stack.Snapshot()).
+			Msg("EVM execution completed")
 
 		// If RETURN, REVERT or STOP, exit early
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {

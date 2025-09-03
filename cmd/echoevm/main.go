@@ -49,10 +49,10 @@ func main() {
 	switch cmd {
 	case "serve":
 		fmt.Println("Starting RPC server...")
-		runRPCServer(cfg)
+		runRPCServer(cfg, logger)
 		return
 	case "range":
-		runBlockRange(cfg)
+		runBlockRange(cfg, logger)
 		return
 	case "block":
 		ctx := context.Background()
@@ -61,7 +61,7 @@ func main() {
 			logger.Fatal().Err(err).Msg("Failed to connect to RPC endpoint")
 			os.Exit(1)
 		}
-		runBlock(ctx, client, cfg.Block)
+		runBlock(ctx, client, cfg.Block, logger)
 		return
 	}
 
@@ -244,7 +244,7 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 
 // runBlock connects to an Ethereum RPC endpoint and executes all contract
 // transactions in the specified block using the echoevm interpreter.
-func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
+func runBlock(ctx context.Context, client *ethclient.Client, blockNum int, logger zerolog.Logger) {
 	bnum := big.NewInt(int64(blockNum))
 	block, err := client.BlockByNumber(ctx, bnum)
 	if err != nil {
@@ -317,7 +317,7 @@ func runBlock(ctx context.Context, client *ethclient.Client, blockNum int) {
 	logger.Info().Msgf("Executed block %d - %d/%d transactions succeeded", blockNum, success, len(contractTxs))
 }
 
-func runBlockRange(cfg *cliConfig) {
+func runBlockRange(cfg *cliConfig, logger zerolog.Logger) {
 	ctx := context.Background()
 	client, err := ethclient.DialContext(ctx, cfg.RPC)
 	if err != nil {
@@ -326,12 +326,12 @@ func runBlockRange(cfg *cliConfig) {
 	}
 	for n := cfg.StartBlock; n <= cfg.EndBlock; n++ {
 		logger.Info().Msgf("=== Executing block %d ===", n)
-		runBlock(ctx, client, n)
+		runBlock(ctx, client, n, logger)
 	}
 }
 
 // runRPCServer starts a JSON-RPC server compatible with Geth
-func runRPCServer(cfg *cliConfig) {
+func runRPCServer(cfg *cliConfig, logger zerolog.Logger) {
 	logger.Info().Msgf("Starting EchoEVM RPC server on %s", cfg.RPCEndpoint)
 
 	// Create new RPC server instance

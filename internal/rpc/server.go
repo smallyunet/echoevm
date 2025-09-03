@@ -38,8 +38,17 @@ func (s *Server) Start() error {
 	apis := s.GetAPIs()
 	for _, api := range apis {
 		if err := s.rpcServer.RegisterName(api.Namespace, api.Service); err != nil {
+			s.logger.Error().
+				Str("api_namespace", api.Namespace).
+				Err(err).
+				Msg("Failed to register API")
 			return fmt.Errorf("error registering API %s: %w", api.Namespace, err)
 		}
+		s.logger.Debug().
+			Str("api_namespace", api.Namespace).
+			Str("api_version", api.Version).
+			Bool("api_public", api.Public).
+			Msg("API registered successfully")
 	}
 
 	// Create HTTP server
@@ -48,9 +57,16 @@ func (s *Server) Start() error {
 	}
 
 	// Start listening
-	s.logger.Info().Msgf("Starting RPC server on %s", s.endpoint)
+	s.logger.Info().
+		Str("endpoint", s.endpoint).
+		Msg("Starting RPC server")
+
 	listener, err := net.Listen("tcp", s.endpoint)
 	if err != nil {
+		s.logger.Error().
+			Str("endpoint", s.endpoint).
+			Err(err).
+			Msg("Failed to start RPC server")
 		return fmt.Errorf("failed to start RPC server: %w", err)
 	}
 	s.listener = listener
@@ -59,23 +75,45 @@ func (s *Server) Start() error {
 	go func() {
 		err := s.httpServer.Serve(listener)
 		if err != nil && err != http.ErrServerClosed {
-			s.logger.Error().Err(err).Msg("HTTP server error")
+			s.logger.Error().
+				Str("endpoint", s.endpoint).
+				Err(err).
+				Msg("HTTP server error")
 		}
 	}()
+
+	s.logger.Info().
+		Str("endpoint", s.endpoint).
+		Msg("RPC server started successfully")
 
 	return nil
 }
 
 // Stop gracefully shuts down the RPC server
 func (s *Server) Stop() error {
+	s.logger.Info().Msg("Shutting down RPC server")
+
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(context.Background()); err != nil {
+			s.logger.Error().
+				Err(err).
+				Msg("Failed to shutdown HTTP server")
 			return err
 		}
+		s.logger.Debug().Msg("HTTP server shutdown completed")
 	}
+
 	if s.listener != nil {
-		return s.listener.Close()
+		if err := s.listener.Close(); err != nil {
+			s.logger.Error().
+				Err(err).
+				Msg("Failed to close listener")
+			return err
+		}
+		s.logger.Debug().Msg("Listener closed successfully")
 	}
+
+	s.logger.Info().Msg("RPC server shutdown completed")
 	return nil
 }
 
