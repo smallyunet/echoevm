@@ -1,14 +1,19 @@
-BINARY_NAME ?= echoevm
-BIN_DIR ?= bin
+ BINARY_NAME ?= echoevm
+ BIN_DIR ?= bin
+
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+VERSION    ?= dev
+LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build run run-rpc test test-binary test-contract test-unit test-all coverage clean
 
 install: ## Install the echoevm binary to GOPATH/bin
-	go install ./cmd/echoevm
+	go install -ldflags "$(LDFLAGS)" ./cmd/echoevm
 
-$(BIN_DIR)/$(BINARY_NAME): ## Build the echoevm binary
+$(BIN_DIR)/$(BINARY_NAME): ## Build the echoevm binary (with version ldflags)
 	@mkdir -p $(BIN_DIR)
-	go build -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/echoevm
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/echoevm
 
 build: $(BIN_DIR)/$(BINARY_NAME)
 

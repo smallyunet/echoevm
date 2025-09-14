@@ -1,67 +1,82 @@
 # EchoEVM Documentation
 
-Welcome to the EchoEVM documentation. This guide helps you find the information you need.
+Central index for EchoEVM reference, guides, and examples.
 
-## 📚 Documentation Index
+## 📚 Index
 
-### Getting Started
-- **[Main README](../README.md)** - Project overview, installation, and quick start guide
-- **[Configuration Guide](CONFIGURATION.md)** - Environment variables and configuration options
-- **[Logging Guide](LOGGING_GUIDE.md)** - Logging system usage and best practices
+### Core
+- [Main README](../README.md) – Overview, features, CLI, roadmap
+- [Configuration Guide](CONFIGURATION.md) – Environment variables & defaults
+- [Logging Guide](LOGGING_GUIDE.md) – Levels, formats, structured fields
 
 ### Testing
-- **[Testing Quick Start](TESTING_QUICK.md)** - Quick commands and test structure
-- **[Test Directory](../test/README.md)** - Test directory overview and usage
+- [Testing Quick Start](TESTING_QUICK.md) – Make targets & script usage
+- [Test Directory Overview](../test/README.md) – Integration test layout
 
-## 🚀 Quick Navigation
+### CLI Usage (Current Commands)
+- `deploy` – Run constructor, extract runtime
+- `call` – Execute runtime bytecode with ABI encoding
+- `trace` – JSON line trace of opcode execution
 
-### For New Users
-1. Start with the [Main README](../README.md) for project overview
-2. Check [Configuration Guide](CONFIGURATION.md) for setup options
-3. Use [Testing Quick Start](TESTING_QUICK.md) to run tests
-4. Explore [Test Directory](../test/README.md) for test structure
+### Planned / Roadmap
+- `disasm` – Human readable disassembly
+- `serve` – Lightweight JSON-RPC sandbox
+- `block` / `range` – Block replay for analysis
 
-### For Developers
-1. Review [Logging Guide](LOGGING_GUIDE.md) for debugging
-2. Explore [Test Directory](../test/README.md) for testing structure
-3. Check [Contract Testing](../test/contract/README.md) for smart contract development
+## 🚀 Quick Start Snippets
 
-### For Configuration
-- **Environment Variables**: See [Configuration Guide](CONFIGURATION.md)
-- **Logging Setup**: See [Logging Guide](LOGGING_GUIDE.md)
-- **Test Configuration**: See [Test Directory](../test/README.md)
+Deploy (print runtime):
+```bash
+echoevm deploy -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json --print
+```
 
-## 📖 Document Types
+Call (ABI encode add):
+```bash
+echoevm call -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json -f add(uint256,uint256) -A 7,11
+```
 
-### User Guides
-- Installation and setup instructions
-- Usage examples and tutorials
-- Configuration options
+Trace (limit steps):
+```bash
+echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json -f add(uint256,uint256) -A 1,2 --limit 25 | jq .
+```
 
-### Developer Guides
-- Testing procedures and best practices
-- Logging and debugging techniques
-- Code structure and architecture
+Trace with pre/post states:
+```bash
+echoevm trace -a ./test/contract/artifacts/contracts/03-control-flow/Loops.sol/Loops.json -f forLoop(uint256) -A 5 --full | head -n 40
+```
 
-### Reference Documentation
-- API documentation
-- Configuration reference
-- Error codes and troubleshooting
+## ⚙ Configuration & Logging
+See [Configuration Guide](CONFIGURATION.md) and [Logging Guide](LOGGING_GUIDE.md). Examples:
+```bash
+export ECHOEVM_LOG_LEVEL=debug
+echoevm call -a ./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json -f fact(uint256) -A 5
 
-## 🔧 Contributing to Documentation
+export ECHOEVM_LOG_LEVEL=trace
+echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
+```
 
-When updating documentation:
+## 🧪 Testing
+Fast path:
+```bash
+./test/test.sh          # all integration tests
+./test/test.sh --binary # only binary tests
+make test-unit          # Go unit tests
+```
+More detail: [Testing Quick Start](TESTING_QUICK.md).
 
-1. **Keep it current**: Update docs when features change
-2. **Be consistent**: Use consistent formatting and structure
-3. **Include examples**: Provide practical usage examples
-4. **Cross-reference**: Link related documents together
-5. **Test instructions**: Verify that all commands work
+## � Contribution Guidelines (Docs)
+When editing docs:
+1. Keep examples executable (copy/paste friendly)
+2. Update cross-links if filenames move
+3. Prefer present-tense, imperative style
+4. Include context (what + why) for complex snippets
+5. Validate new commands locally before publishing
 
-## 📝 Documentation Standards
+## 📝 Style
+- English, concise, technical
+- Use fenced code blocks with language hints
+- Avoid duplicating large code – link instead
+- Prefer relative links within repo
 
-- Use clear, concise language
-- Include code examples where appropriate
-- Maintain consistent formatting
-- Update this index when adding new documents
-- Keep links current and working
+---
+Additions welcome. Open a PR if you introduce a new top-level document so it can be linked here.
