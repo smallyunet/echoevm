@@ -1,39 +1,117 @@
-# EchoEVM Test Directory
-
-This directory contains all test-related files for the EchoEVM project.
+# EchoEVM Testing Guide
 
 ## Quick Start
 
-For testing commands and quick start guide, see [docs/TESTING_QUICK.md](../docs/TESTING_QUICK.md).
+EchoEVM now uses a simplified test script to run all tests with one command:
 
-## Directory Structure
+```bash
+# Run all tests
+./test/test.sh
+
+# Run binary tests only (fast)
+./test/test.sh --binary
+
+# Run contract tests only (comprehensive)
+./test/test.sh --contract
+
+# Show detailed output
+./test/test.sh --verbose
+
+# Show help
+./test/test.sh --help
+```
+
+## Test Content
+
+### Binary Tests (3 tests)
+- Addition
+- Multiplication
+- Summation
+
+### Contract Tests (8 tests)
+- Data Types: Addition, Subtraction, Factorial
+- Control Flow: Require Pass, Require Fail, IfElse
+- Functions: Visibility
+- Events: Handling
+
+## Test Structure
 
 ```
 test/
-├── bins/                   # Binary contract files
-├── contract/               # Hardhat contract development environment
-├── scripts/                # Test execution scripts
-├── config/                 # Test configuration files
-├── utils/                  # Test utility functions
-├── docs/                   # Test documentation
-└── reports/                # Test reports
+├── test.sh              # Main test script (only one you need to use)
+├── binary/              # Binary test files
+│   ├── Add.sol
+│   ├── Multiply.sol
+│   ├── Sum.sol
+│   └── build.sh
+├── contract/            # Contract test files
+│   ├── contracts/
+│   ├── artifacts/
+│   └── ...
+└── README.md           # This file
 ```
 
-## Documentation
+## Output Example
 
-- **Quick Start**: [docs/TESTING_QUICK.md](../docs/TESTING_QUICK.md)
-- **Comprehensive Guide**: [docs/README.md](docs/README.md)
-- **Contract Testing**: [contract/README.md](contract/README.md)
+```
+=========================================
+EchoEVM Test Suite
+=========================================
 
-## Development Tools
+Binary Tests
+----------------------------------------
 
-- **Contract Development**: Use the Hardhat environment in `contract/`
-- **Binary Contracts**: Use pre-compiled contracts in `bins/`
-- **Testing Tools**: Use helper functions in `utils/`
+Testing: Addition
+✓ PASSED
 
-## Prerequisites
+Testing: Multiplication
+✓ PASSED
 
-- Go environment set up
-- Node.js for contract compilation
-- EchoEVM project compiled (`make build`)
-- Test scripts need execution permissions (`chmod +x test/scripts/*.sh`)
+Testing: Summation
+✓ PASSED
+
+Contract Tests
+----------------------------------------
+
+Testing: Data Types - Addition
+✓ PASSED
+
+Testing: Data Types - Subtraction
+✓ PASSED
+
+Testing: Data Types - Factorial
+✓ PASSED
+
+Testing: Control Flow - Require Pass
+✓ PASSED
+
+Testing: Control Flow - Require Fail
+✓ PASSED
+
+Testing: Control Flow - IfElse
+✓ PASSED
+
+Testing: Function Visibility
+✓ PASSED
+
+Testing: Event Handling
+✓ PASSED
+
+=========================================
+Test Results
+Passed: 11
+Failed: 0
+Total: 11
+
+🎉 All tests passed!
+```
+
+## Adding New Tests
+
+To add new tests, simply edit the `test/test.sh` file:
+
+1. Add binary tests in the `run_binary_tests()` function
+2. Add contract tests in the `run_contract_tests()` function
+3. Use the format: `run_test "Test Name" "command"`
+
+It's that simple!

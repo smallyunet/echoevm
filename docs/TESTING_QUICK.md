@@ -3,33 +3,48 @@
 ## Quick Commands
 
 ```bash
-# Run all tests
+# Go unit tests (race detector)
+make test-unit
+
+# Binary (.bin) contract tests (fast smoke)
+make test-binary   # or just: make test
+
+# Hardhat artifact contract tests
+make test-contract
+
+# All integration tests (binary + contract, verbose)
 make test-all
 
-# Run specific test suites
-make test-unit      # Unit tests only
-make test           # Basic integration tests
-make test-advanced  # Advanced integration tests with detailed reporting
+# Coverage (Go packages)
+make coverage
 ```
 
 ## Manual Testing
 
 ```bash
-# Test arithmetic operations
-./test/scripts/basic.sh
+# Unified test runner (all integration tests)
+./test/test.sh
 
-# Advanced test scenarios
-./test/scripts/advanced.sh
+# Only binary contract tests
+./test/test.sh --binary
+
+# Only Hardhat artifact contract tests
+./test/test.sh --contract
+
+# Verbose mode
+./test/test.sh --verbose
 ```
 
 ## Test Structure
 
+Current structure (simplified):
+
 ```
 test/
-├── scripts/           # Test execution scripts
-├── config/           # Test configuration files
-├── docs/             # Detailed documentation
-└── reports/          # Auto-generated test reports
+├── test.sh             # Unified runner
+├── scripts/            # Backwards-compatible wrappers (basic/advanced/run_all)
+├── binary/             # Simple sample .sol + build.sh -> .bin outputs
+└── contract/           # Hardhat project (artifacts/, contracts/, tests/ etc.)
 ```
 
 ## Documentation
@@ -41,8 +56,6 @@ test/
 
 ## Legacy Files
 
-The following files have been reorganized:
-- `test.sh` → `test/scripts/basic.sh`
-- `test_advanced.sh` → `test/scripts/advanced.sh`  
-- `test_config.toml` → `test/config/test_cases.toml`
-- `TESTING.md` → `test/docs/README.md`
+Legacy mapping / compatibility:
+- Older docs referenced `test/scripts/basic.sh` and `advanced.sh`; wrappers now delegate to `test/test.sh`.
+	Prefer calling `test/test.sh` directly going forward.

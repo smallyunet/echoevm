@@ -11,8 +11,6 @@ Welcome to the EchoEVM documentation. This guide helps you find the information 
 
 ### Testing
 - **[Testing Quick Start](TESTING_QUICK.md)** - Quick commands and test structure
-- **[Comprehensive Testing Guide](../test/docs/README.md)** - Detailed testing documentation
-- **[Contract Testing](../test/contract/README.md)** - Solidity contract testing environment
 - **[Test Directory](../test/README.md)** - Test directory overview and usage
 
 ## 🚀 Quick Navigation
@@ -25,13 +23,13 @@ Welcome to the EchoEVM documentation. This guide helps you find the information 
 
 ### For Developers
 1. Review [Logging Guide](LOGGING_GUIDE.md) for debugging
-2. Explore [Comprehensive Testing Guide](../test/docs/README.md) for detailed testing
+2. Explore [Test Directory](../test/README.md) for testing structure
 3. Check [Contract Testing](../test/contract/README.md) for smart contract development
 
 ### For Configuration
 - **Environment Variables**: See [Configuration Guide](CONFIGURATION.md)
 - **Logging Setup**: See [Logging Guide](LOGGING_GUIDE.md)
-- **Test Configuration**: See [Comprehensive Testing Guide](../test/docs/README.md)
+- **Test Configuration**: See [Test Directory](../test/README.md)
 
 ## 📖 Document Types
 

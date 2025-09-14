@@ -158,17 +158,26 @@ The project includes comprehensive test suites to validate EVM functionality:
 
 ```bash
 # Run all tests
-make test-all
+./test/test.sh
 
-# Run basic integration tests
-make test
+# Run only binary tests (fast)
+./test/test.sh --binary
 
-# Run advanced tests with detailed reporting
-make test-advanced
+# Run only contract tests (comprehensive)
+./test/test.sh --contract
 
-# Run Go unit tests
-make test-unit
+# Run with verbose output
+./test/test.sh --verbose
+
+# Show help
+./test/test.sh --help
 ```
+
+### Test Structure
+
+- **Single Script**: One `test/test.sh` script handles all testing
+- **Binary Tests** (`test/binary/`): Quick tests using pre-compiled bytecode
+- **Contract Tests** (`test/contract/`): Full contract execution tests with Hardhat artifacts
 
 ### Test Coverage
 
@@ -181,19 +190,7 @@ The test suite covers:
 - **Error Handling**: REVERT conditions, invalid inputs
 - **Performance**: Loop execution, factorial calculations
 
-### Manual Testing
-
-Test specific functionality manually:
-
-```bash
-# Test arithmetic operations
-./test/scripts/basic.sh
-
-# Advanced test scenarios
-./test/scripts/advanced.sh
-```
-
-For detailed testing documentation, see [docs/TESTING_QUICK.md](docs/TESTING_QUICK.md) and [test/docs/README.md](test/docs/README.md).
+For detailed testing documentation, see [test/README.md](test/README.md).
 
 ## Architecture
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	configpkg "github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/errors"
 )
 
@@ -60,7 +61,9 @@ func New(config *Config) (*Logger, error) {
 	case "stderr":
 		output = zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: config.TimeFormat}
 	default:
-		file, err := os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, config.DefaultLogFileMode)
+		// When output is neither stdout nor stderr we treat it as a file path.
+		// Use the default file permission defined in the config constants package.
+		file, err := os.OpenFile(config.Output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, configpkg.DefaultLogFileMode)
 		if err != nil {
 			return nil, errors.NewLogError(errors.LogLevelError, "failed to open log file", config.Component)
 		}
