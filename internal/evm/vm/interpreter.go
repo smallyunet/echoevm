@@ -25,6 +25,7 @@ type Interpreter struct {
 	storage     map[string]*big.Int
 	blockNumber uint64
 	reverted    bool
+	logs        []LogEntry
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -64,6 +65,9 @@ func (i *Interpreter) SetBlockNumber(num uint64) {
 	i.blockNumber = num
 }
 
+// Logs returns the collected LOG entries emitted during execution.
+func (i *Interpreter) Logs() []LogEntry { return i.logs }
+
 // OpcodeHandler defines a function that executes a specific opcode
 type OpcodeHandler func(i *Interpreter, op byte)
 
@@ -75,6 +79,8 @@ func init() {
 	handlerMap[core.ADD] = opAdd
 	handlerMap[core.SUB] = opSub
 	handlerMap[core.MUL] = opMul
+	handlerMap[core.ADDMOD] = opAddmod
+	handlerMap[core.MULMOD] = opMulmod
 	handlerMap[core.EXP] = opExp
 	handlerMap[core.DIV] = opDiv
 	handlerMap[core.MOD] = opMod
@@ -130,6 +136,11 @@ func init() {
 	handlerMap[core.NUMBER] = opNumber
 
 	handlerMap[core.DELEGATECALL] = opDelegateCall
+
+	// logs (LOG0 - LOG4 at 0xa0 - 0xa4)
+	for op := byte(0xa0); op <= 0xa4; op++ {
+		handlerMap[op] = opLog
+	}
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid

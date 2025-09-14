@@ -1,9 +1,10 @@
 package vm
 
 import (
-	"github.com/smallyunet/echoevm/internal/evm/core"
 	"math/big"
 	"testing"
+
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func newInterp() *Interpreter {
@@ -58,5 +59,46 @@ func TestOpSgt(t *testing.T) {
 	opSgt(i, 0)
 	if i.stack.PopSafe().Int64() != 1 {
 		t.Fatalf("sgt failed")
+	}
+}
+
+func TestOpAddMod(t *testing.T) {
+	i := newInterp()
+	// Stack push order: a, b, m (our op pops m, b, a)
+	i.stack.PushSafe(big.NewInt(5))  // a
+	i.stack.PushSafe(big.NewInt(7))  // b
+	i.stack.PushSafe(big.NewInt(10)) // m
+	opAddmod(i, 0)
+	if i.stack.Len() != 1 || i.stack.PeekSafe(0).Cmp(big.NewInt(2)) != 0 {
+		t.Fatalf("addmod expected 2 got %s", i.stack.PeekSafe(0).String())
+	}
+	// modulus zero -> 0
+	i = newInterp()
+	i.stack.PushSafe(big.NewInt(1))
+	i.stack.PushSafe(big.NewInt(2))
+	i.stack.PushSafe(big.NewInt(0))
+	opAddmod(i, 0)
+	if i.stack.PeekSafe(0).Sign() != 0 {
+		t.Fatalf("addmod modulus 0 expected 0 got %s", i.stack.PeekSafe(0).String())
+	}
+}
+
+func TestOpMulMod(t *testing.T) {
+	i := newInterp()
+	i.stack.PushSafe(big.NewInt(5))  // a
+	i.stack.PushSafe(big.NewInt(7))  // b
+	i.stack.PushSafe(big.NewInt(11)) // m
+	opMulmod(i, 0)
+	if i.stack.Len() != 1 || i.stack.PeekSafe(0).Cmp(big.NewInt(2)) != 0 {
+		t.Fatalf("mulmod expected 2 got %s", i.stack.PeekSafe(0).String())
+	}
+	// modulus zero -> 0
+	i = newInterp()
+	i.stack.PushSafe(big.NewInt(3))
+	i.stack.PushSafe(big.NewInt(4))
+	i.stack.PushSafe(big.NewInt(0))
+	opMulmod(i, 0)
+	if i.stack.PeekSafe(0).Sign() != 0 {
+		t.Fatalf("mulmod modulus 0 expected 0 got %s", i.stack.PeekSafe(0).String())
 	}
 }

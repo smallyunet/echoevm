@@ -95,11 +95,41 @@ func runCall(cmd *cobra.Command) error {
 		logger.Error().Msg("execution reverted")
 		os.Exit(1)
 	}
-	// Print result (top of stack)
+	// Prepare output
+	type logOut struct {
+		Index  int      `json:"index"`
+		Topics []string `json:"topics"`
+		Data   string   `json:"data"`
+	}
+	logs := i.Logs()
+
+	if globalFlags.output == "json" {
+		out := struct {
+			Result string   `json:"result,omitempty"`
+			Logs   []logOut `json:"logs,omitempty"`
+		}{}
+		if i.Stack().Len() > 0 {
+			out.Result = i.Stack().PeekSafe(0).String()
+		}
+		for _, l := range logs {
+			out.Logs = append(out.Logs, logOut{Index: l.Index, Topics: l.Topics, Data: l.Data})
+		}
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(out)
+	}
+
+	// Plain output
 	if i.Stack().Len() > 0 {
 		logger.Info().Msgf("Result: %s", i.Stack().PeekSafe(0).String())
 	} else {
 		logger.Info().Msg("No return value")
+	}
+	if len(logs) > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "Emitted %d log(s):\n", len(logs))
+		for _, l := range logs {
+			fmt.Fprintf(cmd.OutOrStdout(), "  #%d topics=%v data=%s\n", l.Index, l.Topics, l.Data)
+		}
 	}
 	return nil
 }

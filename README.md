@@ -247,6 +247,7 @@ echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.j
 - serve: lightweight JSON-RPC (eth_*) sandbox
 - block / range: replay selective mainnet blocks for educational analysis
 - (done) version: embed commit / build info
+- (partial) LOG0-LOG4: captured and exposed via interpreter Logs()
 - Expanded ABI types (address, bytes, arrays)
 - Gas accounting & metering (currently simplified / placeholder in several paths)
 

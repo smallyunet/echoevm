@@ -210,6 +210,23 @@ run_contract_tests() {
     else
         echo -e "${RED}✗ FAILED (unexpected success)${NC}"; ((FAILED++))
     fi
+
+    # Emit multiple logs via new EmitEvents contract (should succeed)
+    echo -e "\n${YELLOW}Testing: Events - Emit all (fireAll)${NC}"
+    if runtime=$(deploy_runtime artifact "$artifacts/05-events/EmitEvents.sol/EmitEvents.json") && [ -n "$runtime" ]; then
+        # Call fireAll (no args)
+        tmpfile=$(mktemp)
+        echo -n "$runtime" > "$tmpfile"
+    # Quote the function signature to avoid shell interpreting parentheses
+    if $ECHOEVM_CMD call -r "$tmpfile" -f 'fireAll()' > /dev/null 2>&1; then
+            echo -e "${GREEN}✓ PASSED${NC}"; ((PASSED++))
+        else
+            echo -e "${RED}✗ FAILED (call fireAll)${NC}"; ((FAILED++))
+        fi
+        rm -f "$tmpfile"
+    else
+        echo -e "${RED}✗ FAILED (deploy EmitEvents)${NC}"; ((FAILED++))
+    fi
 }
 
 # Main execution logic
