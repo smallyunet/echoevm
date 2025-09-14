@@ -27,6 +27,17 @@ type Interpreter struct {
 	reverted    bool
 }
 
+// TraceStep captures a single execution step for external tracing.
+type TraceStep struct {
+	PC         uint64   `json:"pc"`
+	Opcode     byte     `json:"opcode"`
+	OpcodeName string   `json:"opcode_name"`
+	Stack      []string `json:"stack"`
+	StackSize  int      `json:"stack_size"`
+	Reverted   bool     `json:"reverted"`
+	Halt       bool     `json:"halt"`
+}
+
 func New(code []byte) *Interpreter {
 	return &Interpreter{
 		code:    code,
@@ -183,6 +194,50 @@ func (i *Interpreter) Run() {
 
 		// If RETURN, REVERT or STOP, exit early
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {
+			return
+		}
+	}
+}
+
+// RunWithHook executes the bytecode emitting a TraceStep to the provided hook before
+// and after each opcode. If hook returns false, execution stops early.
+func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
+	for i.pc < uint64(len(i.code)) {
+		pc := i.pc
+		op := i.code[i.pc]
+		i.pc++
+
+		pre := TraceStep{PC: pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: false}
+		if !hook(pre) {
+			return
+		}
+
+		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
+			opPush(i, op)
+		} else if op >= 0x80 && op <= 0x8f { // DUP1~DUP16
+			opDup(i, op)
+		} else if op >= 0x90 && op <= 0x9f { // SWAP1~SWAP16
+			opSwap(i, op)
+		} else {
+			handler, ok := handlerMap[op]
+			if !ok {
+				i.reverted = true
+				post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true}
+				hook(post)
+				return
+			}
+			handler(i, op)
+		}
+
+		halt := false
+		if op == core.RETURN || op == core.REVERT || op == core.STOP {
+			halt = true
+		}
+		post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: halt}
+		if !hook(post) {
+			return
+		}
+		if halt {
 			return
 		}
 	}
