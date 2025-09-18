@@ -57,7 +57,7 @@ This document describes the logging system improvements made to EchoEVM to enhan
 ## Structured Logging Fields
 
 ### Common Fields
-- `component`: The component generating the log (e.g., "echoevm", "rpc", "vm")
+- `component`: The component generating the log (e.g., "echoevm", "vm")
 - `version`: Application version
 - `timestamp`: Log timestamp in RFC3339 format
 
@@ -130,7 +130,7 @@ This document describes the logging system improvements made to EchoEVM to enhan
 
 ### 2. Include Relevant Context
 - Always include component and version
-- Include relevant IDs (request_id, tx_hash, etc.)
+- Include relevant IDs (tx_hash, trace_id, etc.)
 - Include performance metrics when relevant
 - Include error details with proper error handling
 
