@@ -8,7 +8,6 @@ import (
 
 // Environment variable names
 const (
-	EnvRPCEndpoint   = "ECHOEVM_RPC_ENDPOINT"
 	EnvLogLevel      = "ECHOEVM_LOG_LEVEL"
 	EnvLogFormat     = "ECHOEVM_LOG_FORMAT"
 	EnvLogOutput     = "ECHOEVM_LOG_OUTPUT"
@@ -72,43 +71,33 @@ func GetDurationEnv(key string, defaultValue time.Duration) time.Duration {
 
 // RuntimeConfig holds runtime configuration that can be overridden by environment variables
 type RuntimeConfig struct {
-	RPCEndpoint     string
-	LogLevel        string
-	LogFormat       string
-	LogOutput       string
-	EthereumRPC     string
-	GasLimit        uint64
-	BlockGasLimit   uint64
-	ChainID         uint64
-	ExecutionMode   string
-	APINamespace    string
-	APIVersion      string
-	APIPublic       bool
-	RPCTimeout      time.Duration
-	RPCReadTimeout  time.Duration
-	RPCWriteTimeout time.Duration
-	RPCIdleTimeout  time.Duration
+	LogLevel      string
+	LogFormat     string
+	LogOutput     string
+	EthereumRPC   string
+	GasLimit      uint64
+	BlockGasLimit uint64
+	ChainID       uint64
+	ExecutionMode string
+	APINamespace  string
+	APIVersion    string
+	APIPublic     bool
 }
 
 // LoadRuntimeConfig loads configuration from environment variables with defaults
 func LoadRuntimeConfig() *RuntimeConfig {
 	return &RuntimeConfig{
-		RPCEndpoint:     GetStringEnv(EnvRPCEndpoint, DefaultRPCEndpoint),
-		LogLevel:        GetStringEnv(EnvLogLevel, DefaultLogLevel),
-		LogFormat:       GetStringEnv(EnvLogFormat, DefaultLogFormat),
-		LogOutput:       GetStringEnv(EnvLogOutput, DefaultLogOutput),
-		EthereumRPC:     GetStringEnv(EnvEthereumRPC, DefaultEthereumRPC),
-		GasLimit:        GetUint64Env(EnvGasLimit, DefaultGasLimit),
-		BlockGasLimit:   GetUint64Env(EnvBlockGasLimit, DefaultBlockGasLimit),
-		ChainID:         GetUint64Env(EnvChainID, DefaultChainID),
-		ExecutionMode:   GetStringEnv(EnvExecutionMode, DefaultExecutionMode),
-		APINamespace:    GetStringEnv(EnvAPINamespace, DefaultAPINamespace),
-		APIVersion:      GetStringEnv(EnvAPIVersion, DefaultAPIVersion),
-		APIPublic:       GetBoolEnv(EnvAPIPublic, DefaultAPIPublic),
-		RPCTimeout:      GetDurationEnv("ECHOEVM_RPC_TIMEOUT", DefaultRPCTimeout),
-		RPCReadTimeout:  GetDurationEnv("ECHOEVM_RPC_READ_TIMEOUT", DefaultRPCReadTimeout),
-		RPCWriteTimeout: GetDurationEnv("ECHOEVM_RPC_WRITE_TIMEOUT", DefaultRPCWriteTimeout),
-		RPCIdleTimeout:  GetDurationEnv("ECHOEVM_RPC_IDLE_TIMEOUT", DefaultRPCIdleTimeout),
+		LogLevel:      GetStringEnv(EnvLogLevel, DefaultLogLevel),
+		LogFormat:     GetStringEnv(EnvLogFormat, DefaultLogFormat),
+		LogOutput:     GetStringEnv(EnvLogOutput, DefaultLogOutput),
+		EthereumRPC:   GetStringEnv(EnvEthereumRPC, DefaultEthereumRPC),
+		GasLimit:      GetUint64Env(EnvGasLimit, DefaultGasLimit),
+		BlockGasLimit: GetUint64Env(EnvBlockGasLimit, DefaultBlockGasLimit),
+		ChainID:       GetUint64Env(EnvChainID, DefaultChainID),
+		ExecutionMode: GetStringEnv(EnvExecutionMode, DefaultExecutionMode),
+		APINamespace:  GetStringEnv(EnvAPINamespace, DefaultAPINamespace),
+		APIVersion:    GetStringEnv(EnvAPIVersion, DefaultAPIVersion),
+		APIPublic:     GetBoolEnv(EnvAPIPublic, DefaultAPIPublic),
 	}
 }
 

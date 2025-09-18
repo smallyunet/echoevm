@@ -14,13 +14,8 @@ EchoEVM supports configuration through multiple sources in the following order o
 
 You can override default configuration values using the following environment variables:
 
-### RPC Configuration
-- `ECHOEVM_RPC_ENDPOINT`: HTTP RPC endpoint address (default: `localhost:8545`)
+### Network Configuration
 - `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint for block/range commands (default: `https://cloudflare-eth.com`)
-- `ECHOEVM_RPC_TIMEOUT`: RPC call timeout (default: `30s`)
-- `ECHOEVM_RPC_READ_TIMEOUT`: RPC server read timeout (default: `15s`)
-- `ECHOEVM_RPC_WRITE_TIMEOUT`: RPC server write timeout (default: `15s`)
-- `ECHOEVM_RPC_IDLE_TIMEOUT`: RPC server idle timeout (default: `60s`)
 
 ### Logging Configuration
 - `ECHOEVM_LOG_LEVEL`: Log level (default: `info`)
@@ -40,12 +35,6 @@ You can override default configuration values using the following environment va
 
 ## Usage Examples
 
-### Setting RPC Endpoint
-```bash
-export ECHOEVM_RPC_ENDPOINT="0.0.0.0:8545"
-./echoevm serve
-```
-
 ### Setting Log Level
 ```bash
 export ECHOEVM_LOG_LEVEL="debug"
@@ -58,11 +47,17 @@ export ECHOEVM_GAS_LIMIT="30000000"
 ./echoevm run -bin contract.bin
 ```
 
+### Setting Ethereum RPC Endpoint
+```bash
+export ECHOEVM_ETHEREUM_RPC="https://mainnet.infura.io/v3/<key>"
+./echoevm block --block 19000000
+```
+
 ### Using JSON Logging
 ```bash
 export ECHOEVM_LOG_FORMAT="json"
 export ECHOEVM_LOG_LEVEL="debug"
-./echoevm serve
+./echoevm run -bin contract.bin
 ```
 
 ## Configuration Constants
@@ -75,13 +70,6 @@ The following constants are defined in `internal/config/constants.go`:
 - `DefaultBlockGasLimit`: Default block gas limit (15000000)
 - `LogsBloomSize`: Logs bloom filter size (256)
 - `DefaultTimestamp`: Default block timestamp (1640995200)
-
-### RPC Constants
-- `DefaultRPCEndpoint`: Default HTTP RPC endpoint ("localhost:8545")
-- `DefaultRPCTimeout`: Default RPC timeout (30s)
-- `DefaultRPCReadTimeout`: Default RPC read timeout (15s)
-- `DefaultRPCWriteTimeout`: Default RPC write timeout (15s)
-- `DefaultRPCIdleTimeout`: Default RPC idle timeout (60s)
 
 ### Network Constants
 - `DefaultEthereumRPC`: Default Ethereum RPC endpoint ("https://cloudflare-eth.com")
@@ -118,7 +106,7 @@ The following constants are defined in `internal/config/constants.go`:
 
 3. **Security**: Be careful with file permissions when logging to files. The default file mode is 0666, but you may want to use more restrictive permissions in production.
 
-4. **Performance**: Adjust gas limits and timeouts based on your specific use case and network conditions.
+4. **Performance**: Adjust gas limits and upstream RPC endpoints based on your specific use case and network conditions.
 
 5. **Monitoring**: Use appropriate log levels to balance between debugging information and performance.
 
@@ -139,11 +127,9 @@ If you're migrating from a version with hardcoded values, you can:
 
 ### Invalid Values
 - Gas limits must be positive integers
-- Timeouts must be valid duration strings (e.g., "30s", "5m")
 - Boolean values must be "true" or "false"
 - Log levels must be one of: "trace", "debug", "info", "warn", "error"
 
 ### Performance Issues
 - Increase gas limits if transactions are failing due to out-of-gas errors
-- Adjust timeouts based on network latency
 - Use appropriate log levels to reduce logging overhead

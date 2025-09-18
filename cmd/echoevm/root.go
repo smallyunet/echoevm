@@ -44,7 +44,7 @@ func addSubCommands() {
 	rootCmd.AddCommand(newDeployCmd())
 	rootCmd.AddCommand(newTraceCmd())
 	rootCmd.AddCommand(newVersionCmd())
-	// TODO: add disasm, serve, block, range commands
+	// TODO: add disasm, block, range commands
 }
 
 func execute() {

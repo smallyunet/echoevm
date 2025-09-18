@@ -20,14 +20,12 @@ This document describes the logging system improvements made to EchoEVM to enhan
   - Bytecode disassembly
   - Configuration loading
   - Performance metrics
-  - API registration details
 - **When to use**: Development and testing
 
 ### INFO (2)
 - **Usage**: General operational information
 - **Content**:
   - Application startup/shutdown
-  - RPC server start/stop
   - Contract execution results
   - Block processing status
 - **When to use**: Normal operation monitoring
@@ -45,7 +43,6 @@ This document describes the logging system improvements made to EchoEVM to enhan
 - **Content**:
   - EVM execution errors
   - Stack errors (overflow/underflow)
-  - RPC errors
   - Configuration errors
 - **When to use**: Issues that affect functionality
 
@@ -72,13 +69,6 @@ This document describes the logging system improvements made to EchoEVM to enhan
 - `stack_size`: Current stack size (int)
 - `stack`: Stack contents as hex strings ([]string)
 - `gas`: Gas remaining (uint64)
-
-### RPC Fields
-- `method`: RPC method name (string)
-- `request_id`: Unique request identifier (string)
-- `endpoint`: RPC endpoint (string)
-- `api_namespace`: API namespace (string)
-- `duration`: Request duration (time.Duration)
 
 ### Transaction Fields
 - `tx_hash`: Transaction hash (string)
@@ -185,13 +175,11 @@ logger.Trace().
 
 ### Key Metrics to Monitor
 - Error rate by component
-- Response times for RPC calls
 - EVM execution success rate
 - Memory and stack usage patterns
 
 ### Alerting Rules
 - Error rate > 5% over 5 minutes
-- Response time > 1 second for RPC calls
 - EVM execution failures > 10% over 1 minute
 - Memory usage > 80% of available
 

@@ -11,18 +11,17 @@ import (
 
 // cliConfig holds command line parameters for echoevm.
 type cliConfig struct {
-	Bin         string
-	Artifact    string
-	Mode        string
-	Function    string
-	Args        string
-	Calldata    string
-	LogLevel    string
-	RPC         string
-	RPCEndpoint string
-	Block       int
-	StartBlock  int
-	EndBlock    int
+	Bin        string
+	Artifact   string
+	Mode       string
+	Function   string
+	Args       string
+	Calldata   string
+	LogLevel   string
+	RPC        string
+	Block      int
+	StartBlock int
+	EndBlock   int
 }
 
 // parseFlags parses subcommand flags and returns the chosen command name along with
@@ -89,14 +88,6 @@ func parseFlags() (string, *cliConfig, error) {
 		}
 		return "range", cfg, nil
 
-	case "serve":
-		fs := flag.NewFlagSet("serve", flag.ExitOnError)
-		cfg := &cliConfig{}
-		fs.StringVar(&cfg.RPCEndpoint, "http", config.DefaultRPCEndpoint, "HTTP RPC endpoint address")
-		fs.StringVar(&cfg.LogLevel, "log-level", config.DefaultLogLevel, "log level: trace, debug, info, warn, error")
-		fs.Parse(os.Args[2:])
-		return "serve", cfg, nil
-
 	default:
 		usage()
 		return "", nil, fmt.Errorf("unknown subcommand %s", os.Args[1])
@@ -110,5 +101,4 @@ func usage() {
 	fmt.Fprintln(flag.CommandLine.Output(), "  run    execute contract bytecode from a .bin or Hardhat artifact")
 	fmt.Fprintln(flag.CommandLine.Output(), "  block  execute all contract transactions in a block")
 	fmt.Fprintln(flag.CommandLine.Output(), "  range  execute a range of blocks")
-	fmt.Fprintln(flag.CommandLine.Output(), "  serve  start a JSON-RPC server compatible with Geth")
 }

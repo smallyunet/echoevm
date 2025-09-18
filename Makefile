@@ -6,7 +6,7 @@ BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 VERSION    ?= dev
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build run run-rpc test test-binary test-contract test-unit test-all coverage clean
+.PHONY: install build run test test-binary test-contract test-unit test-all coverage clean
 
 install: ## Install the echoevm binary to GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/echoevm
@@ -19,9 +19,6 @@ build: $(BIN_DIR)/$(BINARY_NAME)
 
 run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
-
-run-rpc: $(BIN_DIR)/$(BINARY_NAME) ## Start the RPC server
-	$(BIN_DIR)/$(BINARY_NAME) serve -http ${HTTP_ADDR:-localhost:8545}
 
 ## --------------------------------------------------
 ## Testing Targets

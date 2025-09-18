@@ -3,7 +3,7 @@ git clone https://github.com/smallyunet/echoevm.git
 
 EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
 
-> Status: Active development. The Cobra-based CLI currently ships with `deploy`, `call`, and `trace`. Legacy documentation for `run`, `block`, `range`, and `serve` refers to planned / experimental features and is being consolidated.
+> Status: Active development. The Cobra-based CLI currently ships with `deploy`, `call`, and `trace`. Legacy documentation for `run`, `block`, and `range` refers to planned / experimental features and is being consolidated.
 
 ## ✨ Features
 
@@ -15,7 +15,7 @@ EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation 
 - **Testing Suite**: Unified script plus Go unit tests covering opcodes, stack, memory, control and ABI paths.
 - **Structured Logging**: Zerolog based, selectable output format (plain | json) and adjustable log level.
 
-Planned / in-progress (roadmap): disassembler (`disasm`), JSON-RPC serving (`serve`), historical block replay (`block` / `range`), version & build info (`version`).
+Planned / in-progress (roadmap): disassembler (`disasm`), historical block replay (`block` / `range`), version & build info (`version`).
 
 ## ✅ Requirements
 
@@ -244,7 +244,6 @@ echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.j
 ## 🗺 Roadmap (Short Term)
 
 - disasm: human-readable bytecode disassembly
-- serve: lightweight JSON-RPC (eth_*) sandbox
 - block / range: replay selective mainnet blocks for educational analysis
 - (done) version: embed commit / build info
 - (partial) LOG0-LOG4: captured and exposed via interpreter Logs()

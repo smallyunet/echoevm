@@ -20,24 +20,6 @@ const (
 	DefaultTimestamp = 1640995200
 )
 
-// RPC Constants
-const (
-	// DefaultRPCEndpoint is the default HTTP RPC endpoint
-	DefaultRPCEndpoint = "localhost:8545"
-
-	// DefaultRPCTimeout is the default timeout for RPC calls
-	DefaultRPCTimeout = 30 * time.Second
-
-	// DefaultRPCReadTimeout is the default read timeout for RPC server
-	DefaultRPCReadTimeout = 15 * time.Second
-
-	// DefaultRPCWriteTimeout is the default write timeout for RPC server
-	DefaultRPCWriteTimeout = 15 * time.Second
-
-	// DefaultRPCIdleTimeout is the default idle timeout for RPC server
-	DefaultRPCIdleTimeout = 60 * time.Second
-)
-
 // Network Constants
 const (
 	// DefaultEthereumRPC is the default Ethereum RPC endpoint

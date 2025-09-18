@@ -20,7 +20,6 @@ Central index for EchoEVM reference, guides, and examples.
 
 ### Planned / Roadmap
 - `disasm` – Human readable disassembly
-- `serve` – Lightweight JSON-RPC sandbox
 - `block` / `range` – Block replay for analysis
 
 ## 🚀 Quick Start Snippets
