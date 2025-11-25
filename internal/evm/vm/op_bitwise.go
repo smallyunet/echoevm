@@ -43,44 +43,55 @@ func opByte(i *Interpreter, _ byte) {
 }
 
 func opShl(i *Interpreter, _ byte) {
-	shift := i.stack.PopSafe().Uint64()
+	shift := i.stack.PopSafe()
 	val := i.stack.PopSafe()
-	if shift >= 256 {
+
+	// If shift amount is >= 256, result is 0
+	if shift.Cmp(big.NewInt(256)) >= 0 {
 		i.stack.PushSafe(big.NewInt(0))
 		return
 	}
-	r := new(big.Int).Lsh(val, uint(shift))
+
+	// shift is < 256, so it fits in uint
+	r := new(big.Int).Lsh(val, uint(shift.Uint64()))
 	r.And(r, mask256)
 	i.stack.PushSafe(r)
 }
 
 func opShr(i *Interpreter, _ byte) {
-	shift := i.stack.PopSafe().Uint64()
+	shift := i.stack.PopSafe()
 	val := i.stack.PopSafe()
-	if shift >= 256 {
+
+	// If shift amount is >= 256, result is 0
+	if shift.Cmp(big.NewInt(256)) >= 0 {
 		i.stack.PushSafe(big.NewInt(0))
 		return
 	}
-	r := new(big.Int).Rsh(val, uint(shift))
+
+	r := new(big.Int).Rsh(val, uint(shift.Uint64()))
 	i.stack.PushSafe(r)
 }
 
 func opSar(i *Interpreter, _ byte) {
-	shift := i.stack.PopSafe().Uint64()
+	shift := i.stack.PopSafe()
 	val := i.stack.PopSafe()
-	if shift >= 256 {
+
+	// If shift amount is >= 256
+	if shift.Cmp(big.NewInt(256)) >= 0 {
 		if val.Bit(255) == 1 {
-			i.stack.PushSafe(new(big.Int).Set(mask256))
+			i.stack.PushSafe(new(big.Int).Set(mask256)) // -1 in two's complement
 		} else {
 			i.stack.PushSafe(big.NewInt(0))
 		}
 		return
 	}
+
+	n := uint(shift.Uint64())
 	signed := new(big.Int).Set(val)
 	if val.Bit(255) == 1 {
 		signed.Sub(signed, twoTo256)
 	}
-	signed.Rsh(signed, uint(shift))
+	signed.Rsh(signed, n)
 	if signed.Sign() < 0 {
 		signed.Add(signed, twoTo256)
 	}

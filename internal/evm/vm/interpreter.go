@@ -153,14 +153,16 @@ func (i *Interpreter) Run() {
 		i.pc++
 
 		// Log execution step with structured data
-		logger.Trace().
-			Uint64("pc", pc).
-			Str("pc_hex", fmt.Sprintf("0x%04x", pc)).
-			Uint8("opcode", op).
-			Str("opcode_name", core.OpcodeName(op)).
-			Int("stack_size", i.stack.Len()).
-			Strs("stack", i.stack.Snapshot()).
-			Msg("EVM execution step")
+		if logger.GetLevel() <= zerolog.TraceLevel {
+			logger.Trace().
+				Uint64("pc", pc).
+				Str("pc_hex", fmt.Sprintf("0x%04x", pc)).
+				Uint8("opcode", op).
+				Str("opcode_name", core.OpcodeName(op)).
+				Int("stack_size", i.stack.Len()).
+				Strs("stack", i.stack.Snapshot()).
+				Msg("EVM execution step")
+		}
 
 		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
 			opPush(i, op)
@@ -194,14 +196,16 @@ func (i *Interpreter) Run() {
 		handler(i, op)
 
 		// Log post-execution state
-		logger.Trace().
-			Uint64("pc", i.pc).
-			Str("pc_hex", fmt.Sprintf("0x%04x", i.pc)).
-			Uint8("opcode", op).
-			Str("opcode_name", core.OpcodeName(op)).
-			Int("stack_size", i.stack.Len()).
-			Strs("stack", i.stack.Snapshot()).
-			Msg("EVM execution completed")
+		if logger.GetLevel() <= zerolog.TraceLevel {
+			logger.Trace().
+				Uint64("pc", i.pc).
+				Str("pc_hex", fmt.Sprintf("0x%04x", i.pc)).
+				Uint8("opcode", op).
+				Str("opcode_name", core.OpcodeName(op)).
+				Int("stack_size", i.stack.Len()).
+				Strs("stack", i.stack.Snapshot()).
+				Msg("EVM execution completed")
+		}
 
 		// If RETURN, REVERT or STOP, exit early
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {

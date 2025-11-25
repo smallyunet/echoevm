@@ -14,7 +14,13 @@ func (m *Memory) Set(offset uint64, value *big.Int) {
 	// Ensure memory size is at least offset + 32
 	end := offset + 32
 	if uint64(len(m.data)) < end {
-		newMem := make([]byte, end)
+		// Expand by at least 1KB or to the required size, whichever is larger
+		newSize := end
+		if newSize < uint64(len(m.data))+1024 {
+			newSize = uint64(len(m.data)) + 1024
+		}
+		// Also align to 32 bytes (EVM word size) if desired, but 1KB chunks are good enough for now
+		newMem := make([]byte, newSize)
 		copy(newMem, m.data)
 		m.data = newMem
 	}

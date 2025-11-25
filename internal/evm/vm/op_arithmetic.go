@@ -5,17 +5,25 @@ import "math/big"
 
 func opAdd(i *Interpreter, _ byte) {
 	x, y := i.stack.PopSafe(), i.stack.PopSafe()
-	i.stack.PushSafe(new(big.Int).Add(x, y))
+	res := new(big.Int).Add(x, y)
+	res.And(res, mask256)
+	i.stack.PushSafe(res)
 }
 
 func opSub(i *Interpreter, _ byte) {
 	x, y := i.stack.PopSafe(), i.stack.PopSafe()
-	i.stack.PushSafe(new(big.Int).Sub(x, y))
+	// EVM uses two's complement for subtraction, but big.Int handles it.
+	// We just need to mask the result to 256 bits to get the correct wrap-around behavior.
+	res := new(big.Int).Sub(x, y)
+	res.And(res, mask256)
+	i.stack.PushSafe(res)
 }
 
 func opMul(i *Interpreter, _ byte) {
 	x, y := i.stack.PopSafe(), i.stack.PopSafe()
-	i.stack.PushSafe(new(big.Int).Mul(x, y))
+	res := new(big.Int).Mul(x, y)
+	res.And(res, mask256)
+	i.stack.PushSafe(res)
 }
 
 func opExp(i *Interpreter, _ byte) {

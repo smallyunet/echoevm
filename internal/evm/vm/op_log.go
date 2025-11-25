@@ -20,11 +20,10 @@ type LogEntry struct {
 // Stack pops (offset, size, topic0, topic1, ...).
 func opLog(i *Interpreter, op byte) {
 	topicCount := int(op - 0xa0)
-	// Pop memory offset and size (EVM order: offset, size after topics? Actually LOGn pops: offset, size, topic0..topicN)
-	size := i.stack.PopSafe().Uint64()
+	// EVM LOGn pops: offset, size, topic1, ..., topicN
 	offset := i.stack.PopSafe().Uint64()
-	// In canonical EVM order the stack is: topics..., memStart, memSize (popped reverse). Our stack.PopSafe pops last pushed; contracts push topics first then offset then size, but here we approximate typical compiled order may differ.
-	// To align with spec, we should reverse: pop memSize then memStart then topics. Adjust accordingly: we already popped size then offset, now pop topics.
+	size := i.stack.PopSafe().Uint64()
+	
 	topics := make([]string, 0, topicCount)
 	for t := 0; t < topicCount; t++ {
 		raw := i.stack.PopSafe()
