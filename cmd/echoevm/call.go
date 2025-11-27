@@ -7,7 +7,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
 )
@@ -89,7 +91,7 @@ func runCall(cmd *cobra.Command) error {
 		return fmt.Errorf("provide --calldata or --function + --args")
 	}
 
-	i := vm.NewWithCallData(code, calldata)
+	i := vm.NewWithCallData(code, calldata, core.NewMemoryStateDB(), common.Address{})
 	i.Run()
 	if i.IsReverted() {
 		logger.Error().Msg("execution reverted")

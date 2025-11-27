@@ -3,26 +3,34 @@ package vm
 import (
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
-func TestOpSload(t *testing.T) {
-	i := newInterp()
-	key := big.NewInt(1)
-	i.storage[storageKey(key)] = big.NewInt(42)
-	i.stack.PushSafe(key)
-	opSload(i, 0)
-	if i.stack.PopSafe().Int64() != 42 {
-		t.Fatalf("sload failed")
+func TestOpSstoreSload(t *testing.T) {
+	code := []byte{
+		core.PUSH1, 0x42, // value
+		core.PUSH1, 0x01, // key
+		core.SSTORE,
+		core.PUSH1, 0x01, // key
+		core.SLOAD,
 	}
-}
+	db := core.NewMemoryStateDB()
+	i := New(code, db, common.Address{})
+	i.Run()
 
-func TestOpSstore(t *testing.T) {
-	i := newInterp()
-	key := big.NewInt(1)
-	i.stack.PushSafe(key)
-	i.stack.PushSafe(big.NewInt(7))
-	opSstore(i, 0)
-	if i.storage[storageKey(key)].Int64() != 7 {
-		t.Fatalf("sstore failed")
+	if i.Stack().Len() != 1 {
+		t.Fatalf("expected stack len 1, got %d", i.Stack().Len())
+	}
+	val := i.Stack().PopSafe()
+	if val.Int64() != 0x42 {
+		t.Errorf("expected 0x42, got %v", val)
+	}
+
+	// Verify directly in StateDB
+	stored := db.GetState(common.Address{}, common.BigToHash(big.NewInt(1)))
+	if stored != common.BigToHash(big.NewInt(0x42)) {
+		t.Errorf("expected storage 0x42, got %v", stored)
 	}
 }

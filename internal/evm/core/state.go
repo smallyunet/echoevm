@@ -1,0 +1,41 @@
+package core
+
+import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
+)
+
+// StateDB defines the interface for accessing and modifying the state.
+// It is a simplified version of the go-ethereum StateDB interface.
+type StateDB interface {
+	CreateAccount(addr common.Address)
+
+	SubBalance(addr common.Address, amount *big.Int)
+	AddBalance(addr common.Address, amount *big.Int)
+	GetBalance(addr common.Address) *big.Int
+
+	GetNonce(addr common.Address) uint64
+	SetNonce(addr common.Address, nonce uint64)
+
+	GetCodeHash(addr common.Address) common.Hash
+	GetCode(addr common.Address) []byte
+	SetCode(addr common.Address, code []byte)
+	GetCodeSize(addr common.Address) int
+
+	// Storage
+	GetState(addr common.Address, key common.Hash) common.Hash
+	SetState(addr common.Address, key common.Hash, value common.Hash)
+
+	// Suicide (Selfdestruct)
+	Suicide(addr common.Address) bool
+	HasSuicided(addr common.Address) bool
+
+	// Existence
+	Exist(addr common.Address) bool
+	Empty(addr common.Address) bool
+
+	// Snapshot/Revert (optional for now, but good to have in interface)
+	Snapshot() int
+	RevertToSnapshot(int)
+}

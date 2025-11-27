@@ -2,8 +2,8 @@ package vm
 
 import (
 	"fmt"
-	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
@@ -22,7 +22,8 @@ type Interpreter struct {
 	memory      *core.Memory
 	calldata    []byte
 	returned    []byte
-	storage     map[string]*big.Int
+	statedb     core.StateDB
+	address     common.Address
 	blockNumber uint64
 	reverted    bool
 	logs        []LogEntry
@@ -39,18 +40,19 @@ type TraceStep struct {
 	Halt       bool     `json:"halt"`
 }
 
-func New(code []byte) *Interpreter {
+func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
 	return &Interpreter{
 		code:    code,
 		stack:   core.NewStack(),
 		memory:  core.NewMemory(),
-		storage: make(map[string]*big.Int),
+		statedb: statedb,
+		address: address,
 	}
 }
 
 // NewWithCallData creates an interpreter with the provided code and calldata.
-func NewWithCallData(code []byte, data []byte) *Interpreter {
-	i := New(code)
+func NewWithCallData(code []byte, data []byte, statedb core.StateDB, address common.Address) *Interpreter {
+	i := New(code, statedb, address)
 	i.calldata = data
 	return i
 }
@@ -107,6 +109,7 @@ func init() {
 
 	// memory and code
 	handlerMap[core.MSTORE] = opMstore
+	handlerMap[core.MSTORE8] = opMstore8
 	handlerMap[core.MLOAD] = opMload
 	handlerMap[core.CODECOPY] = opCodecopy
 	handlerMap[core.SLOAD] = opSload

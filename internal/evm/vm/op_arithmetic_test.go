@@ -4,11 +4,12 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func newInterp() *Interpreter {
-	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory(), storage: make(map[string]*big.Int)}
+	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory(), statedb: core.NewMemoryStateDB(), address: common.Address{}}
 }
 
 func TestOpAdd(t *testing.T) {

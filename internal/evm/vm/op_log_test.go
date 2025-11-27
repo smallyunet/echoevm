@@ -4,13 +4,16 @@ import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 // helper to create 32-byte big int from small int
 func bi(v int64) *big.Int { return big.NewInt(v) }
 
 func TestLog0(t *testing.T) {
-	i := New([]byte{})
+	i := New([]byte{}, core.NewMemoryStateDB(), common.Address{})
 	// Prepare memory: write 4 bytes "deadbeef"
 	data, _ := hex.DecodeString("deadbeef")
 	i.memory.Write(0, data)
@@ -31,8 +34,44 @@ func TestLog0(t *testing.T) {
 	}
 }
 
+func TestOpLog(t *testing.T) {
+	code := []byte{
+		core.PUSH1, 0x01, // topic1
+		core.PUSH1, 0x01, // size
+		core.PUSH1, 0x00, // offset
+		core.LOG1,
+	}
+	i := New(code, core.NewMemoryStateDB(), common.Address{})
+	i.Run()
+	if len(i.Logs()) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(i.Logs()))
+	}
+}
+
+func TestOpLogData(t *testing.T) {
+	code := []byte{
+		core.PUSH1, 0xAA,
+		core.PUSH1, 0x00,
+		core.MSTORE8,
+		core.PUSH1, 0x01,
+		core.PUSH1, 0x00,
+		core.LOG0,
+	}
+	i := New(code, core.NewMemoryStateDB(), common.Address{})
+	i.Run()
+	if len(i.Logs()) != 1 {
+		t.Fatalf("expected 1 log, got %d", len(i.Logs()))
+	}
+	if i.Logs()[0].Data != "0xaa" {
+		t.Fatalf("expected log data 0xaa, got %s", i.Logs()[0].Data)
+	}
+	if len(i.Logs()[0].Topics) != 0 {
+		t.Fatalf("expected no topics")
+	}
+}
+
 func TestLog2(t *testing.T) {
-	i := New([]byte{})
+	i := New([]byte{}, core.NewMemoryStateDB(), common.Address{})
 	payload := []byte{0xca, 0xfe, 0xba, 0xbe}
 	i.memory.Write(16, payload)
 	// Stack: [offset, size, topic0, topic1] (offset on top)

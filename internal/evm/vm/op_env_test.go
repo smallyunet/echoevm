@@ -1,9 +1,11 @@
 package vm
 
 import (
-	"github.com/smallyunet/echoevm/internal/evm/core"
 	"math/big"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func TestCallValue(t *testing.T) {
@@ -15,7 +17,7 @@ func TestCallValue(t *testing.T) {
 }
 
 func TestCallDataLoad(t *testing.T) {
-	i := NewWithCallData([]byte{core.CALLDATALOAD, core.STOP}, []byte{1, 2, 3})
+	i := NewWithCallData([]byte{core.CALLDATALOAD, core.STOP}, []byte{1, 2, 3}, core.NewMemoryStateDB(), common.Address{})
 	i.stack.PushSafe(big.NewInt(0))
 	opCallDataLoad(i, 0)
 	val := i.stack.PopSafe().Bytes()

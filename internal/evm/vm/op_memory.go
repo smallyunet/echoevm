@@ -9,6 +9,14 @@ func opMstore(i *Interpreter, _ byte) {
 	i.memory.Set(offset.Uint64(), value)
 }
 
+func opMstore8(i *Interpreter, _ byte) {
+	offset := i.stack.PopSafe()
+	value := i.stack.PopSafe()
+	// MSTORE8 writes the least significant byte
+	valByte := byte(value.Uint64() & 0xff)
+	i.memory.Write(offset.Uint64(), []byte{valByte})
+}
+
 func opMload(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe()
 	bytes := i.memory.Get(offset.Uint64())

@@ -8,7 +8,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
 )
@@ -71,7 +73,7 @@ func runDeploy(cmd *cobra.Command) error {
 		return fmt.Errorf("invalid constructor bytecode: %w", err)
 	}
 
-	intr := vm.New(code)
+	intr := vm.New(code, core.NewMemoryStateDB(), common.Address{})
 	intr.Run()
 	runtime := intr.ReturnedCode()
 	if len(runtime) == 0 {

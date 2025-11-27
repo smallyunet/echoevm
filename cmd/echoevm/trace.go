@@ -7,7 +7,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
 )
@@ -88,7 +90,7 @@ func runTrace(cmd *cobra.Command) error {
 		return fmt.Errorf("provide --calldata or --function + --args")
 	}
 
-	intr := vm.NewWithCallData(code, calldata)
+	intr := vm.NewWithCallData(code, calldata, core.NewMemoryStateDB(), common.Address{})
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	steps := 0
 	type jsonStep struct {
