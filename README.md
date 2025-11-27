@@ -128,7 +128,42 @@ echoevm trace -a ./test/contract/artifacts/contracts/03-control-flow/Loops.sol/L
   -f forLoop(uint256) -A 5 --full | jq .
 ```
 
-#### 4. version
+#### 4. block
+Execute Ethereum blocks or load genesis configurations.
+
+Flags:
+```
+--genesis       Path to genesis.json
+--block         Path to block.rlp (for 'run' subcommand)
+```
+
+Example (run block 1):
+```bash
+echoevm block run --genesis ./tests/genesis.json --block ./tests/block1.rlp
+```
+
+#### 5. repl
+Interactive EVM shell for experimenting with opcodes.
+
+```bash
+echoevm repl
+```
+Type opcodes (e.g., `PUSH1 10 ADD`) and see the stack/memory update in real-time.
+
+#### 6. run
+Execute raw bytecode with optional debug tracing.
+
+Flags:
+```
+--debug         Enable step-by-step debug trace
+```
+
+Example:
+```bash
+echoevm run --debug 6001600201
+```
+
+#### 7. version
 Display build metadata (set via `-ldflags` in the Makefile).
 
 ```
