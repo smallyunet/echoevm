@@ -25,6 +25,9 @@ type Interpreter struct {
 	statedb     core.StateDB
 	address     common.Address
 	blockNumber uint64
+	timestamp   uint64
+	coinbase    common.Address
+	gasLimit    uint64
 	reverted    bool
 	logs        []LogEntry
 }
@@ -65,6 +68,18 @@ func (i *Interpreter) SetCallData(data []byte) {
 // SetBlockNumber sets the block number used by environment opcodes like NUMBER.
 func (i *Interpreter) SetBlockNumber(num uint64) {
 	i.blockNumber = num
+}
+
+func (i *Interpreter) SetTimestamp(ts uint64) {
+	i.timestamp = ts
+}
+
+func (i *Interpreter) SetCoinbase(addr common.Address) {
+	i.coinbase = addr
+}
+
+func (i *Interpreter) SetGasLimit(limit uint64) {
+	i.gasLimit = limit
 }
 
 // Logs returns the collected LOG entries emitted during execution.
@@ -137,6 +152,9 @@ func init() {
 	handlerMap[core.CALLDATACOPY] = opCallDataCopy
 	handlerMap[core.GAS] = opGas
 	handlerMap[core.NUMBER] = opNumber
+	handlerMap[core.TIMESTAMP] = opTimestamp
+	handlerMap[core.COINBASE] = opCoinbase
+	handlerMap[core.GASLIMIT] = opGasLimit
 
 	handlerMap[core.DELEGATECALL] = opDelegateCall
 

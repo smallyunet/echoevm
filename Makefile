@@ -35,8 +35,14 @@ test-binary: $(BIN_DIR)/$(BINARY_NAME) ## Run precompiled EVM binary contract te
 test-contract: $(BIN_DIR)/$(BINARY_NAME) ## Run Hardhat artifact based contract tests
 	./test/test.sh --contract
 
-test-all: $(BIN_DIR)/$(BINARY_NAME) ## Run all integration (binary + contract) tests
+test-all: $(BIN_DIR)/$(BINARY_NAME) ## Run all integration (binary + contract + block) tests
 	./test/test.sh --verbose
+	./test/test_block.sh
+	./test/test_block_run.sh
+
+test-block: $(BIN_DIR)/$(BINARY_NAME) ## Run block apply integration tests
+	./test/test_block.sh
+	./test/test_block_run.sh
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./...

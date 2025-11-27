@@ -53,6 +53,18 @@ func opNumber(i *Interpreter, _ byte) {
 	i.stack.PushSafe(big.NewInt(int64(i.blockNumber)))
 }
 
+func opTimestamp(i *Interpreter, _ byte) {
+	i.stack.PushSafe(big.NewInt(int64(i.timestamp)))
+}
+
+func opCoinbase(i *Interpreter, _ byte) {
+	i.stack.PushSafe(new(big.Int).SetBytes(i.coinbase.Bytes()))
+}
+
+func opGasLimit(i *Interpreter, _ byte) {
+	i.stack.PushSafe(big.NewInt(int64(i.gasLimit)))
+}
+
 func min(a, b uint64) uint64 {
 	if a < b {
 		return a
