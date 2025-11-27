@@ -206,3 +206,28 @@ func OpcodeName(op byte) string {
 	}
 	return "UNKNOWN"
 }
+
+// OpcodeByName returns the opcode byte for a given mnemonic name.
+func OpcodeByName(name string) (byte, bool) {
+	// 1. Check map
+	for op, n := range opcodeNames {
+		if n == name {
+			return op, true
+		}
+	}
+	// 2. Check ranges
+	var n int
+	if _, err := fmt.Sscanf(name, "PUSH%d", &n); err == nil && n >= 1 && n <= 32 {
+		return byte(PUSH1 + n - 1), true
+	}
+	if _, err := fmt.Sscanf(name, "DUP%d", &n); err == nil && n >= 1 && n <= 16 {
+		return byte(DUP1 + n - 1), true
+	}
+	if _, err := fmt.Sscanf(name, "SWAP%d", &n); err == nil && n >= 1 && n <= 16 {
+		return byte(SWAP1 + n - 1), true
+	}
+	if _, err := fmt.Sscanf(name, "LOG%d", &n); err == nil && n >= 0 && n <= 4 {
+		return byte(LOG0 + n), true
+	}
+	return 0, false
+}

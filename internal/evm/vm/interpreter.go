@@ -29,6 +29,7 @@ type Interpreter struct {
 	coinbase    common.Address
 	gasLimit    uint64
 	reverted    bool
+	err         error
 	logs        []LogEntry
 }
 
@@ -41,6 +42,7 @@ type TraceStep struct {
 	StackSize  int      `json:"stack_size"`
 	Reverted   bool     `json:"reverted"`
 	Halt       bool     `json:"halt"`
+	IsPost     bool     `json:"is_post"`
 }
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
@@ -168,6 +170,18 @@ func init() {
 }
 
 func (i *Interpreter) Run() {
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok {
+				i.err = err
+			} else {
+				i.err = fmt.Errorf("execution panic: %v", r)
+			}
+			i.reverted = true
+			logger.Error().Err(i.err).Msg("EVM execution recovered from panic")
+		}
+	}()
+
 	for i.pc < uint64(len(i.code)) {
 		pc := i.pc
 		op := i.code[i.pc]
@@ -238,12 +252,25 @@ func (i *Interpreter) Run() {
 // RunWithHook executes the bytecode emitting a TraceStep to the provided hook before
 // and after each opcode. If hook returns false, execution stops early.
 func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			if err, ok := r.(error); ok {
+				i.err = err
+			} else {
+				i.err = fmt.Errorf("execution panic: %v", r)
+			}
+			i.reverted = true
+			// Emit a final trace step for the error if possible?
+			// For now just return, caller can check i.Err()
+		}
+	}()
+
 	for i.pc < uint64(len(i.code)) {
 		pc := i.pc
 		op := i.code[i.pc]
 		i.pc++
 
-		pre := TraceStep{PC: pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: false}
+		pre := TraceStep{PC: pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: false, IsPost: false}
 		if !hook(pre) {
 			return
 		}
@@ -258,7 +285,7 @@ func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
 			handler, ok := handlerMap[op]
 			if !ok {
 				i.reverted = true
-				post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true}
+				post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true, IsPost: true}
 				hook(post)
 				return
 			}
@@ -269,7 +296,7 @@ func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {
 			halt = true
 		}
-		post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: halt}
+		post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: halt, IsPost: true}
 		if !hook(post) {
 			return
 		}
@@ -294,7 +321,18 @@ func (i *Interpreter) ReturnedCode() []byte {
 	return i.returned
 }
 
-// IsReverted returns true if the execution ended with a REVERT opcode.
 func (i *Interpreter) IsReverted() bool {
 	return i.reverted
+}
+
+func (i *Interpreter) SetStack(s *core.Stack) {
+	i.stack = s
+}
+
+func (i *Interpreter) SetMemory(m *core.Memory) {
+	i.memory = m
+}
+
+func (i *Interpreter) Err() error {
+	return i.err
 }

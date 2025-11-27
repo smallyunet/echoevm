@@ -64,3 +64,10 @@ func min(a, b uint64) uint64 {
 	}
 	return b
 }
+func (m *Memory) Len() int {
+	return len(m.data)
+}
+
+func (m *Memory) Data() []byte {
+	return m.data
+}

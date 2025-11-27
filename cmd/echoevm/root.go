@@ -45,6 +45,8 @@ func addSubCommands() {
 	rootCmd.AddCommand(newTraceCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newBlockCmd())
+	rootCmd.AddCommand(newReplCmd())
+	rootCmd.AddCommand(newRunCmd())
 	// TODO: add disasm, range commands
 }
 
