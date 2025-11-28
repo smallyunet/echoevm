@@ -1,7 +1,11 @@
 // op_env.go
 package vm
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/ethereum/go-ethereum/common"
+)
 
 func opCallValue(i *Interpreter, _ byte) {
 	i.stack.PushSafe(big.NewInt(0)) // default to 0
@@ -63,6 +67,13 @@ func opCoinbase(i *Interpreter, _ byte) {
 
 func opGasLimit(i *Interpreter, _ byte) {
 	i.stack.PushSafe(big.NewInt(int64(i.gasLimit)))
+}
+
+func opExtCodeSize(i *Interpreter, _ byte) {
+	addrBig := i.stack.PopSafe()
+	addr := common.BigToAddress(addrBig)
+	size := i.statedb.GetCodeSize(addr)
+	i.stack.PushSafe(big.NewInt(int64(size)))
 }
 
 func min(a, b uint64) uint64 {

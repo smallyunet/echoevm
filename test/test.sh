@@ -20,7 +20,7 @@ NC='\033[0m'
 
 # Configuration
 BINARY_DIR="$PROJECT_ROOT/test/binary"
-CONTRACT_DIR="$PROJECT_ROOT/test/contract"
+
 ECHOEVM_CMD="go run ./cmd/echoevm"
 
 # Helper: deploy constructor bytecode (bin or artifact) and capture runtime hex
@@ -163,93 +163,31 @@ run_binary_tests() {
     run_test "Summation" bin_function_test "$BINARY_DIR/build/Sum_sol_Sum.bin" 'sum(uint256)' '5'
 }
 
-# Contract tests
-run_contract_tests() {
-    echo -e "\n${BOLD}Contract Tests${NC}"
-    echo "----------------------------------------"
-    
-    # Check and compile contracts
-    if [ ! -d "$CONTRACT_DIR/artifacts" ]; then
-        echo "Compiling contracts..."
-        (cd "$CONTRACT_DIR" && npm run compile)
-    fi
-    
-    local artifacts="$CONTRACT_DIR/artifacts/contracts"
-    
-    # Data type tests
-    run_test "Data Types - Addition" artifact_function_test "$artifacts/01-data-types/Add.sol/Add.json" 'add(uint256,uint256)' '10,20'
-    run_test "Data Types - Subtraction" artifact_function_test "$artifacts/01-data-types/Sub.sol/Sub.json" 'sub(uint256,uint256)' '50,20'
-    run_test "Data Types - Factorial" artifact_function_test "$artifacts/01-data-types/Fact.sol/Fact.json" 'fact(uint256)' '5'
-    
-    # Control flow tests
-    run_test "Control Flow - Require Pass" artifact_function_test "$artifacts/03-control-flow/Require.sol/Require.json" 'test(uint256)' '5'
-    # This test expects failure, so invert logic
-    echo -e "\n${YELLOW}Testing: Control Flow - Require Fail${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Command: deploy+call require fail path${NC}"
-    fi
-    if runtime=$(deploy_runtime artifact "$artifacts/03-control-flow/Require.sol/Require.json") && [ -n "$runtime" ] && ! call_runtime "$runtime" "test(uint256)" "0" > /dev/null 2>&1; then
-        echo -e "${GREEN}✓ PASSED${NC}"
-        ((PASSED++))
-    else
-        echo -e "${RED}✗ FAILED${NC}"
-        ((FAILED++))
-    fi
-    run_test "Control Flow - IfElse" artifact_function_test "$artifacts/03-control-flow/IfElse.sol/IfElse.json" 'ifElse(uint256)' '5'
-    
-    # Function tests
-    run_test "Function Visibility" artifact_function_test "$artifacts/02-functions/FunctionVisibility.sol/FunctionVisibility.json" 'publicFunction()' ''
-    
-    # Event test (expected to fail currently due to missing TIMESTAMP/CALL/value transfer support)
-    echo -e "\n${YELLOW}Testing: Event Handling (expected revert)${NC}"
-    if [ "$VERBOSE" = true ]; then
-        echo -e "${BLUE}Command: artifact_function_test $artifacts/05-events/Lock.sol/Lock.json withdraw() (expect failure)${NC}"
-    fi
-    if ! artifact_function_test "$artifacts/05-events/Lock.sol/Lock.json" 'withdraw()' ''; then
-        echo -e "${GREEN}✓ PASSED (reverted as expected)${NC}"; ((PASSED++))
-    else
-        echo -e "${RED}✗ FAILED (unexpected success)${NC}"; ((FAILED++))
-    fi
 
-    # Emit multiple logs via new EmitEvents contract (should succeed)
-    echo -e "\n${YELLOW}Testing: Events - Emit all (fireAll)${NC}"
-    if runtime=$(deploy_runtime artifact "$artifacts/05-events/EmitEvents.sol/EmitEvents.json") && [ -n "$runtime" ]; then
-        # Call fireAll (no args)
-        tmpfile=$(mktemp)
-        echo -n "$runtime" > "$tmpfile"
-    # Quote the function signature to avoid shell interpreting parentheses
-    if $ECHOEVM_CMD call -r "$tmpfile" -f 'fireAll()' > /dev/null 2>&1; then
-            echo -e "${GREEN}✓ PASSED${NC}"; ((PASSED++))
-        else
-            echo -e "${RED}✗ FAILED (call fireAll)${NC}"; ((FAILED++))
-        fi
-        rm -f "$tmpfile"
-    else
-        echo -e "${RED}✗ FAILED (deploy EmitEvents)${NC}"; ((FAILED++))
-    fi
-}
 
 # Main execution logic
 case "$MODE" in
     "binary")
         run_binary_tests
         ;;
-    "contract")
-        run_contract_tests
-        ;;
-    "all")
-        run_binary_tests
-        run_contract_tests
+    "contract"|"all")
+        echo -e "\n${BOLD}Ethereum Official Tests${NC}"
+        echo "----------------------------------------"
+        if go test -v ./tests/...; then
+             echo -e "${GREEN}✓ PASSED${NC}"; ((PASSED++))
+        else
+             echo -e "${RED}✗ FAILED${NC}"; ((FAILED++))
+        fi
+        
+        if [ "$MODE" = "all" ]; then
+            run_binary_tests
+        fi
         ;;
 esac
 
 # Output results
 echo -e "\n${BOLD}${BLUE}=========================================${NC}"
 echo -e "${BOLD}Test Results${NC}"
-echo -e "${GREEN}Passed: $PASSED${NC}"
-echo -e "${RED}Failed: $FAILED${NC}"
-echo -e "${BOLD}Total: $((PASSED + FAILED))${NC}"
-
 if [ $FAILED -eq 0 ]; then
     echo -e "\n${GREEN}${BOLD}🎉 All tests passed!${NC}"
     exit 0

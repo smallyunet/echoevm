@@ -157,7 +157,10 @@ func init() {
 	handlerMap[core.TIMESTAMP] = opTimestamp
 	handlerMap[core.COINBASE] = opCoinbase
 	handlerMap[core.GASLIMIT] = opGasLimit
+	handlerMap[core.EXTCODESIZE] = opExtCodeSize
 
+	handlerMap[core.CREATE] = opCreate
+	handlerMap[core.CALL] = opCall
 	handlerMap[core.DELEGATECALL] = opDelegateCall
 
 	// logs (LOG0 - LOG4 at 0xa0 - 0xa4)
