@@ -19,7 +19,7 @@ import (
 
 // TestGeneralStateTests runs the GeneralStateTests from the ethereum/tests suite.
 func TestGeneralStateTests(t *testing.T) {
-	// Path to the fixtures
+	// Path to the fixtures (submodule)
 	fixturesDir := "fixtures/GeneralStateTests/stExample"
 
 	// Walk through the fixtures directory
