@@ -1,4 +1,3 @@
-git clone https://github.com/smallyunet/echoevm.git
 # echoevm
 
 EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.

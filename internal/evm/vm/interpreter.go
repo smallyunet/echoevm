@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -24,13 +25,22 @@ type Interpreter struct {
 	returned    []byte
 	statedb     core.StateDB
 	address     common.Address
+	caller      common.Address
+	origin      common.Address
+	callvalue   *big.Int
 	blockNumber uint64
 	timestamp   uint64
 	coinbase    common.Address
 	gasLimit    uint64
+	gasPrice    *big.Int
+	chainID     *big.Int
+	baseFee     *big.Int
+	difficulty  *big.Int
+	random      *big.Int // PREVRANDAO value for post-merge (used by DIFFICULTY opcode)
 	reverted    bool
 	err         error
 	logs        []LogEntry
+	returnData  []byte // return data from last CALL
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -47,11 +57,16 @@ type TraceStep struct {
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
 	return &Interpreter{
-		code:    code,
-		stack:   core.NewStack(),
-		memory:  core.NewMemory(),
-		statedb: statedb,
-		address: address,
+		code:      code,
+		stack:     core.NewStack(),
+		memory:    core.NewMemory(),
+		statedb:   statedb,
+		address:   address,
+		callvalue: big.NewInt(0),
+		gasPrice:  big.NewInt(0),
+		chainID:   big.NewInt(1),
+		baseFee:   big.NewInt(0),
+		difficulty: big.NewInt(0),
 	}
 }
 
@@ -84,6 +99,40 @@ func (i *Interpreter) SetGasLimit(limit uint64) {
 	i.gasLimit = limit
 }
 
+func (i *Interpreter) SetCaller(addr common.Address) {
+	i.caller = addr
+}
+
+func (i *Interpreter) SetOrigin(addr common.Address) {
+	i.origin = addr
+}
+
+func (i *Interpreter) SetCallValue(val *big.Int) {
+	i.callvalue = val
+}
+
+func (i *Interpreter) SetGasPrice(price *big.Int) {
+	i.gasPrice = price
+}
+
+func (i *Interpreter) SetChainID(id *big.Int) {
+	i.chainID = id
+}
+
+func (i *Interpreter) SetBaseFee(fee *big.Int) {
+	i.baseFee = fee
+}
+
+func (i *Interpreter) SetDifficulty(diff *big.Int) {
+	i.difficulty = diff
+}
+
+// SetRandom sets the PREVRANDAO value for post-merge blocks.
+// The DIFFICULTY opcode returns this value after The Merge.
+func (i *Interpreter) SetRandom(random *big.Int) {
+	i.random = random
+}
+
 // Logs returns the collected LOG entries emitted during execution.
 func (i *Interpreter) Logs() []LogEntry { return i.logs }
 
@@ -102,7 +151,9 @@ func init() {
 	handlerMap[core.MULMOD] = opMulmod
 	handlerMap[core.EXP] = opExp
 	handlerMap[core.DIV] = opDiv
+	handlerMap[core.SDIV] = opSdiv
 	handlerMap[core.MOD] = opMod
+	handlerMap[core.SMOD] = opSmod
 	handlerMap[core.LT] = opLt
 	handlerMap[core.GT] = opGt
 	handlerMap[core.SGT] = opSgt
@@ -147,26 +198,49 @@ func init() {
 	handlerMap[core.REVERT] = opRevert
 
 	// environment
+	handlerMap[core.ADDRESS] = opAddress
+	handlerMap[core.BALANCE] = opBalance
+	handlerMap[core.ORIGIN] = opOrigin
 	handlerMap[core.CALLVALUE] = opCallValue
 	handlerMap[core.CALLER] = opCaller
 	handlerMap[core.CALLDATASIZE] = opCallDataSize
 	handlerMap[core.CALLDATALOAD] = opCallDataLoad
 	handlerMap[core.CALLDATACOPY] = opCallDataCopy
-	handlerMap[core.GAS] = opGas
-	handlerMap[core.NUMBER] = opNumber
-	handlerMap[core.TIMESTAMP] = opTimestamp
-	handlerMap[core.COINBASE] = opCoinbase
-	handlerMap[core.GASLIMIT] = opGasLimit
+	handlerMap[core.CODESIZE] = opCodeSize
+	handlerMap[core.GASPRICE] = opGasPrice
 	handlerMap[core.EXTCODESIZE] = opExtCodeSize
+	handlerMap[core.EXTCODECOPY] = opExtCodeCopy
+	handlerMap[core.RETURNDATASIZE] = opReturnDataSize
+	handlerMap[core.RETURNDATACOPY] = opReturnDataCopy
+	handlerMap[core.EXTCODEHASH] = opExtCodeHash
+	handlerMap[core.BLOCKHASH] = opBlockHash
+	handlerMap[core.COINBASE] = opCoinbase
+	handlerMap[core.TIMESTAMP] = opTimestamp
+	handlerMap[core.NUMBER] = opNumber
+	handlerMap[core.DIFFICULTY] = opDifficulty
+	handlerMap[core.GASLIMIT] = opGasLimit
+	handlerMap[core.CHAINID] = opChainID
+	handlerMap[core.SELFBALANCE] = opSelfBalance
+	handlerMap[core.BASEFEE] = opBaseFee
+	handlerMap[core.PC] = opPC
+	handlerMap[core.MSIZE] = opMSize
+	handlerMap[core.GAS] = opGas
 
+	// call operations
 	handlerMap[core.CREATE] = opCreate
 	handlerMap[core.CALL] = opCall
+	handlerMap[core.CALLCODE] = opCallCode
 	handlerMap[core.DELEGATECALL] = opDelegateCall
+	handlerMap[core.CREATE2] = opCreate2
+	handlerMap[core.STATICCALL] = opStaticCall
 
 	// logs (LOG0 - LOG4 at 0xa0 - 0xa4)
 	for op := byte(0xa0); op <= 0xa4; op++ {
 		handlerMap[op] = opLog
 	}
+
+	// self destruct
+	handlerMap[core.SELFDESTRUCT] = opSelfDestruct
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid

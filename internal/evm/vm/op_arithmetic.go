@@ -43,6 +43,28 @@ func opDiv(i *Interpreter, _ byte) {
 	}
 }
 
+// opSdiv performs signed integer division
+func opSdiv(i *Interpreter, _ byte) {
+	x, y := i.stack.PopSafe(), i.stack.PopSafe()
+	if y.Sign() == 0 {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	// Convert to signed
+	sx := toSigned(x)
+	sy := toSigned(y)
+
+	// Handle special case: -2^255 / -1 = -2^255 (overflow)
+	if sx.Cmp(new(big.Int).Neg(new(big.Int).Lsh(big.NewInt(1), 255))) == 0 && sy.Cmp(big.NewInt(-1)) == 0 {
+		i.stack.PushSafe(new(big.Int).Lsh(big.NewInt(1), 255))
+		return
+	}
+
+	res := new(big.Int).Quo(sx, sy) // Quo truncates toward zero
+	res.And(res, mask256)
+	i.stack.PushSafe(res)
+}
+
 func opMod(i *Interpreter, _ byte) {
 	x, y := i.stack.PopSafe(), i.stack.PopSafe()
 	if y.Sign() == 0 {
@@ -50,6 +72,31 @@ func opMod(i *Interpreter, _ byte) {
 	} else {
 		i.stack.PushSafe(new(big.Int).Mod(x, y))
 	}
+}
+
+// opSmod performs signed integer modulo
+func opSmod(i *Interpreter, _ byte) {
+	x, y := i.stack.PopSafe(), i.stack.PopSafe()
+	if y.Sign() == 0 {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	// Convert to signed
+	sx := toSigned(x)
+	sy := toSigned(y)
+
+	res := new(big.Int).Rem(sx, sy) // Rem has the sign of the dividend
+	res.And(res, mask256)
+	i.stack.PushSafe(res)
+}
+
+// toSigned converts a 256-bit unsigned value to a signed big.Int
+func toSigned(val *big.Int) *big.Int {
+	result := new(big.Int).Set(val)
+	if val.Bit(255) == 1 {
+		result.Sub(result, twoTo256)
+	}
+	return result
 }
 
 // opAddmod pops (a, b, m) and pushes (a + b) % m. If m == 0 pushes 0.

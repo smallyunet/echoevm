@@ -44,11 +44,14 @@ func TestOpEq(t *testing.T) {
 
 func TestOpExp(t *testing.T) {
 	i := newInterp()
-	i.stack.PushSafe(big.NewInt(2)) // base
-	i.stack.PushSafe(big.NewInt(3)) // exponent
+	// EVM stack: first push goes to bottom, pop order is LIFO
+	// opExp pops base first, then exponent: base^exp
+	// So push exponent first, then base
+	i.stack.PushSafe(big.NewInt(3)) // exponent (pushed first, popped second)
+	i.stack.PushSafe(big.NewInt(2)) // base (pushed second, popped first)
 	opExp(i, 0)
 	if i.stack.PopSafe().Int64() != 8 {
-		t.Fatalf("exp failed")
+		t.Fatalf("exp failed: expected 8 (2^3)")
 	}
 }
 

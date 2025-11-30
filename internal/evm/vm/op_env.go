@@ -7,14 +7,31 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func opCallValue(i *Interpreter, _ byte) {
-	i.stack.PushSafe(big.NewInt(0)) // default to 0
+func opAddress(i *Interpreter, _ byte) {
+	i.stack.PushSafe(i.address.Big())
 }
 
-// opCaller pushes the address of the caller. Since this interpreter does not
-// model accounts, the value is always zero.
+func opBalance(i *Interpreter, _ byte) {
+	addrBig := i.stack.PopSafe()
+	addr := common.BigToAddress(addrBig)
+	balance := i.statedb.GetBalance(addr)
+	i.stack.PushSafe(new(big.Int).Set(balance))
+}
+
+func opOrigin(i *Interpreter, _ byte) {
+	i.stack.PushSafe(i.origin.Big())
+}
+
+func opCallValue(i *Interpreter, _ byte) {
+	if i.callvalue != nil {
+		i.stack.PushSafe(new(big.Int).Set(i.callvalue))
+	} else {
+		i.stack.PushSafe(big.NewInt(0))
+	}
+}
+
 func opCaller(i *Interpreter, _ byte) {
-	i.stack.PushSafe(big.NewInt(0))
+	i.stack.PushSafe(i.caller.Big())
 }
 
 // opCallDataSize pushes the size of the calldata onto the stack. If no calldata
@@ -49,8 +66,112 @@ func opCallDataCopy(i *Interpreter, _ byte) {
 	i.memory.Write(memOffset, segment)
 }
 
-func opGas(i *Interpreter, _ byte) {
+func opCodeSize(i *Interpreter, _ byte) {
+	i.stack.PushSafe(big.NewInt(int64(len(i.code))))
+}
+
+func opGasPrice(i *Interpreter, _ byte) {
+	if i.gasPrice != nil {
+		i.stack.PushSafe(new(big.Int).Set(i.gasPrice))
+	} else {
+		i.stack.PushSafe(big.NewInt(0))
+	}
+}
+
+func opExtCodeCopy(i *Interpreter, _ byte) {
+	addrBig := i.stack.PopSafe()
+	addr := common.BigToAddress(addrBig)
+	memOffset := i.stack.PopSafe().Uint64()
+	codeOffset := i.stack.PopSafe().Uint64()
+	length := i.stack.PopSafe().Uint64()
+
+	code := i.statedb.GetCode(addr)
+	codeCopy := make([]byte, length)
+	if codeOffset < uint64(len(code)) {
+		copy(codeCopy, code[codeOffset:min(codeOffset+length, uint64(len(code)))])
+	}
+	i.memory.Write(memOffset, codeCopy)
+}
+
+func opReturnDataSize(i *Interpreter, _ byte) {
+	i.stack.PushSafe(big.NewInt(int64(len(i.returnData))))
+}
+
+func opReturnDataCopy(i *Interpreter, _ byte) {
+	memOffset := i.stack.PopSafe().Uint64()
+	dataOffset := i.stack.PopSafe().Uint64()
+	length := i.stack.PopSafe().Uint64()
+
+	data := make([]byte, length)
+	if dataOffset < uint64(len(i.returnData)) {
+		copy(data, i.returnData[dataOffset:min(dataOffset+length, uint64(len(i.returnData)))])
+	}
+	i.memory.Write(memOffset, data)
+}
+
+func opExtCodeHash(i *Interpreter, _ byte) {
+	addrBig := i.stack.PopSafe()
+	addr := common.BigToAddress(addrBig)
+	if !i.statedb.Exist(addr) {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	hash := i.statedb.GetCodeHash(addr)
+	i.stack.PushSafe(hash.Big())
+}
+
+func opBlockHash(i *Interpreter, _ byte) {
+	// BlockHash requires access to historical block data which we don't have
+	// For now, return 0
+	_ = i.stack.PopSafe() // block number
 	i.stack.PushSafe(big.NewInt(0))
+}
+
+func opDifficulty(i *Interpreter, _ byte) {
+	// After The Merge, DIFFICULTY opcode returns PREVRANDAO
+	if i.random != nil && i.random.Sign() > 0 {
+		i.stack.PushSafe(new(big.Int).Set(i.random))
+	} else if i.difficulty != nil {
+		i.stack.PushSafe(new(big.Int).Set(i.difficulty))
+	} else {
+		i.stack.PushSafe(big.NewInt(0))
+	}
+}
+
+func opChainID(i *Interpreter, _ byte) {
+	if i.chainID != nil {
+		i.stack.PushSafe(new(big.Int).Set(i.chainID))
+	} else {
+		i.stack.PushSafe(big.NewInt(1)) // default mainnet
+	}
+}
+
+func opSelfBalance(i *Interpreter, _ byte) {
+	balance := i.statedb.GetBalance(i.address)
+	i.stack.PushSafe(new(big.Int).Set(balance))
+}
+
+func opBaseFee(i *Interpreter, _ byte) {
+	if i.baseFee != nil {
+		i.stack.PushSafe(new(big.Int).Set(i.baseFee))
+	} else {
+		i.stack.PushSafe(big.NewInt(0))
+	}
+}
+
+func opPC(i *Interpreter, _ byte) {
+	// PC points to the current instruction, but pc has already been incremented
+	// So we return pc - 1
+	i.stack.PushSafe(big.NewInt(int64(i.pc - 1)))
+}
+
+func opMSize(i *Interpreter, _ byte) {
+	i.stack.PushSafe(big.NewInt(int64(i.memory.Len())))
+}
+
+func opGas(i *Interpreter, _ byte) {
+	// Return a large value since we don't track gas consumption
+	i.stack.PushSafe(big.NewInt(0x7fffffffffffffff))
 }
 
 func opNumber(i *Interpreter, _ byte) {

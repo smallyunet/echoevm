@@ -29,8 +29,9 @@ func TestCallDataLoad(t *testing.T) {
 func TestGas(t *testing.T) {
 	i := newInterp()
 	opGas(i, 0)
-	if i.stack.PopSafe().Sign() != 0 {
-		t.Fatalf("gas should push 0")
+	// Gas now returns a large value since we don't track gas consumption
+	if i.stack.PopSafe().Sign() == 0 {
+		t.Fatalf("gas should push a non-zero value")
 	}
 }
 
