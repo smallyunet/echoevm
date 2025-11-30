@@ -272,7 +272,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
 	contract.SetGasLimit(gas.Uint64())
-	contract.SetCaller(i.caller)      // Preserve original caller
+	contract.SetCaller(i.caller) // Preserve original caller
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(i.callvalue) // Preserve original value
 	contract.SetChainID(i.chainID)

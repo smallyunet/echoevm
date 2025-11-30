@@ -163,12 +163,12 @@ func runPostState(t *testing.T, test StateTest, post PostState) {
 	if test.Env.CurrentBaseFee != "" {
 		baseFee, _ = new(big.Int).SetString(strings.TrimPrefix(test.Env.CurrentBaseFee, "0x"), 16)
 	}
-	
+
 	if test.Transaction.MaxFeePerGas != "" && test.Transaction.MaxPriorityFeePerGas != "" {
 		// EIP-1559 transaction: effectiveGasPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)
 		maxFeePerGas, _ := new(big.Int).SetString(strings.TrimPrefix(test.Transaction.MaxFeePerGas, "0x"), 16)
 		maxPriorityFeePerGas, _ := new(big.Int).SetString(strings.TrimPrefix(test.Transaction.MaxPriorityFeePerGas, "0x"), 16)
-		
+
 		if baseFee == nil {
 			baseFee = big.NewInt(0)
 		}
@@ -316,16 +316,16 @@ type AccountState struct {
 }
 
 type TransactionInfo struct {
-	Data                []hexutil.Bytes `json:"data"`
-	GasLimit            []string        `json:"gasLimit"`
-	GasPrice            string          `json:"gasPrice,omitempty"`            // Legacy transactions
-	MaxFeePerGas        string          `json:"maxFeePerGas,omitempty"`        // EIP-1559
-	MaxPriorityFeePerGas string         `json:"maxPriorityFeePerGas,omitempty"` // EIP-1559
-	Nonce               string          `json:"nonce"`
-	SecretKey           hexutil.Bytes   `json:"secretKey"`
-	Sender              common.Address  `json:"sender"`
-	To                  *common.Address `json:"to"`
-	Value               []string        `json:"value"`
+	Data                 []hexutil.Bytes `json:"data"`
+	GasLimit             []string        `json:"gasLimit"`
+	GasPrice             string          `json:"gasPrice,omitempty"`             // Legacy transactions
+	MaxFeePerGas         string          `json:"maxFeePerGas,omitempty"`         // EIP-1559
+	MaxPriorityFeePerGas string          `json:"maxPriorityFeePerGas,omitempty"` // EIP-1559
+	Nonce                string          `json:"nonce"`
+	SecretKey            hexutil.Bytes   `json:"secretKey"`
+	Sender               common.Address  `json:"sender"`
+	To                   *common.Address `json:"to"`
+	Value                []string        `json:"value"`
 }
 
 type PostState struct {

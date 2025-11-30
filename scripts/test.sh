@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # EchoEVM Test Script - Run all tests with one command
-# Usage: ./test/test.sh [options]
+# Usage: ./scripts/test.sh [options]
 
 set -uo pipefail
 
@@ -19,7 +19,7 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # Configuration
-BINARY_DIR="$PROJECT_ROOT/test/binary"
+CONTRACTS_DIR="$PROJECT_ROOT/testdata/contracts"
 
 ECHOEVM_CMD="go run ./cmd/echoevm"
 
@@ -152,15 +152,15 @@ run_binary_tests() {
     echo "----------------------------------------"
     
     # Check and compile binary files
-    if [ ! -d "$BINARY_DIR/build" ]; then
+    if [ ! -d "$CONTRACTS_DIR/build" ]; then
         echo "Compiling binary contracts..."
-        (cd "$BINARY_DIR" && ./build.sh)
+        (cd "$CONTRACTS_DIR" && ./build.sh)
     fi
     
     # Basic arithmetic tests
-    run_test "Addition" bin_function_test "$BINARY_DIR/build/Add_sol_Add.bin" 'add(uint256,uint256)' '1,2'
-    run_test "Multiplication" bin_function_test "$BINARY_DIR/build/Multiply_sol_Multiply.bin" 'multiply(uint256,uint256)' '3,4'
-    run_test "Summation" bin_function_test "$BINARY_DIR/build/Sum_sol_Sum.bin" 'sum(uint256)' '5'
+    run_test "Addition" bin_function_test "$CONTRACTS_DIR/build/Add_sol_Add.bin" 'add(uint256,uint256)' '1,2'
+    run_test "Multiplication" bin_function_test "$CONTRACTS_DIR/build/Multiply_sol_Multiply.bin" 'multiply(uint256,uint256)' '3,4'
+    run_test "Summation" bin_function_test "$CONTRACTS_DIR/build/Sum_sol_Sum.bin" 'sum(uint256)' '5'
 }
 
 

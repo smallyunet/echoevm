@@ -57,15 +57,15 @@ type TraceStep struct {
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
 	return &Interpreter{
-		code:      code,
-		stack:     core.NewStack(),
-		memory:    core.NewMemory(),
-		statedb:   statedb,
-		address:   address,
-		callvalue: big.NewInt(0),
-		gasPrice:  big.NewInt(0),
-		chainID:   big.NewInt(1),
-		baseFee:   big.NewInt(0),
+		code:       code,
+		stack:      core.NewStack(),
+		memory:     core.NewMemory(),
+		statedb:    statedb,
+		address:    address,
+		callvalue:  big.NewInt(0),
+		gasPrice:   big.NewInt(0),
+		chainID:    big.NewInt(1),
+		baseFee:    big.NewInt(0),
 		difficulty: big.NewInt(0),
 	}
 }
