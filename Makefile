@@ -1,21 +1,24 @@
- BINARY_NAME ?= echoevm
- BIN_DIR ?= bin
+BINARY_NAME ?= echoevm
+BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 VERSION    ?= dev
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build run test test-binary test-contract test-unit test-all coverage clean
+.PHONY: install build run test test-unit coverage clean setup-tests help
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
 
 install: ## Install the echoevm binary to GOPATH/bin
 	go install -ldflags "$(LDFLAGS)" ./cmd/echoevm
 
-$(BIN_DIR)/$(BINARY_NAME): ## Build the echoevm binary (with version ldflags)
+$(BIN_DIR)/$(BINARY_NAME):
 	@mkdir -p $(BIN_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/echoevm
 
-build: $(BIN_DIR)/$(BINARY_NAME)
+build: $(BIN_DIR)/$(BINARY_NAME) ## Build the echoevm binary
 
 run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
@@ -23,34 +26,24 @@ run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 ## --------------------------------------------------
 ## Testing Targets
 ## --------------------------------------------------
-# The original Makefile referenced test/scripts/* which do not exist.
-# We standardize on a single orchestrator script: test/test.sh
-# Provide granular targets for CI and local usage.
 
-test: test-binary ## Default test target (binary quick tests)
-
-test-binary: $(BIN_DIR)/$(BINARY_NAME) ## Run precompiled EVM binary contract tests (binary/*.bin)
-	./test/test.sh --binary
-
-test-contract: $(BIN_DIR)/$(BINARY_NAME) ## Run Hardhat artifact based contract tests
-	./test/test.sh --contract
-
-test-all: $(BIN_DIR)/$(BINARY_NAME) ## Run all integration (binary + contract + block) tests
-	./test/test.sh --verbose
-	./test/test_block.sh
-	./test/test_block_run.sh
-
-test-block: $(BIN_DIR)/$(BINARY_NAME) ## Run block apply integration tests
-	./test/test_block.sh
-	./test/test_block_run.sh
+test: test-unit ## Run all tests
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./...
 
-coverage: ## Run Go unit tests with coverage report (coverage.out + html)
+coverage: ## Run Go unit tests with coverage report
 	go test -coverprofile=coverage.out -covermode=atomic ./...
 	@echo "Coverage summary:" && go tool cover -func=coverage.out | tail -n 1
 	@echo "Generate HTML report: go tool cover -html=coverage.out -o coverage.html"
 
+setup-tests: ## Setup test fixtures (extract ethereum/tests data)
+	@if [ ! -d "tests/fixtures/GeneralStateTests" ]; then \
+		echo "Extracting test fixtures..."; \
+		cd tests/fixtures && tar -xzf fixtures_general_state_tests.tgz; \
+	else \
+		echo "Test fixtures already extracted."; \
+	fi
+
 clean: ## Clean build artifacts
-	rm -rf $(BIN_DIR)
+	rm -rf $(BIN_DIR) coverage.out coverage.html
