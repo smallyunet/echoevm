@@ -15,7 +15,7 @@ EchoEVM supports configuration through multiple sources in the following order o
 You can override default configuration values using the following environment variables:
 
 ### Network Configuration
-- `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint for block/range commands (default: `https://cloudflare-eth.com`)
+- `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint (default: `https://cloudflare-eth.com`)
 
 ### Logging Configuration
 - `ECHOEVM_LOG_LEVEL`: Log level (default: `info`)
@@ -38,26 +38,26 @@ You can override default configuration values using the following environment va
 ### Setting Log Level
 ```bash
 export ECHOEVM_LOG_LEVEL="debug"
-./echoevm run -bin contract.bin
+echoevm run 6001600201
 ```
 
 ### Setting Gas Limit
 ```bash
 export ECHOEVM_GAS_LIMIT="30000000"
-./echoevm run -bin contract.bin
+echoevm run 6001600201
 ```
 
 ### Setting Ethereum RPC Endpoint
 ```bash
 export ECHOEVM_ETHEREUM_RPC="https://mainnet.infura.io/v3/<key>"
-./echoevm block --block 19000000
+echoevm run 6001600201
 ```
 
 ### Using JSON Logging
 ```bash
 export ECHOEVM_LOG_FORMAT="json"
 export ECHOEVM_LOG_LEVEL="debug"
-./echoevm run -bin contract.bin
+echoevm run 6001600201
 ```
 
 ## Configuration Constants

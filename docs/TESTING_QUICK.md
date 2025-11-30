@@ -3,59 +3,56 @@
 ## Quick Commands
 
 ```bash
-# Go unit tests (race detector)
+# Run all tests
+make test
+
+# Go unit tests only (with race detector)
 make test-unit
 
-# Binary (.bin) contract tests (fast smoke)
-make test-binary   # or just: make test
-
-# Hardhat artifact contract tests
-make test-contract
-
-# All integration tests (binary + contract, verbose)
-make test-all
-
-# Coverage (Go packages)
+# Coverage report (Go packages)
 make coverage
 ```
 
-## Manual Testing
+## Test Fixtures
+
+EchoEVM uses the [ethereum/tests](https://github.com/ethereum/tests) repository as a git submodule for test fixtures.
 
 ```bash
-# Unified test runner (all integration tests)
-./test/test.sh
-
-# Only binary contract tests
-./test/test.sh --binary
-
-# Only Hardhat artifact contract tests
-./test/test.sh --contract
-
-# Verbose mode
-./test/test.sh --verbose
+# Initialize test fixtures (required before running some tests)
+make setup-tests
 ```
+
+This will clone the Ethereum test fixtures into `tests/fixtures/`.
 
 ## Test Structure
 
-Current structure (simplified):
-
 ```
-test/
-├── test.sh             # Unified runner
-├── scripts/            # Backwards-compatible wrappers (basic/advanced/run_all)
-├── binary/             # Simple sample .sol + build.sh -> .bin outputs
-└── contract/           # Hardhat project (artifacts/, contracts/, tests/ etc.)
+tests/
+├── fixtures/           # Git submodule: ethereum/tests
+├── state_test.go       # State transition tests
+└── genesis_test.json   # Genesis configuration for tests
+
+internal/
+├── evm/core/           # Core tests (stack, memory, genesis, opcodes)
+└── evm/vm/             # VM tests (interpreter, operations)
 ```
 
-## Documentation
+## Running Specific Tests
 
-- **Quick Start**: This file
-- **Comprehensive Guide**: [test/docs/README.md](../test/docs/README.md)
-- **Contract Testing**: [test/contract/README.md](../test/contract/README.md)
-- **Test Directory**: [test/README.md](../test/README.md)
+```bash
+# Run a specific test file
+go test -v ./internal/evm/core/stack_test.go
 
-## Legacy Files
+# Run tests matching a pattern
+go test -v ./... -run TestOpAdd
 
-Legacy mapping / compatibility:
-- Older docs referenced `test/scripts/basic.sh` and `advanced.sh`; wrappers now delegate to `test/test.sh`.
-	Prefer calling `test/test.sh` directly going forward.
+# Run with race detector
+go test -race ./...
+```
+
+## Writing Tests
+
+When adding new features:
+1. Add unit tests in the relevant `*_test.go` file
+2. Run `make test` to verify all tests pass
+3. Run `make coverage` to check test coverage

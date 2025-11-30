@@ -2,8 +2,6 @@
 
 EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
 
-> Status: Active development. The Cobra-based CLI currently ships with `deploy`, `call`, and `trace`. Legacy documentation for `run`, `block`, and `range` refers to planned / experimental features and is being consolidated.
-
 ## ✨ Features
 
 - **Constructor Deployment**: Execute constructor bytecode and extract emitted runtime code (`deploy`).
@@ -11,40 +9,37 @@ EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation 
 - **ABI Convenience**: Lightweight ABI function selector & argument encoding for common primitive types.
 - **Execution Tracing**: JSON structured per-opcode tracing with optional pre/post state (`trace`).
 - **Deterministic Core**: Small, auditable interpreter with clear stack & memory semantics.
-- **Testing Suite**: Unified script plus Go unit tests covering opcodes, stack, memory, control and ABI paths.
+- **Testing Suite**: Go unit tests covering opcodes, stack, memory, control and ABI paths.
 - **Structured Logging**: Zerolog based, selectable output format (plain | json) and adjustable log level.
 
-Planned / in-progress (roadmap): disassembler (`disasm`), historical block replay (`block` / `range`), version & build info (`version`).
+Planned / in-progress (roadmap): disassembler (`disasm`), expanded ABI types support.
 
 ## ✅ Requirements
 
 - Go 1.23.2+
-- (Optional) Node.js + Hardhat (only if you want to rebuild / extend the sample Solidity contracts in `test/contract`)
 - (Optional) `solc` if compiling standalone `.sol` files directly.
 
 ## 🔧 Installation
 
-Clone and build from source:
+Install from source:
+
+```bash
+go install github.com/smallyunet/echoevm/cmd/echoevm@latest
+```
+
+Or clone and build:
 
 ```bash
 git clone https://github.com/smallyunet/echoevm.git
 cd echoevm
-make build          # builds ./bin/echoevm
-
-# (optional) install into GOPATH/bin
-make install
-```
-
-Quick build without Makefile helpers:
-
-```bash
-go build -o bin/echoevm ./cmd/echoevm
+make build
+make install   # install into GOPATH/bin
 ```
 
 Verify:
 
 ```bash
-./bin/echoevm --help
+echoevm --help
 ```
 
 ## 🖥 CLI Overview
@@ -73,7 +68,7 @@ Flags:
 
 Example:
 ```bash
-echoevm deploy -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json --print
+echoevm deploy -a ./artifacts/Add.json --print
 ```
 
 #### 2. call
@@ -90,8 +85,7 @@ Flags:
 
 Example (ABI encoding):
 ```bash
-echoevm call -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json \
-  -f add(uint256,uint256) -A 2,40
+echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
 ```
 
 Example (raw calldata override):
@@ -117,31 +111,17 @@ Flags:
 
 Example (first 40 steps only, pre-state only):
 ```bash
-echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json \
+echoevm trace -a ./artifacts/Add.json \
   -f add(uint256,uint256) -A 1,2 --limit 40 | jq .
 ```
 
 Example (full pre/post):
 ```bash
-echoevm trace -a ./test/contract/artifacts/contracts/03-control-flow/Loops.sol/Loops.json \
+echoevm trace -a ./artifacts/Loops.json \
   -f forLoop(uint256) -A 5 --full | jq .
 ```
 
-#### 4. block
-Execute Ethereum blocks or load genesis configurations.
-
-Flags:
-```
---genesis       Path to genesis.json
---block         Path to block.rlp (for 'run' subcommand)
-```
-
-Example (run block 1):
-```bash
-echoevm block run --genesis ./tests/genesis.json --block ./tests/block1.rlp
-```
-
-#### 5. repl
+#### 4. repl
 Interactive EVM shell for experimenting with opcodes.
 
 ```bash
@@ -149,7 +129,7 @@ echoevm repl
 ```
 Type opcodes (e.g., `PUSH1 10 ADD`) and see the stack/memory update in real-time.
 
-#### 6. run
+#### 5. run
 Execute raw bytecode with optional debug tracing.
 
 Flags:
@@ -162,7 +142,7 @@ Example:
 echoevm run --debug 6001600201
 ```
 
-#### 7. version
+#### 6. version
 Display build metadata (set via `-ldflags` in the Makefile).
 
 ```
@@ -184,7 +164,7 @@ Example JSON output:
 Build with custom version:
 ```bash
 make build VERSION=v0.1.0
-./bin/echoevm version
+echoevm version
 ```
 
 ### ABI Encoding Support
@@ -197,47 +177,42 @@ Other Solidity types (arrays, bytesN, address, etc.) are not yet enabled in the 
 
 ## 🔍 Examples
 
-Factorial (recursive / iterative sample):
+Basic bytecode execution:
 ```bash
-echoevm call -a ./test/contract/artifacts/contracts/01-data-types/Fact.sol/Fact.json \
-  -f fact(uint256) -A 5
+# Simple arithmetic: PUSH1 1 PUSH1 2 ADD
+echoevm run 6001600201
+
+# With debug trace
+echoevm run --debug 6001600201
 ```
 
-Trigger a revert (expect exit code 1):
+Using ABI encoding with contract artifacts:
 ```bash
-echoevm call -a ./test/contract/artifacts/contracts/03-control-flow/Require.sol/Require.json \
-  -f test(uint256) -A 0 || echo "(reverted as expected)"
-```
+# Deploy a contract
+echoevm deploy -a ./artifacts/Add.json --print
 
-Generate runtime from constructor and then call it:
-```bash
-echoevm deploy -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json --out-file add.runtime
-echoevm call -r add.runtime -d 771602f70000000000000000000000000000000000000000000000000000000000000001
-```
+# Call a function
+echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
 
-Trace with pre/post states:
-```bash
-echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json \
-  -f add(uint256,uint256) -A 7,9 --full | head -n 20
+# Generate execution trace
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | head -n 20
 ```
 
 ## 🧪 Testing
 
-Integration & unit tests are included. See `docs/TESTING_QUICK.md` or below for a summary:
+Unit tests are included:
 
 ```bash
-./test/test.sh            # all integration tests
-./test/test.sh --binary   # only raw .bin tests
-./test/test.sh --contract # only Hardhat artifact tests
-make test-unit            # Go package tests
+make test        # Run all tests
+make test-unit   # Go package tests only
+make coverage    # Generate coverage report
 ```
 
-Coverage report:
+To run tests with Ethereum test fixtures:
 ```bash
-make coverage
+make setup-tests  # Initialize test fixtures submodule
+make test
 ```
-
-More details: [test/README.md](test/README.md)
 
 ## 🏗 Architecture Overview
 
@@ -267,20 +242,17 @@ Environment variables and defaults are documented in: `docs/CONFIGURATION.md` an
 Quick examples:
 ```bash
 export ECHOEVM_LOG_LEVEL=debug
-echoevm call -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json -f add(uint256,uint256) -A 3,5
+echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 3,5
 
 export ECHOEVM_LOG_LEVEL=trace
-echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
 ```
 
 `--output json` switches user-facing command output (not the trace stream) to JSON where implemented. Use `echoevm version --json` for machine-readable build info.
 
-## 🗺 Roadmap (Short Term)
+## 🗺 Roadmap
 
 - disasm: human-readable bytecode disassembly
-- block / range: replay selective mainnet blocks for educational analysis
-- (done) version: embed commit / build info
-- (partial) LOG0-LOG4: captured and exposed via interpreter Logs()
 - Expanded ABI types (address, bytes, arrays)
 - Gas accounting & metering (currently simplified / placeholder in several paths)
 
@@ -288,8 +260,8 @@ echoevm trace -a ./test/contract/artifacts/contracts/01-data-types/Add.sol/Add.j
 
 1. Fork the repository
 2. Create a feature branch (`feat/<concise-topic>`)
-3. Add / update tests (Go + integration script)
-4. Run `make test-all` and ensure lint & build are clean
+3. Add / update tests
+4. Run `make test` and ensure build is clean
 5. Open a PR with a clear description + rationale
 
 Issues / discussions for roadmap ideas are welcome.
