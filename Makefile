@@ -23,13 +23,17 @@ build: $(BIN_DIR)/$(BINARY_NAME) ## Build the echoevm binary
 run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
 
-test: ## Run Go unit tests
-	go test -race -count=1 ./...
-
-coverage: ## Run Go unit tests with coverage report
-	go test -coverprofile=coverage.out -covermode=atomic ./...
-	@echo "Coverage summary:" && go tool cover -func=coverage.out | tail -n 1
-	@echo "Generate HTML report: go tool cover -html=coverage.out -o coverage.html"
-
 clean: ## Clean build artifacts
 	rm -rf $(BIN_DIR) coverage.out coverage.html
+
+setup-tests: ## Clone Ethereum test fixtures
+	[ -d tests/fixtures ] || git clone --depth 1 https://github.com/ethereum/tests.git tests/fixtures
+	[ -d tests/fixtures/GeneralStateTests ] || tar -xzf tests/fixtures/fixtures_general_state_tests.tgz -C tests/fixtures
+
+test-unit: ## Run Go unit tests
+	go test -race -count=1 ./internal/... ./cmd/...
+
+test-e2e: ## Run E2E tests (requires setup-tests)
+	go test -v ./tests/e2e/...
+
+test: test-unit test-e2e ## Run all tests
