@@ -29,8 +29,7 @@ func opMul(i *Interpreter, _ byte) {
 func opExp(i *Interpreter, _ byte) {
 	base := i.stack.PopSafe()
 	exp := i.stack.PopSafe()
-	r := new(big.Int).Exp(base, exp, nil)
-	r.And(r, mask256)
+	r := new(big.Int).Exp(base, exp, twoTo256)
 	i.stack.PushSafe(r)
 }
 

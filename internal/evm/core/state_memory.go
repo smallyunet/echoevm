@@ -24,13 +24,80 @@ func NewAccount() *Account {
 	}
 }
 
+type journalEntry interface {
+	revert(*MemoryStateDB)
+}
+
+type storageChange struct {
+	account common.Address
+	key     common.Hash
+	pre     common.Hash
+}
+
+func (ch storageChange) revert(db *MemoryStateDB) {
+	db.accounts[ch.account].Storage[ch.key] = ch.pre
+}
+
+type balanceChange struct {
+	account common.Address
+	pre     *big.Int
+}
+
+func (ch balanceChange) revert(db *MemoryStateDB) {
+	db.accounts[ch.account].Balance = ch.pre
+}
+
+type nonceChange struct {
+	account common.Address
+	pre     uint64
+}
+
+func (ch nonceChange) revert(db *MemoryStateDB) {
+	db.accounts[ch.account].Nonce = ch.pre
+}
+
+type codeChange struct {
+	account common.Address
+	preCode []byte
+	preHash []byte
+}
+
+func (ch codeChange) revert(db *MemoryStateDB) {
+	db.accounts[ch.account].Code = ch.preCode
+	db.accounts[ch.account].CodeHash = ch.preHash
+}
+
+type createAccountChange struct {
+	account common.Address
+}
+
+func (ch createAccountChange) revert(db *MemoryStateDB) {
+	delete(db.accounts, ch.account)
+}
+
+type suicideChange struct {
+	account common.Address
+	pre     bool
+	preBal  *big.Int
+}
+
+func (ch suicideChange) revert(db *MemoryStateDB) {
+	acc := db.accounts[ch.account]
+	if acc != nil {
+		acc.Suicided = ch.pre
+		acc.Balance = ch.preBal
+	}
+}
+
 type MemoryStateDB struct {
 	accounts map[common.Address]*Account
+	journal  []journalEntry
 }
 
 func NewMemoryStateDB() *MemoryStateDB {
 	return &MemoryStateDB{
 		accounts: make(map[common.Address]*Account),
+		journal:  make([]journalEntry, 0),
 	}
 }
 
@@ -46,6 +113,7 @@ func (db *MemoryStateDB) getOrNewAccount(addr common.Address) *Account {
 	if acc == nil {
 		acc = NewAccount()
 		db.accounts[addr] = acc
+		db.journal = append(db.journal, createAccountChange{account: addr})
 	}
 	return acc
 }
@@ -56,11 +124,21 @@ func (db *MemoryStateDB) CreateAccount(addr common.Address) {
 
 func (db *MemoryStateDB) SubBalance(addr common.Address, amount *big.Int) {
 	acc := db.getOrNewAccount(addr)
+	// Journal pre-balance
+	db.journal = append(db.journal, balanceChange{
+		account: addr,
+		pre:     new(big.Int).Set(acc.Balance),
+	})
 	acc.Balance.Sub(acc.Balance, amount)
 }
 
 func (db *MemoryStateDB) AddBalance(addr common.Address, amount *big.Int) {
 	acc := db.getOrNewAccount(addr)
+	// Journal pre-balance
+	db.journal = append(db.journal, balanceChange{
+		account: addr,
+		pre:     new(big.Int).Set(acc.Balance),
+	})
 	acc.Balance.Add(acc.Balance, amount)
 }
 
@@ -82,6 +160,10 @@ func (db *MemoryStateDB) GetNonce(addr common.Address) uint64 {
 
 func (db *MemoryStateDB) SetNonce(addr common.Address, nonce uint64) {
 	acc := db.getOrNewAccount(addr)
+	db.journal = append(db.journal, nonceChange{
+		account: addr,
+		pre:     acc.Nonce,
+	})
 	acc.Nonce = nonce
 }
 
@@ -103,6 +185,11 @@ func (db *MemoryStateDB) GetCode(addr common.Address) []byte {
 
 func (db *MemoryStateDB) SetCode(addr common.Address, code []byte) {
 	acc := db.getOrNewAccount(addr)
+	db.journal = append(db.journal, codeChange{
+		account: addr,
+		preCode: acc.Code,
+		preHash: acc.CodeHash,
+	})
 	acc.Code = code
 	acc.CodeHash = crypto.Keccak256(code)
 }
@@ -125,6 +212,12 @@ func (db *MemoryStateDB) GetState(addr common.Address, key common.Hash) common.H
 
 func (db *MemoryStateDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
 	acc := db.getOrNewAccount(addr)
+	pre := acc.Storage[key]
+	db.journal = append(db.journal, storageChange{
+		account: addr,
+		key:     key,
+		pre:     pre,
+	})
 	acc.Storage[key] = value
 }
 
@@ -133,9 +226,12 @@ func (db *MemoryStateDB) Suicide(addr common.Address) bool {
 	if acc == nil {
 		return false
 	}
+	db.journal = append(db.journal, suicideChange{
+		account: addr,
+		pre:     acc.Suicided,
+		preBal:  new(big.Int).Set(acc.Balance),
+	})
 	acc.Suicided = true
-	// In a real implementation we might clear balance here or later.
-	// For now just mark as suicided.
 	acc.Balance = new(big.Int)
 	return true
 }
@@ -158,11 +254,17 @@ func (db *MemoryStateDB) Empty(addr common.Address) bool {
 }
 
 func (db *MemoryStateDB) Snapshot() int {
-	return 0 // TODO: Implement snapshotting
+	return len(db.journal)
 }
 
 func (db *MemoryStateDB) RevertToSnapshot(id int) {
-	// TODO: Implement reverting
+	if id < 0 || id > len(db.journal) {
+		return
+	}
+	for i := len(db.journal) - 1; i >= id; i-- {
+		db.journal[i].revert(db)
+	}
+	db.journal = db.journal[:id]
 }
 
 func (db *MemoryStateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
