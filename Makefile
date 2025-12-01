@@ -28,12 +28,15 @@ clean: ## Clean build artifacts
 
 setup-tests: ## Clone Ethereum test fixtures
 	[ -d tests/fixtures ] || git clone --depth 1 https://github.com/ethereum/tests.git tests/fixtures
-	[ -d tests/fixtures/GeneralStateTests ] || tar -xzf tests/fixtures/fixtures_general_state_tests.tgz -C tests/fixtures
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./internal/... ./cmd/...
 
-test-e2e: ## Run E2E tests (requires setup-tests)
-	go test -v ./tests/e2e/...
+test-integration: ## Run integration tests
+	go test -v ./tests/integration/...
 
-test: test-unit test-e2e ## Run all tests
+test-compliance: setup-tests ## Run compliance tests
+	go test -v ./tests/compliance/...
+
+test: test-unit test-integration ## Run unit and integration tests
+

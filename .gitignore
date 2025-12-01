@@ -201,3 +201,6 @@ fabric.properties
 .idea/
 build/
 bin/
+
+# Tests
+tests/fixtures/

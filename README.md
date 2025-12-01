@@ -200,18 +200,18 @@ echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | he
 
 ## 🧪 Testing
 
-Unit tests are included:
+EchoEVM includes a comprehensive testing suite:
 
 ```bash
-make test        # Run all tests
-make test-unit   # Go package tests only
-make coverage    # Generate coverage report
+make test             # Run unit and integration tests
+make test-unit        # Run Go package unit tests
+make test-integration # Run integration tests (deployment, calls, storage)
 ```
 
-To run tests with Ethereum test fixtures:
+To run official Ethereum compliance tests (GeneralStateTests):
 ```bash
-make setup-tests  # Initialize test fixtures submodule
-make test
+make setup-tests      # Download Ethereum test fixtures (~100MB)
+make test-compliance  # Run compliance tests
 ```
 
 ## 🏗 Architecture Overview
