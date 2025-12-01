@@ -66,6 +66,24 @@ func ApplyTransactionWithContext(
 	}
 	statedb.SubBalance(sender, cost)
 
+	// Calculate Intrinsic Gas
+	intrinsicGas := uint64(21000)
+	if tx.To() == nil {
+		intrinsicGas = 53000 // Contract creation
+	}
+	data := tx.Data()
+	for _, b := range data {
+		if b == 0 {
+			intrinsicGas += 4
+		} else {
+			intrinsicGas += 16
+		}
+	}
+
+	if gas < intrinsicGas {
+		return nil, 0, false, fmt.Errorf("intrinsic gas too low: have %d, want %d", gas, intrinsicGas)
+	}
+
 	// 3. Increment nonce
 	statedb.SetNonce(sender, nonce+1)
 
@@ -135,7 +153,6 @@ func ApplyTransactionWithContext(
 		if !reverted {
 			statedb.SetCode(contractAddr, ret)
 		}
-		return ret, gas, reverted, nil
 	} else {
 		// Call
 		code := statedb.GetCode(*to)
@@ -145,7 +162,28 @@ func ApplyTransactionWithContext(
 		intr.Run()
 		ret = intr.ReturnedCode()
 		reverted = intr.IsReverted()
-
-		return ret, gas, reverted, nil
 	}
+
+	// Calculate Gas Used (Simplified: only intrinsic gas for now)
+	gasUsed := intrinsicGas
+	gasRemaining := gas - gasUsed
+
+	// Refund unused gas
+	refund := new(big.Int).Mul(big.NewInt(int64(gasRemaining)), gasPrice)
+	statedb.AddBalance(sender, refund)
+
+	// Pay Miner
+	// EffectiveTip = GasPrice - BaseFee
+	effectiveTip := new(big.Int).Set(gasPrice)
+	if ctx.BaseFee != nil {
+		effectiveTip.Sub(effectiveTip, ctx.BaseFee)
+		if effectiveTip.Sign() < 0 {
+			effectiveTip.SetInt64(0)
+		}
+	}
+
+	minerReward := new(big.Int).Mul(big.NewInt(int64(gasUsed)), effectiveTip)
+	statedb.AddBalance(ctx.Coinbase, minerReward)
+
+	return ret, gasUsed, reverted, nil
 }

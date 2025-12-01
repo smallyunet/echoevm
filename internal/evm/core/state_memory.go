@@ -164,3 +164,23 @@ func (db *MemoryStateDB) Snapshot() int {
 func (db *MemoryStateDB) RevertToSnapshot(id int) {
 	// TODO: Implement reverting
 }
+
+func (db *MemoryStateDB) ForEachStorage(addr common.Address, cb func(key, value common.Hash) bool) {
+	acc := db.getAccount(addr)
+	if acc == nil {
+		return
+	}
+	for k, v := range acc.Storage {
+		if !cb(k, v) {
+			return
+		}
+	}
+}
+
+func (db *MemoryStateDB) ForEachAccount(cb func(addr common.Address) bool) {
+	for addr := range db.accounts {
+		if !cb(addr) {
+			return
+		}
+	}
+}
