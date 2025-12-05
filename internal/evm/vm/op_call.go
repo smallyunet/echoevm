@@ -179,9 +179,9 @@ func opCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -253,7 +253,7 @@ func opCall(i *Interpreter, _ byte) {
 	
 	// Add call stipend if value is transferred
 	if value.Sign() > 0 {
-		gasLimit += 2300 // GasCallStipend
+		gasLimit += core.GasCallStipend
 	}
 	
 	contract.SetGas(gasLimit)
@@ -330,9 +330,9 @@ func opCallCode(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -393,7 +393,7 @@ func opCallCode(i *Interpreter, _ byte) {
 	
 	// Add call stipend if value is transferred
 	if value.Sign() > 0 {
-		gasLimit += 2300 // GasCallStipend
+		gasLimit += core.GasCallStipend
 	}
 	
 	contract.SetGas(gasLimit)
@@ -467,9 +467,9 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -595,9 +595,9 @@ func opStaticCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -715,7 +715,7 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	// EIP-2929: Additional cold access cost for beneficiary
 	var cost uint64
 	if !i.statedb.AddressInAccessList(addr) {
-		cost += 2600 // GasColdAccountAccess
+		cost += core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 	// If warm, no additional cost (base 5000 already paid)
