@@ -14,6 +14,7 @@ func bi(v int64) *big.Int { return big.NewInt(v) }
 
 func TestLog0(t *testing.T) {
 	i := New([]byte{}, core.NewMemoryStateDB(), common.Address{})
+	i.SetGas(100000)
 	// Prepare memory: write 4 bytes "deadbeef"
 	data, _ := hex.DecodeString("deadbeef")
 	i.memory.Write(0, data)
@@ -42,6 +43,7 @@ func TestOpLog(t *testing.T) {
 		core.LOG1,
 	}
 	i := New(code, core.NewMemoryStateDB(), common.Address{})
+	i.SetGas(100000)
 	i.Run()
 	if len(i.Logs()) != 1 {
 		t.Fatalf("expected 1 log, got %d", len(i.Logs()))
@@ -58,6 +60,7 @@ func TestOpLogData(t *testing.T) {
 		core.LOG0,
 	}
 	i := New(code, core.NewMemoryStateDB(), common.Address{})
+	i.SetGas(100000)
 	i.Run()
 	if len(i.Logs()) != 1 {
 		t.Fatalf("expected 1 log, got %d", len(i.Logs()))
@@ -72,6 +75,7 @@ func TestOpLogData(t *testing.T) {
 
 func TestLog2(t *testing.T) {
 	i := New([]byte{}, core.NewMemoryStateDB(), common.Address{})
+	i.SetGas(100000)
 	payload := []byte{0xca, 0xfe, 0xba, 0xbe}
 	i.memory.Write(16, payload)
 	// Stack: [offset, size, topic0, topic1] (offset on top)
