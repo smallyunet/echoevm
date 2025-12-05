@@ -2,9 +2,11 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func opAddress(i *Interpreter, _ byte) {
@@ -14,6 +16,31 @@ func opAddress(i *Interpreter, _ byte) {
 func opBalance(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
+
+	// EIP-2929
+	var cost uint64
+	if i.statedb.AddressInAccessList(addr) {
+		cost = 100 // GasWarmStorageRead
+	} else {
+		cost = 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.BALANCE]
+	if cost > baseCost {
+		extra := cost - baseCost
+		if i.gas < extra {
+			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, extra)
+			i.reverted = true
+			return
+		}
+		i.gas -= extra
+	} else {
+		refund := baseCost - cost
+		i.gas += refund
+	}
+
 	balance := i.statedb.GetBalance(addr)
 	i.stack.PushSafe(new(big.Int).Set(balance))
 }
@@ -59,6 +86,21 @@ func opCallDataCopy(i *Interpreter, _ byte) {
 	memOffset := i.stack.PopSafe().Uint64()
 	dataOffset := i.stack.PopSafe().Uint64()
 	size := i.stack.PopSafe().Uint64()
+
+	if !i.consumeMemoryExpansion(memOffset, size) {
+		return
+	}
+
+	// Dynamic gas: 3 * words
+	words := (size + 31) / 32
+	copyCost := words * 3
+	if i.gas < copyCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, copyCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= copyCost
+
 	segment := make([]byte, size)
 	if dataOffset < uint64(len(i.calldata)) {
 		copy(segment, i.calldata[dataOffset:min(dataOffset+size, uint64(len(i.calldata)))])
@@ -81,9 +123,48 @@ func opGasPrice(i *Interpreter, _ byte) {
 func opExtCodeCopy(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
+
+	// EIP-2929
+	var cost uint64
+	if i.statedb.AddressInAccessList(addr) {
+		cost = 100 // GasWarmStorageRead
+	} else {
+		cost = 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.EXTCODECOPY]
+	if cost > baseCost {
+		extra := cost - baseCost
+		if i.gas < extra {
+			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, extra)
+			i.reverted = true
+			return
+		}
+		i.gas -= extra
+	} else {
+		refund := baseCost - cost
+		i.gas += refund
+	}
+
 	memOffset := i.stack.PopSafe().Uint64()
 	codeOffset := i.stack.PopSafe().Uint64()
 	length := i.stack.PopSafe().Uint64()
+
+	if !i.consumeMemoryExpansion(memOffset, length) {
+		return
+	}
+
+	// Dynamic gas: 3 * words
+	words := (length + 31) / 32
+	copyCost := words * 3
+	if i.gas < copyCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, copyCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= copyCost
 
 	code := i.statedb.GetCode(addr)
 	codeCopy := make([]byte, length)
@@ -102,6 +183,20 @@ func opReturnDataCopy(i *Interpreter, _ byte) {
 	dataOffset := i.stack.PopSafe().Uint64()
 	length := i.stack.PopSafe().Uint64()
 
+	if !i.consumeMemoryExpansion(memOffset, length) {
+		return
+	}
+
+	// Dynamic gas: 3 * words
+	words := (length + 31) / 32
+	copyCost := words * 3
+	if i.gas < copyCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, copyCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= copyCost
+
 	data := make([]byte, length)
 	if dataOffset < uint64(len(i.returnData)) {
 		copy(data, i.returnData[dataOffset:min(dataOffset+length, uint64(len(i.returnData)))])
@@ -112,6 +207,31 @@ func opReturnDataCopy(i *Interpreter, _ byte) {
 func opExtCodeHash(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
+
+	// EIP-2929
+	var cost uint64
+	if i.statedb.AddressInAccessList(addr) {
+		cost = 100 // GasWarmStorageRead
+	} else {
+		cost = 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.EXTCODEHASH]
+	if cost > baseCost {
+		extra := cost - baseCost
+		if i.gas < extra {
+			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, extra)
+			i.reverted = true
+			return
+		}
+		i.gas -= extra
+	} else {
+		refund := baseCost - cost
+		i.gas += refund
+	}
+
 	if !i.statedb.Exist(addr) {
 		i.stack.PushSafe(big.NewInt(0))
 		return
@@ -170,8 +290,7 @@ func opMSize(i *Interpreter, _ byte) {
 }
 
 func opGas(i *Interpreter, _ byte) {
-	// Return a large value since we don't track gas consumption
-	i.stack.PushSafe(big.NewInt(0x7fffffffffffffff))
+	i.stack.PushSafe(new(big.Int).SetUint64(i.gas))
 }
 
 func opNumber(i *Interpreter, _ byte) {
@@ -193,6 +312,31 @@ func opGasLimit(i *Interpreter, _ byte) {
 func opExtCodeSize(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
+
+	// EIP-2929
+	var cost uint64
+	if i.statedb.AddressInAccessList(addr) {
+		cost = 100 // GasWarmStorageRead
+	} else {
+		cost = 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.EXTCODESIZE]
+	if cost > baseCost {
+		extra := cost - baseCost
+		if i.gas < extra {
+			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, extra)
+			i.reverted = true
+			return
+		}
+		i.gas -= extra
+	} else {
+		refund := baseCost - cost
+		i.gas += refund
+	}
+
 	size := i.statedb.GetCodeSize(addr)
 	i.stack.PushSafe(big.NewInt(int64(size)))
 }

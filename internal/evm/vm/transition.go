@@ -119,7 +119,8 @@ func ApplyTransactionWithContext(
 		}
 		intr.SetTimestamp(ctx.Timestamp)
 		intr.SetCoinbase(ctx.Coinbase)
-		intr.SetGasLimit(ctx.GasLimit)
+		intr.SetBlockGasLimit(ctx.GasLimit)
+		intr.SetGas(gas - intrinsicGas)
 		intr.SetCaller(sender)
 		intr.SetOrigin(sender)
 		intr.SetCallValue(value)
@@ -164,13 +165,33 @@ func ApplyTransactionWithContext(
 		reverted = intr.IsReverted()
 	}
 
-	// Calculate Gas Used (Simplified: only intrinsic gas for now)
-	gasUsed := intrinsicGas
-	gasRemaining := gas - gasUsed
+	// Calculate Gas Used
+	// Gas Used = Initial Gas - Remaining Gas
+	// Initial Gas was set to ctx.GasLimit in configureInterpreter?
+	// Wait, configureInterpreter sets intr.SetGasLimit(ctx.GasLimit).
+	// But ctx.GasLimit is the block gas limit? No, ApplyTransaction passes `gasLimit` which is tx.Gas().
+	// Let's check ApplyTransaction again.
+	
+	// In ApplyTransaction:
+	// ctx := &BlockContext{ ..., GasLimit: gasLimit, ... }
+	// But gasLimit arg is tx.Gas().
+	// So intr.SetGasLimit sets the tx gas limit.
+	
+	gasRemaining := intr.Gas()
+	gasUsed := gas - gasRemaining
+
+	// Apply refund counter
+	refund := statedb.GetRefund()
+	maxRefund := gasUsed / 5 // London: /5. Before: /2.
+	if refund > maxRefund {
+		refund = maxRefund
+	}
+	gasRemaining += refund
+	gasUsed -= refund
 
 	// Refund unused gas
-	refund := new(big.Int).Mul(big.NewInt(int64(gasRemaining)), gasPrice)
-	statedb.AddBalance(sender, refund)
+	refundEth := new(big.Int).Mul(big.NewInt(int64(gasRemaining)), gasPrice)
+	statedb.AddBalance(sender, refundEth)
 
 	// Pay Miner
 	// EffectiveTip = GasPrice - BaseFee

@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 )
@@ -84,82 +85,103 @@ func RunTest(t *testing.T, name string, test StateTest) {
 		statedb.AddBalance(addr, toBig(acc.Balance))
 		statedb.SetCode(addr, acc.Code)
 		for k, v := range acc.Storage {
-			statedb.SetState(addr, common.HexToHash(k), common.HexToHash(v))
+			statedb.InitState(addr, common.HexToHash(k), common.HexToHash(v))
 		}
 	}
 
-	// 2. Setup VM
+	// 2. Setup VM & Transaction
 	// Note: GeneralStateTests can have multiple data/value/gasLimit indexes.
 	// We usually iterate them. For simplicity here, we take the first one (index 0).
 
 	data := test.Transaction.Data[0]
 	gasLimit := toUint64(test.Transaction.GasLimit[0])
 	value := toBig(test.Transaction.Value[0])
+	gasPrice := toBig(test.Transaction.GasPrice)
+	nonce := toUint64(test.Transaction.Nonce)
 
-	var to common.Address
+	var tx *types.Transaction
 	if test.Transaction.To != nil {
-		to = *test.Transaction.To
+		tx = types.NewTransaction(nonce, *test.Transaction.To, value, gasLimit, gasPrice, data)
+	} else {
+		tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data)
 	}
 
-	// Determine Sender (if not explicit, would need signing, but tests usually provide enough info or we mock)
-	// For GeneralStateTests, sender is usually derived from signature, but we might cheat if SecretKey is present
-	// or if we just want to test the VM execution part.
-	// Let's assume we can set the sender directly if we know it.
-	// In standard tests, 'sender' field might not be in 'transaction' object directly but derived.
-	// However, 'pre' usually contains the sender account.
-	// Let's try to derive from SecretKey if present.
-	// For now, hardcode a sender if not present or use a default for testing VM logic.
-
-	// A better approach for VM testing is to look at the 'to' account code.
-
-	code := statedb.GetCode(to)
-	interpreter := vm.New(code, statedb, to)
-
-	// Set Env
-	interpreter.SetBlockNumber(toUint64(test.Env.CurrentNumber))
-	interpreter.SetTimestamp(toUint64(test.Env.CurrentTimestamp))
-	interpreter.SetCoinbase(test.Env.CurrentCoinbase)
-	interpreter.SetGasLimit(toUint64(test.Env.CurrentGasLimit))
-	interpreter.SetDifficulty(toBig(test.Env.CurrentDifficulty))
-	if test.Env.CurrentBaseFee != "" {
-		interpreter.SetBaseFee(toBig(test.Env.CurrentBaseFee))
+	// Determine Sender
+	// Standard test sender
+	sender := common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b") 
+	
+	// Setup Block Context
+	ctx := &vm.BlockContext{
+		BlockNumber: toBig(test.Env.CurrentNumber),
+		Timestamp:   toUint64(test.Env.CurrentTimestamp),
+		Coinbase:    test.Env.CurrentCoinbase,
+		GasLimit:    toUint64(test.Env.CurrentGasLimit),
+		Difficulty:  toBig(test.Env.CurrentDifficulty),
+		BaseFee:     toBig(test.Env.CurrentBaseFee),
 	}
-
-	// Set Tx Context
-	// We need a sender.
-	// If secret key is provided:
-	// key, _ := crypto.ToECDSA(test.Transaction.SecretKey.Bytes())
-	// addr := crypto.PubkeyToAddress(key.PublicKey)
-	// interpreter.SetCaller(addr)
-
-	// Simplified: Just use a dummy sender if we can't easily derive,
-	// but this might fail balance checks if the test expects the sender to pay gas.
-	// For pure opcode testing, it might be fine.
-	sender := common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b") // Standard test sender
-	interpreter.SetCaller(sender)
-	interpreter.SetCallValue(value)
-	interpreter.SetCallData(data)
-	interpreter.SetGasLimit(gasLimit)
-	interpreter.SetGasPrice(toBig(test.Transaction.GasPrice))
 
 	// 3. Run
-	interpreter.Run()
+	_, _, _, err := vm.ApplyTransactionWithContext(statedb, tx, sender, ctx)
+
+	if err != nil {
+		// Some tests expect failure.
+		// t.Logf("Execution error: %v", err)
+	}
 
 	// 4. Verify Post State
-	// We iterate over 'post' (which is usually keyed by fork rules, e.g. "Shanghai")
-	// Since we don't support full fork config yet, we just check if any post state matches
-	// or specifically check the one matching our config.
-	// For this MVP, we will iterate over the accounts in 'pre' + touched accounts and compare against expectations
-	// if we can find a matching post state.
+	for fork, postStates := range test.Post {
+		// For now, we only verify if we find a post state that matches our execution (index 0)
+		// and we assume our VM behaves like the fork specified.
+		// Since we don't support fork configuration yet, this is a best-effort verification.
+		for i, postState := range postStates {
+			if postState.Indexes["data"] != 0 || postState.Indexes["gas"] != 0 || postState.Indexes["value"] != 0 {
+				continue
+			}
 
-	// Actually, 'post' in JSON is map[fork] []PostState.
-	// This structure is complex.
-	// Let's simplify: We will just verify that the VM didn't panic and basic state changes happened
-	// for the specific tests we enable.
+			t.Logf("Verifying post state for fork: %s, index: %d", fork, i)
+			for addrStr, expectedAcc := range postState.State {
+				addr := common.HexToAddress(addrStr)
+				
+				// Verify Balance
+				expectedBalance := toBig(expectedAcc.Balance)
+				actualBalance := statedb.GetBalance(addr)
+				if expectedBalance.Cmp(actualBalance) != 0 {
+					t.Errorf("[%s] Balance mismatch for %s: expected %v, got %v", fork, addrStr, expectedBalance, actualBalance)
+				}
 
-	if interpreter.Err() != nil {
-		// Some tests expect failure.
-		// t.Logf("Execution error: %v", interpreter.Err())
+				// Verify Nonce
+				expectedNonce := toUint64(expectedAcc.Nonce)
+				actualNonce := statedb.GetNonce(addr)
+				if expectedNonce != actualNonce {
+					t.Errorf("[%s] Nonce mismatch for %s: expected %v, got %v", fork, addrStr, expectedNonce, actualNonce)
+				}
+
+				// Verify Code
+				expectedCode := expectedAcc.Code
+				actualCode := statedb.GetCode(addr)
+				if len(expectedCode) != len(actualCode) { // Simple length check first
+					t.Errorf("[%s] Code length mismatch for %s: expected %d, got %d", fork, addrStr, len(expectedCode), len(actualCode))
+				} else {
+					// Deep comparison if needed, or just rely on length for now if large
+					for i := range expectedCode {
+						if expectedCode[i] != actualCode[i] {
+							t.Errorf("[%s] Code mismatch for %s at byte %d", fork, addrStr, i)
+							break
+						}
+					}
+				}
+
+				// Verify Storage
+				for keyStr, valStr := range expectedAcc.Storage {
+					key := common.HexToHash(keyStr)
+					expectedVal := common.HexToHash(valStr)
+					actualVal := statedb.GetState(addr, key)
+					if expectedVal != actualVal {
+						t.Errorf("[%s] Storage mismatch for %s at %s: expected %s, got %s", fork, addrStr, keyStr, expectedVal.Hex(), actualVal.Hex())
+					}
+				}
+			}
+		}
 	}
 }
 

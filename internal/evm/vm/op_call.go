@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -39,6 +40,10 @@ func opCreate(i *Interpreter, _ byte) {
 	i.statedb.SubBalance(i.address, value)
 	i.statedb.AddBalance(addr, value)
 
+	if !i.consumeMemoryExpansion(offset, length) {
+		return
+	}
+
 	// 4. Get init code
 	initCode := i.memory.Read(offset, length)
 
@@ -47,7 +52,14 @@ func opCreate(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(i.gasLimit)
+	contract.SetBlockGasLimit(i.gasLimit)
+	
+	// EIP-150: 63/64 rule
+	available := i.gas
+	gasLimit := available - available/64
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+	
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -78,6 +90,10 @@ func opCreate2(i *Interpreter, _ byte) {
 	// 1. Check balance
 	if i.statedb.GetBalance(i.address).Cmp(value) < 0 {
 		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+
+	if !i.consumeMemoryExpansion(offset, length) {
 		return
 	}
 
@@ -119,7 +135,14 @@ func opCreate2(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(i.gasLimit)
+	contract.SetBlockGasLimit(i.gasLimit)
+	
+	// EIP-150: 63/64 rule
+	available := i.gas
+	gasLimit := available - available/64
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+	
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -149,6 +172,30 @@ func opCall(i *Interpreter, _ byte) {
 	retOffset := i.stack.PopSafe().Uint64()
 	retLength := i.stack.PopSafe().Uint64()
 
+	// Dynamic gas
+	var callCost uint64
+	
+	// EIP-2929
+	if i.statedb.AddressInAccessList(addr) {
+		callCost += 100 // GasWarmStorageRead
+	} else {
+		callCost += 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	if value.Sign() > 0 {
+		callCost += 9000 // GasCallValue
+		if !i.statedb.Exist(addr) {
+			callCost += 25000 // GasCallNewAccount
+		}
+	}
+	if i.gas < callCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= callCost
+
 	// 1. Transfer value
 	if value.Sign() > 0 && i.statedb.GetBalance(i.address).Cmp(value) < 0 {
 		i.stack.PushSafe(big.NewInt(0))
@@ -163,6 +210,13 @@ func opCall(i *Interpreter, _ byte) {
 	// 2. Get code
 	code := i.statedb.GetCode(addr)
 
+	if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+		return
+	}
+	if !i.consumeMemoryExpansion(retOffset, retLength) {
+		return
+	}
+
 	// 3. Get input data
 	args := i.memory.Read(argsOffset, argsLength)
 
@@ -171,7 +225,18 @@ func opCall(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(gas.Uint64())
+	contract.SetBlockGasLimit(i.gasLimit)
+
+	// Handle gas passing (EIP-150)
+	gasLimit := gas.Uint64()
+	available := i.gas
+	cap := available - available/64
+	if gasLimit > cap {
+		gasLimit = cap
+	}
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -179,6 +244,9 @@ func opCall(i *Interpreter, _ byte) {
 	contract.SetGasPrice(i.gasPrice)
 
 	contract.Run()
+
+	// Return remaining gas
+	i.gas += contract.Gas()
 
 	// 5. Store return data
 	ret := contract.ReturnedCode()
@@ -214,6 +282,39 @@ func opCallCode(i *Interpreter, _ byte) {
 	retOffset := i.stack.PopSafe().Uint64()
 	retLength := i.stack.PopSafe().Uint64()
 
+	// Dynamic gas
+	var callCost uint64
+	
+	// EIP-2929
+	if i.statedb.AddressInAccessList(addr) {
+		callCost += 100 // GasWarmStorageRead
+	} else {
+		callCost += 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	if value.Sign() > 0 {
+		callCost += 9000 // GasCallValue
+	}
+	if i.gas < callCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= callCost
+
+	// Calculate memory expansion
+	if argsLength > 0 {
+		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			return
+		}
+	}
+	if retLength > 0 {
+		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			return
+		}
+	}
+
 	// Get code from target address but execute in caller's context
 	code := i.statedb.GetCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
@@ -223,7 +324,18 @@ func opCallCode(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(gas.Uint64())
+	contract.SetBlockGasLimit(i.gasLimit)
+
+	// Handle gas passing (EIP-150)
+	gasLimit := gas.Uint64()
+	available := i.gas
+	cap := available - available/64
+	if gasLimit > cap {
+		gasLimit = cap
+	}
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -231,6 +343,9 @@ func opCallCode(i *Interpreter, _ byte) {
 	contract.SetGasPrice(i.gasPrice)
 
 	contract.Run()
+
+	// Return remaining gas
+	i.gas += contract.Gas()
 
 	ret := contract.ReturnedCode()
 	i.returnData = ret
@@ -262,6 +377,36 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	retOffset := i.stack.PopSafe().Uint64()
 	retLength := i.stack.PopSafe().Uint64()
 
+	// Dynamic gas
+	var callCost uint64
+	
+	// EIP-2929
+	if i.statedb.AddressInAccessList(addr) {
+		callCost += 100 // GasWarmStorageRead
+	} else {
+		callCost += 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	if i.gas < callCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= callCost
+
+	// Calculate memory expansion
+	if argsLength > 0 {
+		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			return
+		}
+	}
+	if retLength > 0 {
+		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			return
+		}
+	}
+
 	// Get code from target address but execute in caller's context
 	code := i.statedb.GetCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
@@ -271,7 +416,18 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(gas.Uint64())
+	contract.SetBlockGasLimit(i.gasLimit)
+
+	// Handle gas passing (EIP-150)
+	gasLimit := gas.Uint64()
+	available := i.gas
+	cap := available - available/64
+	if gasLimit > cap {
+		gasLimit = cap
+	}
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+
 	contract.SetCaller(i.caller) // Preserve original caller
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(i.callvalue) // Preserve original value
@@ -279,6 +435,9 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	contract.SetGasPrice(i.gasPrice)
 
 	contract.Run()
+
+	// Return remaining gas
+	i.gas += contract.Gas()
 
 	ret := contract.ReturnedCode()
 	i.returnData = ret
@@ -310,6 +469,36 @@ func opStaticCall(i *Interpreter, _ byte) {
 	retOffset := i.stack.PopSafe().Uint64()
 	retLength := i.stack.PopSafe().Uint64()
 
+	// Dynamic gas
+	var callCost uint64
+	
+	// EIP-2929
+	if i.statedb.AddressInAccessList(addr) {
+		callCost += 100 // GasWarmStorageRead
+	} else {
+		callCost += 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+	
+	if i.gas < callCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= callCost
+
+	// Calculate memory expansion
+	if argsLength > 0 {
+		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			return
+		}
+	}
+	if retLength > 0 {
+		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			return
+		}
+	}
+
 	code := i.statedb.GetCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
 
@@ -319,7 +508,18 @@ func opStaticCall(i *Interpreter, _ byte) {
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
-	contract.SetGasLimit(gas.Uint64())
+	contract.SetBlockGasLimit(i.gasLimit)
+
+	// Handle gas passing (EIP-150)
+	gasLimit := gas.Uint64()
+	available := i.gas
+	cap := available - available/64
+	if gasLimit > cap {
+		gasLimit = cap
+	}
+	i.gas -= gasLimit
+	contract.SetGas(gasLimit)
+
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(big.NewInt(0))
@@ -327,6 +527,9 @@ func opStaticCall(i *Interpreter, _ byte) {
 	contract.SetGasPrice(i.gasPrice)
 
 	contract.Run()
+
+	// Return remaining gas
+	i.gas += contract.Gas()
 
 	ret := contract.ReturnedCode()
 	i.returnData = ret
@@ -352,8 +555,29 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
 
-	// Transfer all balance
+	// EIP-2929: Access list cost for beneficiary
+	var cost uint64
+	if i.statedb.AddressInAccessList(addr) {
+		cost += 100 // GasWarmStorageRead
+	} else {
+		cost += 2600 // GasColdAccountAccess
+		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	// Dynamic gas
 	balance := i.statedb.GetBalance(i.address)
+	if balance.Sign() > 0 && !i.statedb.Exist(addr) {
+		cost += 25000
+	}
+
+	if i.gas < cost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, cost)
+		i.reverted = true
+		return
+	}
+	i.gas -= cost
+
+	// Transfer all balance
 	if balance.Sign() > 0 {
 		i.statedb.SubBalance(i.address, balance)
 		i.statedb.AddBalance(addr, balance)

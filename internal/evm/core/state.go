@@ -25,6 +25,7 @@ type StateDB interface {
 
 	// Storage
 	GetState(addr common.Address, key common.Hash) common.Hash
+	GetOriginalState(addr common.Address, key common.Hash) common.Hash
 	SetState(addr common.Address, key common.Hash, value common.Hash)
 
 	// Suicide (Selfdestruct)
@@ -34,6 +35,17 @@ type StateDB interface {
 	// Existence
 	Exist(addr common.Address) bool
 	Empty(addr common.Address) bool
+
+	// Refund
+	AddRefund(gas uint64)
+	SubRefund(gas uint64)
+	GetRefund() uint64
+
+	// Access List
+	AddAddressToAccessList(addr common.Address)
+	AddSlotToAccessList(addr common.Address, slot common.Hash)
+	AddressInAccessList(addr common.Address) bool
+	SlotInAccessList(addr common.Address, slot common.Hash) bool
 
 	// Snapshot/Revert (optional for now, but good to have in interface)
 	Snapshot() int

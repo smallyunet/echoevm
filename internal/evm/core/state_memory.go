@@ -8,19 +8,21 @@ import (
 )
 
 type Account struct {
-	Nonce    uint64
-	Balance  *big.Int
-	CodeHash []byte // using []byte to store hash for simplicity, though common.Hash is [32]byte
-	Code     []byte
-	Storage  map[common.Hash]common.Hash
-	Suicided bool
+	Nonce           uint64
+	Balance         *big.Int
+	CodeHash        []byte // using []byte to store hash for simplicity, though common.Hash is [32]byte
+	Code            []byte
+	Storage         map[common.Hash]common.Hash
+	OriginalStorage map[common.Hash]common.Hash // EIP-2200
+	Suicided        bool
 }
 
 func NewAccount() *Account {
 	return &Account{
-		Balance:  new(big.Int),
-		Storage:  make(map[common.Hash]common.Hash),
-		CodeHash: crypto.Keccak256(nil), // Empty code hash
+		Balance:         new(big.Int),
+		Storage:         make(map[common.Hash]common.Hash),
+		OriginalStorage: make(map[common.Hash]common.Hash),
+		CodeHash:        crypto.Keccak256(nil), // Empty code hash
 	}
 }
 
@@ -89,15 +91,30 @@ func (ch suicideChange) revert(db *MemoryStateDB) {
 	}
 }
 
+type refundChange struct {
+	pre uint64
+}
+
+func (ch refundChange) revert(db *MemoryStateDB) {
+	db.refund = ch.pre
+}
+
 type MemoryStateDB struct {
 	accounts map[common.Address]*Account
 	journal  []journalEntry
+	refund   uint64
+	// Access List (EIP-2929)
+	accessListAddrs map[common.Address]struct{}
+	accessListSlots map[common.Address]map[common.Hash]struct{}
 }
 
 func NewMemoryStateDB() *MemoryStateDB {
 	return &MemoryStateDB{
-		accounts: make(map[common.Address]*Account),
-		journal:  make([]journalEntry, 0),
+		accounts:        make(map[common.Address]*Account),
+		journal:         make([]journalEntry, 0),
+		refund:          0,
+		accessListAddrs: make(map[common.Address]struct{}),
+		accessListSlots: make(map[common.Address]map[common.Hash]struct{}),
 	}
 }
 
@@ -210,6 +227,14 @@ func (db *MemoryStateDB) GetState(addr common.Address, key common.Hash) common.H
 	return acc.Storage[key]
 }
 
+func (db *MemoryStateDB) GetOriginalState(addr common.Address, key common.Hash) common.Hash {
+	acc := db.getAccount(addr)
+	if acc == nil {
+		return common.Hash{}
+	}
+	return acc.OriginalStorage[key]
+}
+
 func (db *MemoryStateDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
 	acc := db.getOrNewAccount(addr)
 	pre := acc.Storage[key]
@@ -219,6 +244,13 @@ func (db *MemoryStateDB) SetState(addr common.Address, key common.Hash, value co
 		pre:     pre,
 	})
 	acc.Storage[key] = value
+}
+
+// InitState sets the initial state (both current and original). Used for test setup.
+func (db *MemoryStateDB) InitState(addr common.Address, key common.Hash, value common.Hash) {
+	acc := db.getOrNewAccount(addr)
+	acc.Storage[key] = value
+	acc.OriginalStorage[key] = value
 }
 
 func (db *MemoryStateDB) Suicide(addr common.Address) bool {
@@ -251,6 +283,24 @@ func (db *MemoryStateDB) Exist(addr common.Address) bool {
 func (db *MemoryStateDB) Empty(addr common.Address) bool {
 	acc := db.getAccount(addr)
 	return acc == nil || (acc.Nonce == 0 && acc.Balance.Sign() == 0 && len(acc.Code) == 0)
+}
+
+func (db *MemoryStateDB) AddRefund(gas uint64) {
+	db.journal = append(db.journal, refundChange{pre: db.refund})
+	db.refund += gas
+}
+
+func (db *MemoryStateDB) SubRefund(gas uint64) {
+	db.journal = append(db.journal, refundChange{pre: db.refund})
+	if gas > db.refund {
+		db.refund = 0
+	} else {
+		db.refund -= gas
+	}
+}
+
+func (db *MemoryStateDB) GetRefund() uint64 {
+	return db.refund
 }
 
 func (db *MemoryStateDB) Snapshot() int {

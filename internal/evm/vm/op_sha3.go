@@ -2,6 +2,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 
 	"golang.org/x/crypto/sha3"
@@ -13,6 +14,20 @@ func opSha3(i *Interpreter, _ byte) {
 	// Pop offset and size from the stack
 	offset := i.stack.PopSafe()
 	size := i.stack.PopSafe()
+
+	if !i.consumeMemoryExpansion(offset.Uint64(), size.Uint64()) {
+		return
+	}
+
+	// Dynamic gas: 6 * words (base 30 is already deducted)
+	words := (size.Uint64() + 31) / 32
+	cost := 6 * words
+	if i.gas < cost {
+		i.err = fmt.Errorf("out of gas: sha3")
+		i.reverted = true
+		return
+	}
+	i.gas -= cost
 
 	// Get data from memory
 	data := i.memory.Read(offset.Uint64(), size.Uint64())

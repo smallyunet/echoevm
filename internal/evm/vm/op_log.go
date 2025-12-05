@@ -23,6 +23,22 @@ func opLog(i *Interpreter, op byte) {
 	// EVM LOGn pops: offset, size, topic1, ..., topicN
 	offset := i.stack.PopSafe().Uint64()
 	size := i.stack.PopSafe().Uint64()
+
+	// Calculate memory expansion
+	if size > 0 {
+		if !i.consumeMemoryExpansion(offset, size) {
+			return
+		}
+	}
+
+	// Dynamic gas: 8 * size
+	logDataCost := size * 8
+	if i.gas < logDataCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, logDataCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= logDataCost
 	
 	topics := make([]string, 0, topicCount)
 	for t := 0; t < topicCount; t++ {

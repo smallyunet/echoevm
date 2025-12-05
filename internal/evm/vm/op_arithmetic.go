@@ -1,7 +1,10 @@
 // op_arithmetic.go
 package vm
 
-import "math/big"
+import (
+	"fmt"
+	"math/big"
+)
 
 func opAdd(i *Interpreter, _ byte) {
 	x, y := i.stack.PopSafe(), i.stack.PopSafe()
@@ -29,6 +32,17 @@ func opMul(i *Interpreter, _ byte) {
 func opExp(i *Interpreter, _ byte) {
 	base := i.stack.PopSafe()
 	exp := i.stack.PopSafe()
+
+	// Dynamic gas cost: 50 * byte_len(exponent)
+	byteLen := (exp.BitLen() + 7) / 8
+	gasCost := uint64(byteLen) * 50
+	if i.gas < gasCost {
+		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, gasCost)
+		i.reverted = true
+		return
+	}
+	i.gas -= gasCost
+
 	r := new(big.Int).Exp(base, exp, twoTo256)
 	i.stack.PushSafe(r)
 }

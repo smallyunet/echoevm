@@ -12,6 +12,11 @@ func opStop(_ *Interpreter, _ byte) {
 func opReturn(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe().Uint64()
 	size := i.stack.PopSafe().Uint64()
+
+	if !i.consumeMemoryExpansion(offset, size) {
+		return
+	}
+
 	ret := i.memory.Read(offset, size)
 	i.returned = ret
 
@@ -30,6 +35,11 @@ func opReturn(i *Interpreter, _ byte) {
 func opRevert(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe().Uint64()
 	size := i.stack.PopSafe().Uint64()
+
+	if !i.consumeMemoryExpansion(offset, size) {
+		return
+	}
+
 	ret := i.memory.Read(offset, size)
 	i.returned = ret
 	i.reverted = true

@@ -32,6 +32,8 @@ type Interpreter struct {
 	timestamp   uint64
 	coinbase    common.Address
 	gasLimit    uint64
+	gas         uint64 // Remaining gas
+	maxMemorySize uint64 // Highest memory size (in bytes) paid for
 	gasPrice    *big.Int
 	chainID     *big.Int
 	baseFee     *big.Int
@@ -67,6 +69,7 @@ func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter
 		chainID:    big.NewInt(1),
 		baseFee:    big.NewInt(0),
 		difficulty: big.NewInt(0),
+		gas:        0,
 	}
 }
 
@@ -95,8 +98,40 @@ func (i *Interpreter) SetCoinbase(addr common.Address) {
 	i.coinbase = addr
 }
 
-func (i *Interpreter) SetGasLimit(limit uint64) {
+func (i *Interpreter) SetBlockGasLimit(limit uint64) {
 	i.gasLimit = limit
+}
+
+func (i *Interpreter) SetGas(gas uint64) {
+	i.gas = gas
+}
+
+// Gas returns the remaining gas.
+func (i *Interpreter) Gas() uint64 {
+	return i.gas
+}
+
+func (i *Interpreter) consumeMemoryExpansion(offset, size uint64) bool {
+	if size == 0 {
+		return true
+	}
+	newSize := offset + size
+	if newSize <= i.maxMemorySize {
+		return true
+	}
+	
+	oldCost := core.MemoryGasCost(i.maxMemorySize)
+	newCost := core.MemoryGasCost(newSize)
+	cost := newCost - oldCost
+	
+	if i.gas < cost {
+		i.err = fmt.Errorf("out of gas: memory expansion")
+		i.reverted = true
+		return false
+	}
+	i.gas -= cost
+	i.maxMemorySize = (newSize + 31) / 32 * 32
+	return true
 }
 
 func (i *Interpreter) SetCaller(addr common.Address) {
@@ -263,6 +298,25 @@ func (i *Interpreter) Run() {
 		pc := i.pc
 		op := i.code[i.pc]
 		i.pc++
+
+		// Gas deduction
+		var cost uint64
+		if op >= 0x60 && op <= 0x7f { // PUSH
+			cost = core.GasVeryLow
+		} else if op >= 0x80 && op <= 0x8f { // DUP
+			cost = core.GasVeryLow
+		} else if op >= 0x90 && op <= 0x9f { // SWAP
+			cost = core.GasVeryLow
+		} else {
+			cost = core.GasTable[op]
+		}
+
+		if i.gas < cost {
+			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, cost)
+			i.reverted = true
+			return
+		}
+		i.gas -= cost
 
 		// Log execution step with structured data
 		if logger.GetLevel() <= zerolog.TraceLevel {

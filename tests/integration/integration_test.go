@@ -69,7 +69,8 @@ func TestContractDeploymentAndCall(t *testing.T) {
 	// 2. Call the contract
 	interpreter := vm.New(runtimeCode, statedb, contractAddr)
 	interpreter.SetCaller(sender)
-	interpreter.SetGasLimit(100000)
+	interpreter.SetBlockGasLimit(100000)
+	interpreter.SetGas(100000)
 
 	interpreter.Run()
 
@@ -112,7 +113,8 @@ func TestSstoreSload(t *testing.T) {
 
 	interpreter := vm.New(code, statedb, contractAddr)
 	interpreter.SetCaller(sender)
-	interpreter.SetGasLimit(100000)
+	interpreter.SetBlockGasLimit(100000)
+	interpreter.SetGas(100000)
 
 	interpreter.Run()
 

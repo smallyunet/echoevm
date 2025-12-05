@@ -10,41 +10,38 @@ func NewMemory() *Memory {
 	return &Memory{data: make([]byte, 0)}
 }
 
-func (m *Memory) Set(offset uint64, value *big.Int) {
-	// Ensure memory size is at least offset + 32
-	end := offset + 32
-	if uint64(len(m.data)) < end {
-		// Expand by at least 1KB or to the required size, whichever is larger
-		newSize := end
-		if newSize < uint64(len(m.data))+1024 {
-			newSize = uint64(len(m.data)) + 1024
-		}
-		// Also align to 32 bytes (EVM word size) if desired, but 1KB chunks are good enough for now
-		newMem := make([]byte, newSize)
-		copy(newMem, m.data)
-		m.data = newMem
+func (m *Memory) Resize(size uint64) {
+	if uint64(len(m.data)) >= size {
+		return
 	}
-	// Write 32-byte big-endian value
-	bytes := value.FillBytes(make([]byte, 32))
-	copy(m.data[offset:end], bytes)
-}
-
-func (m *Memory) Get(offset uint64) []byte {
-	end := offset + 32
-	if uint64(len(m.data)) < end {
-		return make([]byte, 32)
-	}
-	return m.data[offset:end]
-}
-
-func (m *Memory) Write(offset uint64, data []byte) {
-	end := offset + uint64(len(data))
-	if uint64(len(m.data)) < end {
-		newData := make([]byte, end)
+	// Expand to multiple of 32
+	newSize := (size + 31) / 32 * 32
+	if newSize > uint64(len(m.data)) {
+		newData := make([]byte, newSize)
 		copy(newData, m.data)
 		m.data = newData
 	}
-	copy(m.data[offset:end], data)
+}
+
+func (m *Memory) Set(offset uint64, value *big.Int) {
+	// Ensure memory size is at least offset + 32
+	m.Resize(offset + 32)
+	// Write 32-byte big-endian value
+	bytes := value.FillBytes(make([]byte, 32))
+	copy(m.data[offset:offset+32], bytes)
+}
+
+func (m *Memory) Get(offset uint64) []byte {
+	m.Resize(offset + 32)
+	return m.data[offset : offset+32]
+}
+
+func (m *Memory) Write(offset uint64, data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	m.Resize(offset + uint64(len(data)))
+	copy(m.data[offset:offset+uint64(len(data))], data)
 }
 
 // Read returns a copy of `size` bytes starting at `offset`.
