@@ -2,6 +2,7 @@
 package vm
 
 import (
+	"fmt"
 	"math/big"
 )
 
@@ -17,6 +18,7 @@ func opPush(i *Interpreter, op byte) {
 	n := int(op - 0x5f)
 	if int(i.pc)+n > len(i.code) {
 		// Instead of panicking, we'll set the reverted flag
+		i.err = fmt.Errorf("push out of bounds: pc=%d, n=%d, len=%d", i.pc, n, len(i.code))
 		i.reverted = true
 		return
 	}

@@ -1,9 +1,10 @@
 package vm
 
+import "fmt"
+
 func opInvalid(i *Interpreter, op byte) {
-	// In a proper EVM implementation, this should cause a revert
-	// For now, we'll just set the reverted flag
+	// INVALID opcode (0xFE) designates the end of execution and consumes all gas.
+	// It should return an error to trigger the "consume all gas" behavior in transition.go.
+	i.err = fmt.Errorf("invalid opcode: 0x%x", op)
 	i.reverted = true
-	// Note: In a real implementation, you might want to return an error instead
-	// of just setting the reverted flag
 }

@@ -361,6 +361,14 @@ func (i *Interpreter) Run() {
 
 		handler(i, op)
 
+		// Check for errors or revert
+		if i.err != nil {
+			return
+		}
+		if i.reverted {
+			return
+		}
+
 		// Log post-execution state
 		if logger.GetLevel() <= zerolog.TraceLevel {
 			logger.Trace().
@@ -456,14 +464,14 @@ func (i *Interpreter) IsReverted() bool {
 	return i.reverted
 }
 
+func (i *Interpreter) Err() error {
+	return i.err
+}
+
 func (i *Interpreter) SetStack(s *core.Stack) {
 	i.stack = s
 }
 
 func (i *Interpreter) SetMemory(m *core.Memory) {
 	i.memory = m
-}
-
-func (i *Interpreter) Err() error {
-	return i.err
 }

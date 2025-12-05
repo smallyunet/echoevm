@@ -115,16 +115,17 @@ func toSigned(val *big.Int) *big.Int {
 // opAddmod pops (a, b, m) and pushes (a + b) % m. If m == 0 pushes 0.
 // Values are treated as 256-bit unsigned integers.
 func opAddmod(i *Interpreter, _ byte) {
-	m := i.stack.PopSafe()
-	b := i.stack.PopSafe()
 	a := i.stack.PopSafe()
+	b := i.stack.PopSafe()
+	m := i.stack.PopSafe()
 	if m.Sign() == 0 { // modulus zero yields 0
 		i.stack.PushSafe(big.NewInt(0))
 		return
 	}
 	// (a + b) % m with 256-bit wrap before mod (though Go big.Int handles big values already, we mask to 256 bits explicitly)
 	sum := new(big.Int).Add(a, b)
-	sum.And(sum, mask256)
+	// sum.And(sum, mask256) // Not strictly needed if we mod m immediately, but for consistency with EVM "intermediate value"
+	// Actually EVM spec says: (a + b) % m. The addition is arbitrary precision.
 	sum.Mod(sum, m)
 	i.stack.PushSafe(sum)
 }
@@ -132,9 +133,9 @@ func opAddmod(i *Interpreter, _ byte) {
 // opMulmod pops (a, b, m) and pushes (a * b) % m. If m == 0 pushes 0.
 // Uses 512-bit intermediate reduced back by modulo, then masked to 256 bits.
 func opMulmod(i *Interpreter, _ byte) {
-	m := i.stack.PopSafe()
-	b := i.stack.PopSafe()
 	a := i.stack.PopSafe()
+	b := i.stack.PopSafe()
+	m := i.stack.PopSafe()
 	if m.Sign() == 0 {
 		i.stack.PushSafe(big.NewInt(0))
 		return
@@ -142,7 +143,7 @@ func opMulmod(i *Interpreter, _ byte) {
 	prod := new(big.Int).Mul(a, b)
 	// EVM semantics: values are 256-bit, though multiplication can exceed; modulus then masked.
 	prod.Mod(prod, m)
-	prod.And(prod, mask256)
+	// prod.And(prod, mask256) // Mod result is already < m <= 2^256
 	i.stack.PushSafe(prod)
 }
 

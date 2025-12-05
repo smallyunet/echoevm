@@ -1,11 +1,13 @@
 // op_jump.go
 package vm
 
+import "fmt"
+
 func opJump(i *Interpreter, _ byte) {
 	dst := i.stack.PopSafe()
 	target := dst.Uint64()
 	if target >= uint64(len(i.code)) || i.code[target] != 0x5b {
-		// Instead of panicking, we'll set the reverted flag
+		i.err = fmt.Errorf("invalid jump destination")
 		i.reverted = true
 		return
 	}
@@ -18,7 +20,7 @@ func opJumpi(i *Interpreter, _ byte) {
 	if cond.Sign() != 0 {
 		target := dst.Uint64()
 		if target >= uint64(len(i.code)) || i.code[target] != 0x5b {
-			// Instead of panicking, we'll set the reverted flag
+			i.err = fmt.Errorf("invalid jump destination")
 			i.reverted = true
 			return
 		}

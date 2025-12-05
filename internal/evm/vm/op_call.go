@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -176,11 +177,20 @@ func opCall(i *Interpreter, _ byte) {
 	var callCost uint64
 	
 	// EIP-2929
+	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		callCost += 100 // GasWarmStorageRead
+		accessCost = 100 // GasWarmStorageRead
 	} else {
-		callCost += 2600 // GasColdAccountAccess
+		accessCost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.CALL]
+	if accessCost > baseCost {
+		callCost += (accessCost - baseCost)
+	} else {
+		i.gas += (baseCost - accessCost)
 	}
 
 	if value.Sign() > 0 {
@@ -286,11 +296,20 @@ func opCallCode(i *Interpreter, _ byte) {
 	var callCost uint64
 	
 	// EIP-2929
+	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		callCost += 100 // GasWarmStorageRead
+		accessCost = 100 // GasWarmStorageRead
 	} else {
-		callCost += 2600 // GasColdAccountAccess
+		accessCost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.CALLCODE]
+	if accessCost > baseCost {
+		callCost += (accessCost - baseCost)
+	} else {
+		i.gas += (baseCost - accessCost)
 	}
 
 	if value.Sign() > 0 {
@@ -381,11 +400,20 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	var callCost uint64
 	
 	// EIP-2929
+	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		callCost += 100 // GasWarmStorageRead
+		accessCost = 100 // GasWarmStorageRead
 	} else {
-		callCost += 2600 // GasColdAccountAccess
+		accessCost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.DELEGATECALL]
+	if accessCost > baseCost {
+		callCost += (accessCost - baseCost)
+	} else {
+		i.gas += (baseCost - accessCost)
 	}
 	
 	if i.gas < callCost {
@@ -473,11 +501,20 @@ func opStaticCall(i *Interpreter, _ byte) {
 	var callCost uint64
 	
 	// EIP-2929
+	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		callCost += 100 // GasWarmStorageRead
+		accessCost = 100 // GasWarmStorageRead
 	} else {
-		callCost += 2600 // GasColdAccountAccess
+		accessCost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
+	}
+
+	// Adjust for already paid base cost
+	baseCost := core.GasTable[core.STATICCALL]
+	if accessCost > baseCost {
+		callCost += (accessCost - baseCost)
+	} else {
+		i.gas += (baseCost - accessCost)
 	}
 	
 	if i.gas < callCost {

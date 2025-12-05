@@ -80,12 +80,23 @@ func ApplyTransactionWithContext(
 		}
 	}
 
+	// Add Access List intrinsic gas
+	if accessList := tx.AccessList(); accessList != nil {
+		for _, entry := range accessList {
+			intrinsicGas += 2400
+			intrinsicGas += uint64(len(entry.StorageKeys)) * 1900
+		}
+	}
+
 	if gas < intrinsicGas {
 		return nil, 0, false, fmt.Errorf("intrinsic gas too low: have %d, want %d", gas, intrinsicGas)
 	}
 
 	// 3. Increment nonce
 	statedb.SetNonce(sender, nonce+1)
+
+	// Snapshot state before execution (for revert)
+	snapshot := statedb.Snapshot()
 
 	// 4. Value transfer (if any) and execution
 	value := tx.Value()
@@ -97,6 +108,27 @@ func ApplyTransactionWithContext(
 	var contractAddr common.Address
 	if to == nil {
 		contractAddr = crypto.CreateAddress(sender, nonce)
+	}
+
+	// Pre-warm Access List (EIP-2929)
+	statedb.AddAddressToAccessList(sender)
+	if to != nil {
+		statedb.AddAddressToAccessList(*to)
+	} else {
+		statedb.AddAddressToAccessList(contractAddr)
+	}
+	// Precompiles (0x01 - 0x09) + 0x0A (Cancun)
+	for i := 1; i <= 10; i++ {
+		statedb.AddAddressToAccessList(common.BytesToAddress([]byte{byte(i)}))
+	}
+	// Add explicit Access List
+	if accessList := tx.AccessList(); accessList != nil {
+		for _, entry := range accessList {
+			statedb.AddAddressToAccessList(entry.Address)
+			for _, key := range entry.StorageKeys {
+				statedb.AddSlotToAccessList(entry.Address, key)
+			}
+		}
 	}
 
 	// Transfer value
@@ -151,7 +183,11 @@ func ApplyTransactionWithContext(
 		ret = intr.ReturnedCode()
 		reverted = intr.IsReverted()
 
-		if !reverted {
+		if intr.Err() != nil {
+			statedb.RevertToSnapshot(snapshot)
+		} else if reverted {
+			statedb.RevertToSnapshot(snapshot)
+		} else {
 			statedb.SetCode(contractAddr, ret)
 		}
 	} else {
@@ -163,21 +199,17 @@ func ApplyTransactionWithContext(
 		intr.Run()
 		ret = intr.ReturnedCode()
 		reverted = intr.IsReverted()
+
+		if intr.Err() != nil || reverted {
+			statedb.RevertToSnapshot(snapshot)
+		}
 	}
 
 	// Calculate Gas Used
-	// Gas Used = Initial Gas - Remaining Gas
-	// Initial Gas was set to ctx.GasLimit in configureInterpreter?
-	// Wait, configureInterpreter sets intr.SetGasLimit(ctx.GasLimit).
-	// But ctx.GasLimit is the block gas limit? No, ApplyTransaction passes `gasLimit` which is tx.Gas().
-	// Let's check ApplyTransaction again.
-	
-	// In ApplyTransaction:
-	// ctx := &BlockContext{ ..., GasLimit: gasLimit, ... }
-	// But gasLimit arg is tx.Gas().
-	// So intr.SetGasLimit sets the tx gas limit.
-	
 	gasRemaining := intr.Gas()
+	if intr.Err() != nil {
+		gasRemaining = 0
+	}
 	gasUsed := gas - gasRemaining
 
 	// Apply refund counter

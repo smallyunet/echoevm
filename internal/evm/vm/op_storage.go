@@ -47,6 +47,8 @@ func opSstore(i *Interpreter, _ byte) {
 	if !i.statedb.SlotInAccessList(i.address, key) {
 		cost += 2100
 		i.statedb.AddSlotToAccessList(i.address, key)
+	} else {
+		cost += 100
 	}
 
 	// 2. Dynamic cost (EIP-2200)
