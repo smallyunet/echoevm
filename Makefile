@@ -39,5 +39,5 @@ test-integration: ## Run integration tests
 test-compliance: setup-tests ## Run compliance tests
 	go test -v ./tests/compliance/...
 
-test: test-unit test-integration ## Run unit and integration tests
+test: setup-tests test-unit test-integration test-compliance ## Run all tests (unit, integration, compliance)
 

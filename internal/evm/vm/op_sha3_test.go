@@ -56,6 +56,7 @@ func TestOpSha3Empty(t *testing.T) {
 	interpreter := &Interpreter{
 		stack:  stack,
 		memory: memory,
+		gas:    100000,
 	}
 
 	// Push offset (0) and size (0) to stack
