@@ -13,7 +13,7 @@ import (
 // go build -ldflags "-X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.Version=v0.1.0"
 // They default to "dev" when not provided.
 var (
-	Version   = "dev"
+	Version   = "v0.0.10"
 	GitCommit = "dev"
 	BuildDate = "dev"
 )
