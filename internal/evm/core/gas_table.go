@@ -28,6 +28,10 @@ const (
 	GasKeccak256Word = 6
 	GasCopy = 3
 	GasBlockhash = 20
+	
+	// EIP-2929: Access list costs
+	GasWarmStorageRead = 100
+	GasColdAccountAccess = 2600
 )
 
 // GasTable maps opcodes to their base gas cost

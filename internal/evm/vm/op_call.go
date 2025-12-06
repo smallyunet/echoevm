@@ -179,9 +179,9 @@ func opCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -206,7 +206,10 @@ func opCall(i *Interpreter, _ byte) {
 	}
 	i.gas -= callCost
 
-	// 1. Transfer value
+	// 1. Snapshot state before call
+	snapshot := i.statedb.Snapshot()
+
+	// 2. Transfer value
 	if value.Sign() > 0 && i.statedb.GetBalance(i.address).Cmp(value) < 0 {
 		i.stack.PushSafe(big.NewInt(0))
 		i.returnData = nil
@@ -217,20 +220,22 @@ func opCall(i *Interpreter, _ byte) {
 		i.statedb.AddBalance(addr, value)
 	}
 
-	// 2. Get code
+	// 3. Get code
 	code := i.statedb.GetCode(addr)
 
 	if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+		i.statedb.RevertToSnapshot(snapshot)
 		return
 	}
 	if !i.consumeMemoryExpansion(retOffset, retLength) {
+		i.statedb.RevertToSnapshot(snapshot)
 		return
 	}
 
-	// 3. Get input data
+	// 4. Get input data
 	args := i.memory.Read(argsOffset, argsLength)
 
-	// 4. Execute
+	// 5. Execute
 	contract := NewWithCallData(code, args, i.statedb, addr)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
@@ -245,6 +250,12 @@ func opCall(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
+	
+	// Add call stipend if value is transferred
+	if value.Sign() > 0 {
+		gasLimit += core.GasCallStipend
+	}
+	
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.address)
@@ -255,26 +266,47 @@ func opCall(i *Interpreter, _ byte) {
 
 	contract.Run()
 
-	// Return remaining gas
-	i.gas += contract.Gas()
-
-	// 5. Store return data
+	// 6. Store return data
 	ret := contract.ReturnedCode()
 	i.returnData = ret
 
-	// 6. Copy to memory
-	toCopy := uint64(len(ret))
-	if toCopy > retLength {
-		toCopy = retLength
-	}
-	if toCopy > 0 {
-		i.memory.Write(retOffset, ret[:toCopy])
-	}
-
-	// 7. Push result
-	if contract.IsReverted() || contract.Err() != nil {
+	// 7. Handle errors and revert
+	if contract.Err() != nil {
+		// Error (not clean revert): consume all gas
+		i.statedb.RevertToSnapshot(snapshot)
 		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
+	} else if contract.IsReverted() {
+		// Clean revert (REVERT opcode): return remaining gas
+		i.gas += contract.Gas()
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 	} else {
+		// Success: return remaining gas
+		i.gas += contract.Gas()
+		// 8. Copy to memory on success
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 		i.stack.PushSafe(big.NewInt(1))
 	}
 }
@@ -298,9 +330,9 @@ func opCallCode(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -322,14 +354,19 @@ func opCallCode(i *Interpreter, _ byte) {
 	}
 	i.gas -= callCost
 
+	// Snapshot state before call
+	snapshot := i.statedb.Snapshot()
+
 	// Calculate memory expansion
 	if argsLength > 0 {
 		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
 	if retLength > 0 {
 		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
@@ -353,6 +390,12 @@ func opCallCode(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
+	
+	// Add call stipend if value is transferred
+	if value.Sign() > 0 {
+		gasLimit += core.GasCallStipend
+	}
+	
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.address)
@@ -363,23 +406,45 @@ func opCallCode(i *Interpreter, _ byte) {
 
 	contract.Run()
 
-	// Return remaining gas
-	i.gas += contract.Gas()
-
 	ret := contract.ReturnedCode()
 	i.returnData = ret
 
-	toCopy := uint64(len(ret))
-	if toCopy > retLength {
-		toCopy = retLength
-	}
-	if toCopy > 0 {
-		i.memory.Write(retOffset, ret[:toCopy])
-	}
-
-	if contract.IsReverted() || contract.Err() != nil {
+	// Handle errors and revert
+	if contract.Err() != nil {
+		// Error (not clean revert): consume all gas
+		i.statedb.RevertToSnapshot(snapshot)
 		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
+	} else if contract.IsReverted() {
+		// Clean revert (REVERT opcode): return remaining gas
+		i.gas += contract.Gas()
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 	} else {
+		// Success: return remaining gas
+		i.gas += contract.Gas()
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 		i.stack.PushSafe(big.NewInt(1))
 	}
 }
@@ -402,9 +467,9 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -423,14 +488,19 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	}
 	i.gas -= callCost
 
+	// Snapshot state before call
+	snapshot := i.statedb.Snapshot()
+
 	// Calculate memory expansion
 	if argsLength > 0 {
 		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
 	if retLength > 0 {
 		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
@@ -464,23 +534,45 @@ func opDelegateCall(i *Interpreter, _ byte) {
 
 	contract.Run()
 
-	// Return remaining gas
-	i.gas += contract.Gas()
-
 	ret := contract.ReturnedCode()
 	i.returnData = ret
 
-	toCopy := uint64(len(ret))
-	if toCopy > retLength {
-		toCopy = retLength
-	}
-	if toCopy > 0 {
-		i.memory.Write(retOffset, ret[:toCopy])
-	}
-
-	if contract.IsReverted() || contract.Err() != nil {
+	// Handle errors and revert
+	if contract.Err() != nil {
+		// Error (not clean revert): consume all gas
+		i.statedb.RevertToSnapshot(snapshot)
 		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
+	} else if contract.IsReverted() {
+		// Clean revert (REVERT opcode): return remaining gas
+		i.gas += contract.Gas()
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 	} else {
+		// Success: return remaining gas
+		i.gas += contract.Gas()
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 		i.stack.PushSafe(big.NewInt(1))
 	}
 }
@@ -503,9 +595,9 @@ func opStaticCall(i *Interpreter, _ byte) {
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
-		accessCost = 100 // GasWarmStorageRead
+		accessCost = core.GasWarmStorageRead
 	} else {
-		accessCost = 2600 // GasColdAccountAccess
+		accessCost = core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
 
@@ -524,14 +616,19 @@ func opStaticCall(i *Interpreter, _ byte) {
 	}
 	i.gas -= callCost
 
+	// Snapshot state before call
+	snapshot := i.statedb.Snapshot()
+
 	// Calculate memory expansion
 	if argsLength > 0 {
 		if !i.consumeMemoryExpansion(argsOffset, argsLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
 	if retLength > 0 {
 		if !i.consumeMemoryExpansion(retOffset, retLength) {
+			i.statedb.RevertToSnapshot(snapshot)
 			return
 		}
 	}
@@ -565,23 +662,45 @@ func opStaticCall(i *Interpreter, _ byte) {
 
 	contract.Run()
 
-	// Return remaining gas
-	i.gas += contract.Gas()
-
 	ret := contract.ReturnedCode()
 	i.returnData = ret
 
-	toCopy := uint64(len(ret))
-	if toCopy > retLength {
-		toCopy = retLength
-	}
-	if toCopy > 0 {
-		i.memory.Write(retOffset, ret[:toCopy])
-	}
-
-	if contract.IsReverted() || contract.Err() != nil {
+	// Handle errors and revert
+	if contract.Err() != nil {
+		// Error (not clean revert): consume all gas
+		i.statedb.RevertToSnapshot(snapshot)
 		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
+	} else if contract.IsReverted() {
+		// Clean revert (REVERT opcode): return remaining gas
+		i.gas += contract.Gas()
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		// Copy return data even on failure
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 	} else {
+		// Success: return remaining gas
+		i.gas += contract.Gas()
+		toCopy := uint64(len(ret))
+		if toCopy > retLength {
+			toCopy = retLength
+		}
+		if toCopy > 0 {
+			i.memory.Write(retOffset, ret[:toCopy])
+		}
 		i.stack.PushSafe(big.NewInt(1))
 	}
 }
@@ -592,16 +711,16 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
 
-	// EIP-2929: Access list cost for beneficiary
+	// Base cost (5000) is already paid by interpreter
+	// EIP-2929: Additional cold access cost for beneficiary
 	var cost uint64
-	if i.statedb.AddressInAccessList(addr) {
-		cost += 100 // GasWarmStorageRead
-	} else {
-		cost += 2600 // GasColdAccountAccess
+	if !i.statedb.AddressInAccessList(addr) {
+		cost += core.GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
+	// If warm, no additional cost (base 5000 already paid)
 
-	// Dynamic gas
+	// Dynamic gas: cost of creating new account
 	balance := i.statedb.GetBalance(i.address)
 	if balance.Sign() > 0 && !i.statedb.Exist(addr) {
 		cost += 25000

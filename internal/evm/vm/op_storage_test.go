@@ -18,6 +18,7 @@ func TestOpSstoreSload(t *testing.T) {
 	}
 	db := core.NewMemoryStateDB()
 	i := New(code, db, common.Address{})
+	i.SetGas(100000)
 	i.Run()
 
 	if i.Stack().Len() != 1 {

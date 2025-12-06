@@ -18,6 +18,7 @@ func TestOpSha3(t *testing.T) {
 	interpreter := &Interpreter{
 		stack:  stack,
 		memory: memory,
+		gas:    100000,
 	}
 
 	// Write test data to memory at offset 0
@@ -94,6 +95,7 @@ func TestOpSha3LargeData(t *testing.T) {
 	interpreter := &Interpreter{
 		stack:  stack,
 		memory: memory,
+		gas:    100000,
 	}
 
 	// Write test data to memory at offset 100

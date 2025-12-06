@@ -9,7 +9,7 @@ import (
 )
 
 func newInterp() *Interpreter {
-	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory(), statedb: core.NewMemoryStateDB(), address: common.Address{}}
+	return &Interpreter{stack: core.NewStack(), memory: core.NewMemory(), statedb: core.NewMemoryStateDB(), address: common.Address{}, gas: 1000000}
 }
 
 func TestOpAdd(t *testing.T) {
