@@ -28,6 +28,7 @@ clean: ## Clean build artifacts
 
 setup-tests: ## Clone Ethereum test fixtures
 	[ -d tests/fixtures ] || git clone --depth 1 https://github.com/ethereum/tests.git tests/fixtures
+	[ -d tests/fixtures/GeneralStateTests ] || (cd tests/fixtures && tar -xzf fixtures_general_state_tests.tgz)
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./internal/... ./cmd/...
