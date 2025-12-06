@@ -363,6 +363,7 @@ func (i *Interpreter) Run() {
 
 		// Check for errors or revert
 		if i.err != nil {
+			i.gas = 0
 			return
 		}
 		if i.reverted {
