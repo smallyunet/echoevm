@@ -35,7 +35,7 @@ const (
 )
 
 // GasTable maps opcodes to their base gas cost
-var GasTable = map[byte]uint64{
+var GasTable = [256]uint64{
 	STOP:       GasZero,
 	ADD:        GasVeryLow,
 	MUL:        GasLow,
@@ -106,11 +106,6 @@ var GasTable = map[byte]uint64{
 	JUMPDEST: GasJumpDest,
 	PUSH0:    GasBase,
 
-	PUSH1: GasVeryLow,
-	DUP1:  GasVeryLow,
-	SWAP1: GasVeryLow,
-	// ... others are handled by range check or default to VeryLow
-	
 	LOG0: GasLog,
 	LOG1: GasLog + GasLogTopic,
 	LOG2: GasLog + 2*GasLogTopic,
@@ -127,6 +122,17 @@ var GasTable = map[byte]uint64{
 	REVERT:       GasZero,
 	INVALID:      GasZero,
 	SELFDESTRUCT: GasSelfDestruct,
+}
+
+func init() {
+	// Fill PUSH, DUP, SWAP
+	for i := 0; i < 32; i++ {
+		GasTable[PUSH1+byte(i)] = GasVeryLow
+	}
+	for i := 0; i < 16; i++ {
+		GasTable[DUP1+byte(i)] = GasVeryLow
+		GasTable[SWAP1+byte(i)] = GasVeryLow
+	}
 }
 
 func MemoryGasCost(size uint64) uint64 {

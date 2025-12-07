@@ -88,6 +88,7 @@ func RunTest(t *testing.T, name string, test StateTest) {
 			statedb.InitState(addr, common.HexToHash(k), common.HexToHash(v))
 		}
 	}
+	statedb.ClearJournal()
 
 	// 2. Setup VM & Transaction
 	// Note: GeneralStateTests can have multiple data/value/gasLimit indexes.

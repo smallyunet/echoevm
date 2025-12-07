@@ -721,7 +721,7 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	// If warm, no additional cost (base 5000 already paid)
 
 	// Dynamic gas: cost of creating new account
-	balance := i.statedb.GetBalance(i.address)
+	balance := new(big.Int).Set(i.statedb.GetBalance(i.address))
 	if balance.Sign() > 0 && !i.statedb.Exist(addr) {
 		cost += 25000
 	}
@@ -740,7 +740,10 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	}
 
 	// Mark as suicided
-	i.statedb.Suicide(i.address)
+	// EIP-6780: SELFDESTRUCT only clears the account if it is created in the same transaction.
+	if i.statedb.HasBeenCreatedInCurrentTx(i.address) {
+		i.statedb.Suicide(i.address)
+	}
 }
 
 // keccak256 helper for CREATE2

@@ -14,7 +14,9 @@ type Stack struct {
 
 // NewStack creates a new EVM stack.
 func NewStack() *Stack {
-	return &Stack{}
+	return &Stack{
+		data: make([]*big.Int, 0, config.StackLimit),
+	}
 }
 
 // Push pushes an item onto the stack.

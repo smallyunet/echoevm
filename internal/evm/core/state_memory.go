@@ -78,9 +78,13 @@ func (ch createAccountChange) revert(db *MemoryStateDB) {
 }
 
 type suicideChange struct {
-	account common.Address
-	pre     bool
-	preBal  *big.Int
+	account     common.Address
+	pre         bool
+	preBal      *big.Int
+	preNonce    uint64
+	preCode     []byte
+	preCodeHash []byte
+	preStorage  map[common.Hash]common.Hash
 }
 
 func (ch suicideChange) revert(db *MemoryStateDB) {
@@ -88,6 +92,10 @@ func (ch suicideChange) revert(db *MemoryStateDB) {
 	if acc != nil {
 		acc.Suicided = ch.pre
 		acc.Balance = ch.preBal
+		acc.Nonce = ch.preNonce
+		acc.Code = ch.preCode
+		acc.CodeHash = ch.preCodeHash
+		acc.Storage = ch.preStorage
 	}
 }
 
@@ -164,7 +172,7 @@ func (db *MemoryStateDB) GetBalance(addr common.Address) *big.Int {
 	if acc == nil {
 		return common.Big0
 	}
-	return new(big.Int).Set(acc.Balance) // Return copy
+	return acc.Balance
 }
 
 func (db *MemoryStateDB) GetNonce(addr common.Address) uint64 {
@@ -259,12 +267,20 @@ func (db *MemoryStateDB) Suicide(addr common.Address) bool {
 		return false
 	}
 	db.journal = append(db.journal, suicideChange{
-		account: addr,
-		pre:     acc.Suicided,
-		preBal:  new(big.Int).Set(acc.Balance),
+		account:     addr,
+		pre:         acc.Suicided,
+		preBal:      new(big.Int).Set(acc.Balance),
+		preNonce:    acc.Nonce,
+		preCode:     acc.Code,
+		preCodeHash: acc.CodeHash,
+		preStorage:  acc.Storage,
 	})
 	acc.Suicided = true
 	acc.Balance = new(big.Int)
+	acc.Nonce = 0
+	acc.Code = nil
+	acc.CodeHash = nil
+	acc.Storage = make(map[common.Hash]common.Hash)
 	return true
 }
 
@@ -274,6 +290,15 @@ func (db *MemoryStateDB) HasSuicided(addr common.Address) bool {
 		return false
 	}
 	return acc.Suicided
+}
+
+func (db *MemoryStateDB) HasBeenCreatedInCurrentTx(addr common.Address) bool {
+	for _, entry := range db.journal {
+		if ch, ok := entry.(createAccountChange); ok && ch.account == addr {
+			return true
+		}
+	}
+	return false
 }
 
 func (db *MemoryStateDB) Exist(addr common.Address) bool {
@@ -297,6 +322,10 @@ func (db *MemoryStateDB) SubRefund(gas uint64) {
 	} else {
 		db.refund -= gas
 	}
+}
+
+func (db *MemoryStateDB) ClearJournal() {
+	db.journal = make([]journalEntry, 0)
 }
 
 func (db *MemoryStateDB) GetRefund() uint64 {

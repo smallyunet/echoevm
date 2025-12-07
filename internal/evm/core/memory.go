@@ -16,10 +16,9 @@ func (m *Memory) Resize(size uint64) {
 	}
 	// Expand to multiple of 32
 	newSize := (size + 31) / 32 * 32
-	if newSize > uint64(len(m.data)) {
-		newData := make([]byte, newSize)
-		copy(newData, m.data)
-		m.data = newData
+	needed := newSize - uint64(len(m.data))
+	if needed > 0 {
+		m.data = append(m.data, make([]byte, needed)...)
 	}
 }
 
@@ -27,8 +26,7 @@ func (m *Memory) Set(offset uint64, value *big.Int) {
 	// Ensure memory size is at least offset + 32
 	m.Resize(offset + 32)
 	// Write 32-byte big-endian value
-	bytes := value.FillBytes(make([]byte, 32))
-	copy(m.data[offset:offset+32], bytes)
+	value.FillBytes(m.data[offset : offset+32])
 }
 
 func (m *Memory) Get(offset uint64) []byte {

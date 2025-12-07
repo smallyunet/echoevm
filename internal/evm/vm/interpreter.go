@@ -175,7 +175,7 @@ func (i *Interpreter) Logs() []LogEntry { return i.logs }
 type OpcodeHandler func(i *Interpreter, op byte)
 
 // handlerMap maps opcodes to their handlers
-var handlerMap = map[byte]OpcodeHandler{}
+var handlerMap = [256]OpcodeHandler{}
 
 func init() {
 	// arithmetic
@@ -279,6 +279,15 @@ func init() {
 
 	// invalid opcode
 	handlerMap[core.INVALID] = opInvalid
+
+	// PUSH, DUP, SWAP
+	for i := 0; i < 32; i++ {
+		handlerMap[core.PUSH1+byte(i)] = opPush
+	}
+	for i := 0; i < 16; i++ {
+		handlerMap[core.DUP1+byte(i)] = opDup
+		handlerMap[core.SWAP1+byte(i)] = opSwap
+	}
 }
 
 func (i *Interpreter) Run() {
@@ -300,16 +309,7 @@ func (i *Interpreter) Run() {
 		i.pc++
 
 		// Gas deduction
-		var cost uint64
-		if op >= 0x60 && op <= 0x7f { // PUSH
-			cost = core.GasVeryLow
-		} else if op >= 0x80 && op <= 0x8f { // DUP
-			cost = core.GasVeryLow
-		} else if op >= 0x90 && op <= 0x9f { // SWAP
-			cost = core.GasVeryLow
-		} else {
-			cost = core.GasTable[op]
-		}
+		cost := core.GasTable[op]
 
 		if i.gas < cost {
 			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, cost)
@@ -330,21 +330,8 @@ func (i *Interpreter) Run() {
 				Msg("EVM execution step")
 		}
 
-		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
-			opPush(i, op)
-			continue
-		}
-		if op >= 0x80 && op <= 0x8f { // DUP1~DUP16
-			opDup(i, op)
-			continue
-		}
-		if op >= 0x90 && op <= 0x9f { // SWAP1~SWAP16
-			opSwap(i, op)
-			continue
-		}
-
-		handler, ok := handlerMap[op]
-		if !ok {
+		handler := handlerMap[op]
+		if handler == nil {
 			// Log invalid opcode error with context
 			logger.Error().
 				Uint64("pc", pc).
@@ -415,22 +402,14 @@ func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
 			return
 		}
 
-		if op >= 0x60 && op <= 0x7f { // PUSH1~PUSH32
-			opPush(i, op)
-		} else if op >= 0x80 && op <= 0x8f { // DUP1~DUP16
-			opDup(i, op)
-		} else if op >= 0x90 && op <= 0x9f { // SWAP1~SWAP16
-			opSwap(i, op)
-		} else {
-			handler, ok := handlerMap[op]
-			if !ok {
-				i.reverted = true
-				post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true, IsPost: true}
-				hook(post)
-				return
-			}
-			handler(i, op)
+		handler := handlerMap[op]
+		if handler == nil {
+			i.reverted = true
+			post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true, IsPost: true}
+			hook(post)
+			return
 		}
+		handler(i, op)
 
 		halt := false
 		if op == core.RETURN || op == core.REVERT || op == core.STOP {

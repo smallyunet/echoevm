@@ -31,6 +31,8 @@ type StateDB interface {
 	// Suicide (Selfdestruct)
 	Suicide(addr common.Address) bool
 	HasSuicided(addr common.Address) bool
+	// HasBeenCreatedInCurrentTx checks if the account was created in the current transaction (EIP-6780)
+	HasBeenCreatedInCurrentTx(addr common.Address) bool
 
 	// Existence
 	Exist(addr common.Address) bool
