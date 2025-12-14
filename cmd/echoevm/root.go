@@ -42,6 +42,7 @@ func initRoot() {
 func addSubCommands() {
 	rootCmd.AddCommand(newCallCmd())
 	rootCmd.AddCommand(newDeployCmd())
+	rootCmd.AddCommand(newDisasmCmd())
 	rootCmd.AddCommand(newTraceCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newReplCmd())
