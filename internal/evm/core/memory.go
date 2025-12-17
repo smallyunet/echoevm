@@ -66,3 +66,21 @@ func (m *Memory) Len() int {
 func (m *Memory) Data() []byte {
 	return m.data
 }
+
+// Copy copies length bytes from src to dest.
+// Both src and dest are offsets in memory.
+// It handles memory expansion if necessary (caller should have checked gas).
+func (m *Memory) Copy(dest, src, length uint64) {
+	if length == 0 {
+		return
+	}
+	// Resize for the furthest point
+	maxEnd := dest + length
+	if src+length > maxEnd {
+		maxEnd = src + length
+	}
+	m.Resize(maxEnd)
+	
+	// Use copy built-in which handles overlap correctly
+	copy(m.data[dest:dest+length], m.data[src:src+length])
+}

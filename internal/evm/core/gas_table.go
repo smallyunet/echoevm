@@ -40,6 +40,13 @@ const (
 	// EIP-3529: Reduced refunds
 	GasSstoreClearRefund = 4800
 
+	// EIP-1153: Transient Storage
+	GasTload  = 100
+	GasTstore = 100
+
+	// EIP-5656: MCOPY
+	GasMcopy = 3
+
 	// Memory costs
 	GasMemory = 3 // Per word
 
@@ -121,6 +128,9 @@ var GasTable = [256]uint64{
 	GAS:      GasBase,
 	JUMPDEST: GasJumpDest,
 	PUSH0:    GasBase,
+	TLOAD:    GasTload,
+	TSTORE:   GasTstore,
+	MCOPY:    GasMcopy, // Dynamic cost added in handler
 
 	LOG0: GasLog,
 	LOG1: GasLog + GasLogTopic,

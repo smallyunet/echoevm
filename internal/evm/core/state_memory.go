@@ -114,6 +114,9 @@ type MemoryStateDB struct {
 	// Access List (EIP-2929)
 	accessListAddrs map[common.Address]struct{}
 	accessListSlots map[common.Address]map[common.Hash]struct{}
+
+	// Transient Storage (EIP-1153)
+	transientStorage map[common.Address]map[common.Hash]common.Hash
 }
 
 func NewMemoryStateDB() *MemoryStateDB {
@@ -123,6 +126,7 @@ func NewMemoryStateDB() *MemoryStateDB {
 		refund:          0,
 		accessListAddrs: make(map[common.Address]struct{}),
 		accessListSlots: make(map[common.Address]map[common.Hash]struct{}),
+		transientStorage: make(map[common.Address]map[common.Hash]common.Hash),
 	}
 }
 
@@ -252,6 +256,22 @@ func (db *MemoryStateDB) SetState(addr common.Address, key common.Hash, value co
 		pre:     pre,
 	})
 	acc.Storage[key] = value
+}
+
+// GetTransientState returns the value from transient storage
+func (db *MemoryStateDB) GetTransientState(addr common.Address, key common.Hash) common.Hash {
+	if db.transientStorage[addr] == nil {
+		return common.Hash{}
+	}
+	return db.transientStorage[addr][key]
+}
+
+// SetTransientState sets the value in transient storage
+func (db *MemoryStateDB) SetTransientState(addr common.Address, key common.Hash, value common.Hash) {
+	if db.transientStorage[addr] == nil {
+		db.transientStorage[addr] = make(map[common.Hash]common.Hash)
+	}
+	db.transientStorage[addr][key] = value
 }
 
 // InitState sets the initial state (both current and original). Used for test setup.

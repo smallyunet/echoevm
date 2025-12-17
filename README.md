@@ -10,6 +10,8 @@ EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation 
 - **ABI Convenience**: Lightweight ABI function selector & argument encoding for common primitive types.
 - **Execution Tracing**: JSON structured per-opcode tracing with optional pre/post state (`trace`).
 - **Gas Accounting**: EIP-2929 compatible gas metering with dynamic cost calculations.
+- **Transient Storage**: Full support for EIP-1153 (TLOAD/TSTORE).
+- **Memory Copy**: Efficient memory copying with MCOPY (EIP-5656).
 - **Deterministic Core**: Small, auditable interpreter with clear stack & memory semantics.
 - **Testing Suite**: Go unit tests covering opcodes, stack, memory, control and ABI paths.
 - **Structured Logging**: Zerolog based, selectable output format (plain | json) and adjustable log level.
@@ -299,7 +301,6 @@ echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
 
 - Expanded ABI types (tuples, nested arrays)
 - Fork-specific opcode behavior (pre/post merge, Cancun opcodes)
-- MCOPY (EIP-5656) and TLOAD/TSTORE (EIP-1153) opcodes
 - Improved compliance test coverage
 
 ## 🤝 Contributing

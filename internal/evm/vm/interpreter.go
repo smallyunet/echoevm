@@ -217,6 +217,9 @@ func init() {
 	handlerMap[core.CODECOPY] = opCodecopy
 	handlerMap[core.SLOAD] = opSload
 	handlerMap[core.SSTORE] = opSstore
+	handlerMap[core.TLOAD] = opTload
+	handlerMap[core.TSTORE] = opTstore
+	handlerMap[core.MCOPY] = opMcopy
 
 	// stack
 	handlerMap[core.POP] = opPop

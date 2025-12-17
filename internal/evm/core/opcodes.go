@@ -78,6 +78,9 @@ const (
 	GAS      = 0x5a
 	JUMPDEST = 0x5b
 	PUSH0    = 0x5f // EIP-3855
+	TLOAD    = 0x5c // EIP-1153
+	TSTORE   = 0x5d // EIP-1153
+	MCOPY    = 0x5e // EIP-5656
 
 	// 0x60 - 0x7f: PUSH1 ~ PUSH32
 	PUSH1 = 0x60
@@ -175,6 +178,9 @@ var opcodeNames = map[byte]string{
 	GAS:            "GAS",
 	JUMPDEST:       "JUMPDEST",
 	PUSH0:          "PUSH0",
+	TLOAD:          "TLOAD",
+	TSTORE:         "TSTORE",
+	MCOPY:          "MCOPY",
 	CREATE:         "CREATE",
 	CALL:           "CALL",
 	CALLCODE:       "CALLCODE",

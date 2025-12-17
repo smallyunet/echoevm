@@ -28,6 +28,10 @@ type StateDB interface {
 	GetOriginalState(addr common.Address, key common.Hash) common.Hash
 	SetState(addr common.Address, key common.Hash, value common.Hash)
 
+	// Transient Storage (EIP-1153)
+	GetTransientState(addr common.Address, key common.Hash) common.Hash
+	SetTransientState(addr common.Address, key common.Hash, value common.Hash)
+
 	// Suicide (Selfdestruct)
 	Suicide(addr common.Address) bool
 	HasSuicided(addr common.Address) bool
