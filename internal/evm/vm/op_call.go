@@ -54,13 +54,13 @@ func opCreate(i *Interpreter, _ byte) {
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
 	contract.SetBlockGasLimit(i.gasLimit)
-	
+
 	// EIP-150: 63/64 rule
 	available := i.gas
 	gasLimit := available - available/64
 	i.gas -= gasLimit
 	contract.SetGas(gasLimit)
-	
+
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -137,13 +137,13 @@ func opCreate2(i *Interpreter, _ byte) {
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
 	contract.SetBlockGasLimit(i.gasLimit)
-	
+
 	// EIP-150: 63/64 rule
 	available := i.gas
 	gasLimit := available - available/64
 	i.gas -= gasLimit
 	contract.SetGas(gasLimit)
-	
+
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
@@ -175,7 +175,7 @@ func opCall(i *Interpreter, _ byte) {
 
 	// Dynamic gas
 	var callCost uint64
-	
+
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
@@ -235,13 +235,6 @@ func opCall(i *Interpreter, _ byte) {
 	// 4. Get input data
 	args := i.memory.Read(argsOffset, argsLength)
 
-	// 5. Execute
-	contract := NewWithCallData(code, args, i.statedb, addr)
-	contract.SetBlockNumber(i.blockNumber)
-	contract.SetTimestamp(i.timestamp)
-	contract.SetCoinbase(i.coinbase)
-	contract.SetBlockGasLimit(i.gasLimit)
-
 	// Handle gas passing (EIP-150)
 	gasLimit := gas.Uint64()
 	available := i.gas
@@ -250,12 +243,41 @@ func opCall(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
-	
+
 	// Add call stipend if value is transferred
 	if value.Sign() > 0 {
 		gasLimit += core.GasCallStipend
 	}
-	
+
+	// 5. Check for precompiled contracts
+	if IsPrecompiled(addr) {
+		ret, remainingGas, err := RunPrecompiled(addr, args, gasLimit)
+		i.returnData = ret
+		i.gas += remainingGas
+
+		if err != nil {
+			i.statedb.RevertToSnapshot(snapshot)
+			i.stack.PushSafe(big.NewInt(0))
+		} else {
+			// Copy return data to memory
+			toCopy := uint64(len(ret))
+			if toCopy > retLength {
+				toCopy = retLength
+			}
+			if toCopy > 0 {
+				i.memory.Write(retOffset, ret[:toCopy])
+			}
+			i.stack.PushSafe(big.NewInt(1))
+		}
+		return
+	}
+
+	// 6. Execute regular contract
+	contract := NewWithCallData(code, args, i.statedb, addr)
+	contract.SetBlockNumber(i.blockNumber)
+	contract.SetTimestamp(i.timestamp)
+	contract.SetCoinbase(i.coinbase)
+	contract.SetBlockGasLimit(i.gasLimit)
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.address)
@@ -326,7 +348,7 @@ func opCallCode(i *Interpreter, _ byte) {
 
 	// Dynamic gas
 	var callCost uint64
-	
+
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
@@ -390,12 +412,12 @@ func opCallCode(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
-	
+
 	// Add call stipend if value is transferred
 	if value.Sign() > 0 {
 		gasLimit += core.GasCallStipend
 	}
-	
+
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.address)
@@ -463,7 +485,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 
 	// Dynamic gas
 	var callCost uint64
-	
+
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
@@ -480,7 +502,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	} else {
 		i.gas += (baseCost - accessCost)
 	}
-	
+
 	if i.gas < callCost {
 		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
 		i.reverted = true
@@ -591,7 +613,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 
 	// Dynamic gas
 	var callCost uint64
-	
+
 	// EIP-2929
 	var accessCost uint64
 	if i.statedb.AddressInAccessList(addr) {
@@ -608,7 +630,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 	} else {
 		i.gas += (baseCost - accessCost)
 	}
-	
+
 	if i.gas < callCost {
 		i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, callCost)
 		i.reverted = true
@@ -636,14 +658,6 @@ func opStaticCall(i *Interpreter, _ byte) {
 	code := i.statedb.GetCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
 
-	// Note: A proper implementation would use a read-only state wrapper
-	// For now we execute normally but with value = 0
-	contract := NewWithCallData(code, args, i.statedb, addr)
-	contract.SetBlockNumber(i.blockNumber)
-	contract.SetTimestamp(i.timestamp)
-	contract.SetCoinbase(i.coinbase)
-	contract.SetBlockGasLimit(i.gasLimit)
-
 	// Handle gas passing (EIP-150)
 	gasLimit := gas.Uint64()
 	available := i.gas
@@ -652,6 +666,36 @@ func opStaticCall(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
+
+	// Check for precompiled contracts
+	if IsPrecompiled(addr) {
+		ret, remainingGas, err := RunPrecompiled(addr, args, gasLimit)
+		i.returnData = ret
+		i.gas += remainingGas
+
+		if err != nil {
+			i.statedb.RevertToSnapshot(snapshot)
+			i.stack.PushSafe(big.NewInt(0))
+		} else {
+			// Copy return data to memory
+			toCopy := uint64(len(ret))
+			if toCopy > retLength {
+				toCopy = retLength
+			}
+			if toCopy > 0 {
+				i.memory.Write(retOffset, ret[:toCopy])
+			}
+			i.stack.PushSafe(big.NewInt(1))
+		}
+		return
+	}
+
+	// Execute regular contract (read-only)
+	contract := NewWithCallData(code, args, i.statedb, addr)
+	contract.SetBlockNumber(i.blockNumber)
+	contract.SetTimestamp(i.timestamp)
+	contract.SetCoinbase(i.coinbase)
+	contract.SetBlockGasLimit(i.gasLimit)
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.address)

@@ -27,11 +27,11 @@
 
 ---
 
-## 🆕 What's New in v0.0.12
+## 🆕 What's New in v0.0.13
 
-- **EIP-1153 Support**: Transient Storage (`TLOAD`/`TSTORE`) for efficient cross-call data passing
-- **EIP-5656 Support**: Memory Copy (`MCOPY`) for optimized memory operations
-- **Gas Updates**: Updated gas costs for new opcodes
+- **Precompiled Contracts**: Native support for ECRECOVER (0x01), SHA256 (0x02), RIPEMD160 (0x03), IDENTITY (0x04)
+- **Tuple ABI Encoding**: Encode struct-like parameters using `(val1,val2,...)` syntax
+- **CALL Precompile Integration**: Automatic precompile detection in CALL/STATICCALL opcodes
 
 See [ROADMAP.md](ROADMAP.md) for the complete version history.
 
@@ -46,7 +46,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Developer Tools** | Interactive REPL, debug mode, execution tracing |
+| **Precompiles** | ECRECOVER, SHA256, RIPEMD160, IDENTITY (0x01-0x04) |
 | **Testing** | Unit tests, integration tests, Ethereum compliance tests |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 

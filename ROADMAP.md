@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.12
+**Current Version**: v0.0.13
 
 ---
 
@@ -42,6 +42,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.10 | Stability improvements, test coverage |
 | v0.0.11 | Disassembly command, ABI parsing enhancements |
 | v0.0.12 | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
+| v0.0.13 | Precompiled contracts (0x01-0x04), Tuple ABI support |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -61,13 +62,13 @@ Enhanced ABI support and fork-specific opcode behavior.
 
 **Planned Features:**
 
-- [ ] **Tuple ABI Support** - Encode/decode struct types
+- [x] **Tuple ABI Support** - Encode/decode struct types
 - [ ] **Nested Array Support** - Multi-dimensional arrays (`uint256[][]`)
 - [ ] **Fork-Specific Behavior** - Pre/post merge opcode differences
 - [ ] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE, TLOAD variant support
 - [ ] **State Trie** - Merkle Patricia Trie implementation
 - [ ] **Expanded Compliance** - Increase Ethereum test suite coverage
-- [ ] **Precompiled Contracts** - ECRECOVER, SHA256, RIPEMD160, etc.
+- [x] **Precompiled Contracts** - ECRECOVER, SHA256, RIPEMD160, etc.
 
 ---
 
@@ -104,10 +105,10 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.13 Priorities:**
-1. Tuple ABI encoding/decoding
-2. Precompiled contract stubs
-3. Additional compliance test coverage
+**v0.0.14 Priorities:**
+1. Nested array support (`uint256[][]`)
+2. Additional precompiled contracts (0x05-0x09)
+3. Fork-specific opcode behavior
 
 ---
 

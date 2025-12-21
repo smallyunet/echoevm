@@ -186,6 +186,10 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 		}
 		return toFixedBytes(b, typ.Size)
 
+	case abi.TupleTy:
+		// Tuples are parsed from "(val1,val2,...)" syntax
+		return parseTupleArg(val, typ)
+
 	default:
 		return nil, fmt.Errorf("unsupported type: %s", typ.String())
 	}
@@ -441,6 +445,76 @@ func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, er
 	default:
 		return nil, fmt.Errorf("unsupported array element type: %s", elemType.String())
 	}
+}
+
+// parseTupleArg parses a tuple argument like "(100,0xabc...,true)"
+// Tuple fields are separated by commas and enclosed in parentheses.
+func parseTupleArg(val string, typ abi.Type) (interface{}, error) {
+	val = strings.TrimSpace(val)
+	if !strings.HasPrefix(val, "(") || !strings.HasSuffix(val, ")") {
+		return nil, fmt.Errorf("tuple must be enclosed in parentheses: %s", val)
+	}
+
+	inner := val[1 : len(val)-1]
+	if inner == "" && len(typ.TupleElems) == 0 {
+		// Empty tuple
+		return struct{}{}, nil
+	}
+
+	// Split by comma, respecting nested parentheses and brackets
+	parts := splitTupleArgs(inner)
+
+	if len(parts) != len(typ.TupleElems) {
+		return nil, fmt.Errorf("tuple field count mismatch: expected %d, got %d", len(typ.TupleElems), len(parts))
+	}
+
+	// Parse each field
+	fields := make([]interface{}, len(parts))
+	for i, part := range parts {
+		fieldType := typ.TupleElems[i]
+		field, err := parseArg(strings.TrimSpace(part), *fieldType)
+		if err != nil {
+			fieldName := ""
+			if i < len(typ.TupleRawNames) {
+				fieldName = typ.TupleRawNames[i]
+			}
+			return nil, fmt.Errorf("tuple field %d (%s): %w", i, fieldName, err)
+		}
+		fields[i] = field
+	}
+
+	return fields, nil
+}
+
+// splitTupleArgs splits tuple arguments by comma while respecting nested parentheses and brackets
+func splitTupleArgs(s string) []string {
+	var result []string
+	var current strings.Builder
+	depth := 0
+
+	for _, c := range s {
+		switch c {
+		case '(', '[':
+			depth++
+			current.WriteRune(c)
+		case ')', ']':
+			depth--
+			current.WriteRune(c)
+		case ',':
+			if depth == 0 {
+				result = append(result, strings.TrimSpace(current.String()))
+				current.Reset()
+			} else {
+				current.WriteRune(c)
+			}
+		default:
+			current.WriteRune(c)
+		}
+	}
+	if current.Len() > 0 {
+		result = append(result, strings.TrimSpace(current.String()))
+	}
+	return result
 }
 
 // Unused but might be useful for tuple support in future
