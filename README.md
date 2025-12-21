@@ -1,37 +1,73 @@
 # echoevm
 
-EchoEVM is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
+[![Go Version](https://img.shields.io/badge/go-1.23.2+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Release](https://img.shields.io/github/v/release/smallyunet/echoevm?style=flat&color=blue)](https://github.com/smallyunet/echoevm/releases)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat)]()
+
+**EchoEVM** is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
+
+---
+
+## 📑 Table of Contents
+
+- [What's New in v0.0.12](#-whats-new-in-v0012)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [CLI Commands](#-cli-commands)
+- [ABI Encoding](#-abi-encoding)
+- [Testing](#-testing)
+- [Architecture](#-architecture)
+- [Configuration](#%EF%B8%8F-configuration)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## 🆕 What's New in v0.0.12
+
+- **EIP-1153 Support**: Transient Storage (`TLOAD`/`TSTORE`) for efficient cross-call data passing
+- **EIP-5656 Support**: Memory Copy (`MCOPY`) for optimized memory operations
+- **Gas Updates**: Updated gas costs for new opcodes
+
+See [ROADMAP.md](ROADMAP.md) for the complete version history.
+
+---
 
 ## ✨ Features
 
-- **Constructor Deployment**: Execute constructor bytecode and extract emitted runtime code (`deploy`).
-- **Runtime Calls**: Execute deployed / runtime bytecode with ABI encoded calldata (`call`).
-- **Bytecode Disassembly**: Human-readable opcode disassembly from hex or artifacts (`disasm`).
-- **ABI Convenience**: Lightweight ABI function selector & argument encoding for common primitive types.
-- **Execution Tracing**: JSON structured per-opcode tracing with optional pre/post state (`trace`).
-- **Gas Accounting**: EIP-2929 compatible gas metering with dynamic cost calculations.
-- **Transient Storage**: Full support for EIP-1153 (TLOAD/TSTORE).
-- **Memory Copy**: Efficient memory copying with MCOPY (EIP-5656).
-- **Deterministic Core**: Small, auditable interpreter with clear stack & memory semantics.
-- **Testing Suite**: Go unit tests covering opcodes, stack, memory, control and ABI paths.
-- **Structured Logging**: Zerolog based, selectable output format (plain | json) and adjustable log level.
+| Category | Features |
+|----------|----------|
+| **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
+| **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
+| **Tracing** | JSON structured per-opcode tracing with pre/post state |
+| **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
+| **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
+| **Developer Tools** | Interactive REPL, debug mode, execution tracing |
+| **Testing** | Unit tests, integration tests, Ethereum compliance tests |
+| **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
-Planned / in-progress (roadmap): expanded ABI types support for tuples.
+---
 
 ## ✅ Requirements
 
 - Go 1.23.2+
-- (Optional) `solc` if compiling standalone `.sol` files directly.
+- (Optional) `solc` for compiling `.sol` files directly
+
+---
 
 ## 🔧 Installation
 
-Install from source:
+**From source:**
 
 ```bash
 go install github.com/smallyunet/echoevm/cmd/echoevm@latest
 ```
 
-Or clone and build:
+**Clone and build:**
 
 ```bash
 git clone https://github.com/smallyunet/echoevm.git
@@ -40,191 +76,18 @@ make build
 make install   # install into GOPATH/bin
 ```
 
-Verify:
+**Verify:**
 
 ```bash
 echoevm --help
 ```
 
-## 🖥 CLI Overview
+---
 
-Global flags (apply to all subcommands):
+## 🚀 Quick Start
 
-```
---log-level, -L   Log level (trace|debug|info|warn|error) (default: info)
---output, -o      Output formatting for command responses (plain|json) (default: plain)
---config, -c      Optional config file path (reserved for future use)
---rpc-url         Default Ethereum RPC endpoint (used by planned commands)
-```
+### Run bytecode directly
 
-### Subcommands
-
-#### 1. deploy
-Execute constructor bytecode (from a `.bin` file or Hardhat artifact) and emit the resulting runtime code.
-
-Flags:
-```
---bin, -b         Constructor .bin file path
---artifact, -a    Hardhat artifact JSON containing "bytecode"
---out-file        Write runtime hex (no 0x prefix) to a file
---print           Also print runtime hex to stdout (auto if no --out-file)
-```
-
-Example:
-```bash
-echoevm deploy -a ./artifacts/Add.json --print
-```
-
-#### 2. disasm
-Disassemble EVM bytecode into human-readable opcode sequences.
-
-Flags:
-```
---bin, -b         Path to .bin file containing bytecode
---artifact, -a    Hardhat artifact JSON
---runtime, -r     Use deployedBytecode from artifact (default: constructor)
-```
-
-Example (from hex):
-```bash
-echoevm disasm 6001600201
-# Output:
-# 0000: PUSH1 01
-# 0002: PUSH1 02
-# 0004: ADD
-```
-
-Example (from artifact):
-```bash
-echoevm disasm -a ./artifacts/Add.json --runtime
-```
-
-Example (JSON output):
-```bash
-echoevm disasm -o json 6001600201
-```
-
-#### 3. call
-Execute runtime (deployed) bytecode and optionally ABI-encode function calls.
-
-Flags:
-```
---artifact, -a     Hardhat artifact JSON (uses deployedBytecode if present)
---bin-runtime, -r  Raw runtime bytecode (.bin) file
---function, -f     Function signature e.g. add(uint256,uint256)
---args, -A         Comma separated arguments matching the signature
---calldata, -d     Full calldata hex (overrides --function/--args)
-```
-
-Example (ABI encoding):
-```bash
-echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
-```
-
-Example (raw calldata override):
-```bash
-echoevm call -r ./runtime.bin -d 771602f70000000000000000000000000000000000000000000000000000000000000001
-```
-
-Output includes a structured log line with the top-of-stack value (if any).
-
-#### 4. trace
-Like `call` but emits JSON lines (one per step, or pre/post pair if `--full` is used) for inspection / tooling.
-
-Flags:
-```
---artifact, -a     Hardhat artifact path
---bin-runtime, -r  Raw runtime bytecode file
---function, -f     Function signature
---args, -A         Comma separated arguments
---calldata, -d     Full calldata hex
---limit            Stop after N steps (0 = unlimited)
---full             Emit both pre and post state for each opcode
-```
-
-Example (first 40 steps only, pre-state only):
-```bash
-echoevm trace -a ./artifacts/Add.json \
-  -f add(uint256,uint256) -A 1,2 --limit 40 | jq .
-```
-
-Example (full pre/post):
-```bash
-echoevm trace -a ./artifacts/Loops.json \
-  -f forLoop(uint256) -A 5 --full | jq .
-```
-
-#### 5. repl
-Interactive EVM shell for experimenting with opcodes.
-
-```bash
-echoevm repl
-```
-Type opcodes (e.g., `PUSH1 10 ADD`) and see the stack/memory update in real-time.
-
-#### 6. run
-Execute raw bytecode with optional debug tracing.
-
-Flags:
-```
---debug         Enable step-by-step debug trace
-```
-
-Example:
-```bash
-echoevm run --debug 6001600201
-```
-
-#### 7. version
-Display build metadata (set via `-ldflags` in the Makefile).
-
-```
-echoevm version
-echoevm version --json
-```
-
-Example JSON output:
-```json
-{
-  "version": "v0.1.0",
-  "git_commit": "a1b2c3d",
-  "build_date": "2025-09-14T10:10:10Z",
-  "go_version": "go1.23.2",
-  "platform": "darwin/arm64"
-}
-```
-
-Build with custom version:
-```bash
-make build VERSION=v0.1.0
-echoevm version
-```
-
-### ABI Encoding Support
-Supported types for `--function/--args` encoding:
-- uint8, uint16, ..., uint256 (decimal or 0x hex)
-- int8, int16, ..., int256 (decimal or 0x hex)
-- bool (true/false)
-- string (UTF-8, dynamic)
-- address (0x-prefixed 40 hex chars)
-- bytes (0x-prefixed dynamic hex)
-- bytes1, bytes2, ..., bytes32 (0x-prefixed fixed hex)
-- T[] arrays (semicolon-separated values in brackets)
-
-Array syntax example:
-```bash
-# uint256[] array
-echoevm call -a ./artifacts/Sum.json -f sum(uint256[]) -A "[1;2;3;4;5]"
-
-# address[] array
-echoevm call -a ./artifacts/Multi.json -f send(address[]) -A "[0xabc...;0xdef...]"
-```
-
-Other Solidity types (tuples, nested arrays) are not yet enabled.
-
-## 🔍 Examples
-
-Basic bytecode execution:
 ```bash
 # Simple arithmetic: PUSH1 1 PUSH1 2 ADD
 echoevm run 6001600201
@@ -233,46 +96,176 @@ echoevm run 6001600201
 echoevm run --debug 6001600201
 ```
 
-Using ABI encoding with contract artifacts:
+### Deploy and call a contract
+
 ```bash
-# Deploy a contract
+# Deploy constructor bytecode
 echoevm deploy -a ./artifacts/Add.json --print
 
-# Call a function
+# Call a function with ABI encoding
 echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
 
 # Generate execution trace
-echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | head -n 20
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | jq .
 ```
+
+### Interactive REPL
+
+```bash
+echoevm repl
+# Type opcodes: PUSH1 10 PUSH1 20 ADD
+```
+
+---
+
+## 🖥 CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `run` | Execute raw bytecode with optional debug tracing |
+| `deploy` | Run constructor and extract runtime bytecode |
+| `call` | Execute runtime bytecode with ABI encoding |
+| `trace` | JSON line trace of opcode execution |
+| `disasm` | Disassemble bytecode to human-readable opcodes |
+| `repl` | Interactive EVM shell |
+| `version` | Display build metadata |
+
+### Global Flags
+
+```
+--log-level, -L   Log level (trace|debug|info|warn|error)
+--output, -o      Output format (plain|json)
+--config, -c      Config file path (reserved)
+--rpc-url         Ethereum RPC endpoint
+```
+
+### Command Examples
+
+<details>
+<summary><b>deploy</b> - Execute constructor bytecode</summary>
+
+```bash
+echoevm deploy -a ./artifacts/Add.json --print
+echoevm deploy -b ./constructor.bin --out-file runtime.bin
+```
+</details>
+
+<details>
+<summary><b>disasm</b> - Disassemble bytecode</summary>
+
+```bash
+# From hex
+echoevm disasm 6001600201
+# Output:
+# 0000: PUSH1 01
+# 0002: PUSH1 02
+# 0004: ADD
+
+# From artifact
+echoevm disasm -a ./artifacts/Add.json --runtime
+
+# JSON output
+echoevm disasm -o json 6001600201
+```
+</details>
+
+<details>
+<summary><b>call</b> - Execute runtime bytecode</summary>
+
+```bash
+# With ABI encoding
+echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
+
+# With raw calldata
+echoevm call -r ./runtime.bin -d 771602f70000...
+```
+</details>
+
+<details>
+<summary><b>trace</b> - Execution trace</summary>
+
+```bash
+# First 40 steps
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 40 | jq .
+
+# Full pre/post state
+echoevm trace -a ./artifacts/Loops.json -f forLoop(uint256) -A 5 --full | jq .
+```
+</details>
+
+---
+
+## 📦 ABI Encoding
+
+Supported types for `--function/--args` encoding:
+
+| Type | Examples |
+|------|----------|
+| Integers | `uint8`, `uint256`, `int128`, etc. |
+| Boolean | `true`, `false` |
+| Address | `0x742d35Cc...` (40 hex chars) |
+| String | UTF-8 dynamic strings |
+| Bytes | `bytes` (dynamic), `bytes32` (fixed) |
+| Arrays | `uint256[]`, `address[]` |
+
+**Array syntax:**
+
+```bash
+echoevm call -a ./artifacts/Sum.json -f sum(uint256[]) -A "[1;2;3;4;5]"
+echoevm call -a ./artifacts/Multi.json -f send(address[]) -A "[0xabc...;0xdef...]"
+```
+
+> **Note:** Tuples and nested arrays are not yet supported.
+
+---
 
 ## 🧪 Testing
 
-EchoEVM includes a comprehensive testing suite:
-
 ```bash
-make test             # Run unit and integration tests
-make test-unit        # Run Go package unit tests
-make test-integration # Run integration tests (deployment, calls, storage)
+make test             # Run all tests (unit, integration, compliance)
+make test-unit        # Run Go unit tests
+make test-integration # Run integration tests
+make test-compliance  # Run Ethereum compliance tests
+make setup-tests      # Download test fixtures (~100MB)
 ```
 
-To run official Ethereum compliance tests (GeneralStateTests):
-```bash
-make setup-tests      # Download Ethereum test fixtures (~100MB)
-make test-compliance  # Run compliance tests
+---
+
+## 🏗 Architecture
+
 ```
-
-## 🏗 Architecture Overview
-
-| Layer | Path | Notes |
-|-------|------|-------|
-| Core Primitives | `internal/evm/core` | Stack, memory, opcode table |
-| Interpreter | `internal/evm/vm` | Execution loop + trace hooks |
-| CLI | `cmd/echoevm` | Cobra commands (`deploy`, `call`, `trace`) |
-| Config & Constants | `internal/config` | Defaults / env variable names |
-| Logging | `internal/logger` | Zerolog wrapper & helpers |
+echoevm/
+├── cmd/echoevm/     # CLI commands (deploy, call, trace, etc.)
+├── internal/
+│   ├── evm/
+│   │   ├── core/    # Stack, memory, opcode table
+│   │   └── vm/      # Interpreter, opcode implementations
+│   ├── config/      # Constants, environment variables
+│   ├── logger/      # Zerolog wrapper
+│   └── errors/      # Error definitions
+├── tests/           # Integration and compliance tests
+└── docs/            # Documentation
+```
 
 ### Supported Opcode Categories
-Arithmetic, Bitwise, Comparison, Stack, Memory, Storage, Control Flow, Environment, Call/Return/Revert.
+
+Arithmetic, Bitwise, Comparison, Stack, Memory, Storage, Control Flow, Environment, Call/Return/Revert, Logging, System.
+
+---
+
+## ⚙️ Configuration
+
+See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and [docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md) for details.
+
+**Environment variables:**
+
+```bash
+export ECHOEVM_LOG_LEVEL=debug
+export ECHOEVM_GAS_LIMIT=30000000
+export ECHOEVM_ETHEREUM_RPC="https://mainnet.infura.io/v3/<key>"
+```
+
+---
 
 ## 🚦 Exit Codes
 
@@ -282,40 +275,38 @@ Arithmetic, Bitwise, Comparison, Stack, Memory, Storage, Control Flow, Environme
 | 1 | Execution reverted (REVERT) |
 | 2 | Invalid arguments / configuration error |
 
-## ⚙ Configuration & Logging
-
-Environment variables and defaults are documented in: `docs/CONFIGURATION.md` and `docs/LOGGING_GUIDE.md`.
-
-Quick examples:
-```bash
-export ECHOEVM_LOG_LEVEL=debug
-echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 3,5
-
-export ECHOEVM_LOG_LEVEL=trace
-echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
-```
-
-`--output json` switches user-facing command output (not the trace stream) to JSON where implemented. Use `echoevm version --json` for machine-readable build info.
+---
 
 ## 🗺 Roadmap
 
-- Expanded ABI types (tuples, nested arrays)
-- Fork-specific opcode behavior (pre/post merge, Cancun opcodes)
+See **[ROADMAP.md](ROADMAP.md)** for the complete development roadmap.
+
+**Upcoming:**
+- Tuple and nested array ABI support
+- Fork-specific opcode behavior (Cancun)
 - Improved compliance test coverage
+- Web-based debugger UI
+
+---
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch (`feat/<concise-topic>`)
-3. Add / update tests
+2. Create a feature branch (`feat/<topic>`)
+3. Add/update tests
 4. Run `make test` and ensure build is clean
-5. Open a PR with a clear description + rationale
+5. Open a PR with clear description
 
-Issues / discussions for roadmap ideas are welcome.
+Issues and discussions for roadmap ideas are welcome!
+
+---
 
 ## 📄 License
 
-This project is open source; see `LICENSE` (or add one if missing) for terms.
+This project is open source under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
-If you are using EchoEVM in research, experiments, or education, a citation or link back is appreciated.
+
+<p align="center">
+  <i>If you're using EchoEVM in research, experiments, or education, a citation or link back is appreciated.</i>
+</p>
