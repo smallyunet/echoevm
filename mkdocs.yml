@@ -1,0 +1,56 @@
+site_name: echoevm
+site_description: A minimal, pedagogical Ethereum Virtual Machine implementation in Go.
+site_url: https://smallyunet.github.io/echoevm/
+repo_url: https://github.com/smallyunet/echoevm
+repo_name: smallyunet/echoevm
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - tables
+  - attr_list
+
+nav:
+  - Home: index.md
+  - Guides:
+    - Configuration: guides/configuration.md
+    - Logging: guides/logging.md
+    - Testing: guides/testing.md
+  - Reference:
+    - CLI Commands: reference/cli.md
