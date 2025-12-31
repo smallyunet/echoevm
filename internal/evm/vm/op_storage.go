@@ -1,9 +1,7 @@
 package vm
 
 import (
-	"encoding/hex"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -14,7 +12,7 @@ func opSload(i *Interpreter, _ byte) {
 
 	// GasTable[SLOAD] = 800 (GasSload)
 	// EIP-2929: Warm = 100, Cold = 2100
-	
+
 	if i.statedb.SlotInAccessList(i.address, key) {
 		// Warm: 100. Already paid 800. Refund 700.
 		i.gas += 700
@@ -118,10 +116,4 @@ func opSstore(i *Interpreter, _ byte) {
 	i.gas -= cost
 
 	i.statedb.SetState(i.address, key, value)
-}
-
-func storageKey(k *big.Int) string {
-	b := make([]byte, 32)
-	k.FillBytes(b)
-	return hex.EncodeToString(b)
 }

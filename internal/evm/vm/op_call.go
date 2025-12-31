@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
-	"golang.org/x/crypto/sha3"
 )
 
 // opCreate implements the CREATE opcode.
@@ -788,11 +787,4 @@ func opSelfDestruct(i *Interpreter, _ byte) {
 	if i.statedb.HasBeenCreatedInCurrentTx(i.address) {
 		i.statedb.Suicide(i.address)
 	}
-}
-
-// keccak256 helper for CREATE2
-func keccak256(data []byte) []byte {
-	h := sha3.NewLegacyKeccak256()
-	h.Write(data)
-	return h.Sum(nil)
 }

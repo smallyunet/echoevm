@@ -109,8 +109,8 @@ func RunTest(t *testing.T, name string, test StateTest) {
 
 	// Determine Sender
 	// Standard test sender
-	sender := common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b") 
-	
+	sender := common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+
 	// Setup Block Context
 	ctx := &vm.BlockContext{
 		BlockNumber: toBig(test.Env.CurrentNumber),
@@ -127,6 +127,7 @@ func RunTest(t *testing.T, name string, test StateTest) {
 	if err != nil {
 		// Some tests expect failure.
 		// t.Logf("Execution error: %v", err)
+		_ = err
 	}
 
 	// 4. Verify Post State
@@ -142,7 +143,7 @@ func RunTest(t *testing.T, name string, test StateTest) {
 			t.Logf("Verifying post state for fork: %s, index: %d", fork, i)
 			for addrStr, expectedAcc := range postState.State {
 				addr := common.HexToAddress(addrStr)
-				
+
 				// Verify Balance
 				expectedBalance := toBig(expectedAcc.Balance)
 				actualBalance := statedb.GetBalance(addr)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
 
 func TestPrecompileIdentity(t *testing.T) {
@@ -264,5 +264,6 @@ func TestPrecompileBN256Add_Stub(t *testing.T) {
 		// If 0,0 is invalid, error.
 		// For G1, unmarshalling 0,0 usually works as infinity or fails depending on impl.
 		// We accept error or success, just checking for panic/crash.
+		_ = err
 	}
 }

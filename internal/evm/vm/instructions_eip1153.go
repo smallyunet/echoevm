@@ -30,5 +30,5 @@ func opTload(i *Interpreter, op byte) {
 	val := i.statedb.GetTransientState(i.address, common.BytesToHash(key.Bytes()))
 	
 	// Convert [32]byte to big.Int and push
-	i.stack.Push(new(big.Int).SetBytes(val.Bytes()))
+	i.stack.PushSafe(new(big.Int).SetBytes(val.Bytes()))
 }

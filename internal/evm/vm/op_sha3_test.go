@@ -25,8 +25,8 @@ func TestOpSha3(t *testing.T) {
 	memory.Write(0, testData)
 
 	// Push offset (0) and size (len(testData)) to stack
-	stack.Push(big.NewInt(int64(len(testData)))) // size
-	stack.Push(big.NewInt(0))                    // offset
+	stack.PushSafe(big.NewInt(int64(len(testData)))) // size
+	stack.PushSafe(big.NewInt(0))                    // offset
 
 	// Execute SHA3 operation
 	opSha3(interpreter, core.SHA3)
@@ -60,8 +60,8 @@ func TestOpSha3Empty(t *testing.T) {
 	}
 
 	// Push offset (0) and size (0) to stack
-	stack.Push(big.NewInt(0)) // size
-	stack.Push(big.NewInt(0)) // offset
+	stack.PushSafe(big.NewInt(0)) // size
+	stack.PushSafe(big.NewInt(0)) // offset
 
 	// Execute SHA3 operation
 	opSha3(interpreter, core.SHA3)
@@ -103,8 +103,8 @@ func TestOpSha3LargeData(t *testing.T) {
 	memory.Write(100, testData)
 
 	// Push offset (100) and size (256) to stack
-	stack.Push(big.NewInt(256)) // size
-	stack.Push(big.NewInt(100)) // offset
+	stack.PushSafe(big.NewInt(256)) // size
+	stack.PushSafe(big.NewInt(100)) // offset
 
 	// Execute SHA3 operation
 	opSha3(interpreter, core.SHA3)

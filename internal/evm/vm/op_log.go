@@ -39,7 +39,7 @@ func opLog(i *Interpreter, op byte) {
 		return
 	}
 	i.gas -= logDataCost
-	
+
 	topics := make([]string, 0, topicCount)
 	for t := 0; t < topicCount; t++ {
 		raw := i.stack.PopSafe()
@@ -59,7 +59,7 @@ func opLog(i *Interpreter, op byte) {
 }
 
 // helper to push big.Int onto stack (for potential future log tests convenience)
-func bigFromHex(h string) *big.Int { // not used yet, kept for extension
+func bigFromHex(h string) *big.Int { //nolint:unused // not used yet, kept for extension
 	n := new(big.Int)
 	if len(h) >= 2 && h[:2] == "0x" {
 		h = h[2:]
