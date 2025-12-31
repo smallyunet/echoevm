@@ -25,7 +25,7 @@ func opBalance(i *Interpreter, _ byte) {
 		cost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
-	
+
 	// Adjust for already paid base cost
 	baseCost := core.GasTable[core.BALANCE]
 	if cost > baseCost {
@@ -132,7 +132,7 @@ func opExtCodeCopy(i *Interpreter, _ byte) {
 		cost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
-	
+
 	// Adjust for already paid base cost
 	baseCost := core.GasTable[core.EXTCODECOPY]
 	if cost > baseCost {
@@ -216,7 +216,7 @@ func opExtCodeHash(i *Interpreter, _ byte) {
 		cost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
-	
+
 	// Adjust for already paid base cost
 	baseCost := core.GasTable[core.EXTCODEHASH]
 	if cost > baseCost {
@@ -248,13 +248,26 @@ func opBlockHash(i *Interpreter, _ byte) {
 }
 
 func opDifficulty(i *Interpreter, _ byte) {
-	// After The Merge, DIFFICULTY opcode returns PREVRANDAO
-	if i.random != nil && i.random.Sign() > 0 {
-		i.stack.PushSafe(new(big.Int).Set(i.random))
-	} else if i.difficulty != nil {
-		i.stack.PushSafe(new(big.Int).Set(i.difficulty))
+	// Check if Merge (Paris) is active
+	isMerge := false
+	if i.chainConfig != nil {
+		isMerge = i.chainConfig.Rules(big.NewInt(int64(i.blockNumber))).IsParis
+	}
+
+	if isMerge {
+		// After The Merge, DIFFICULTY opcode returns PREVRANDAO
+		if i.random != nil {
+			i.stack.PushSafe(new(big.Int).Set(i.random))
+		} else {
+			i.stack.PushSafe(big.NewInt(0))
+		}
 	} else {
-		i.stack.PushSafe(big.NewInt(0))
+		// Before The Merge
+		if i.difficulty != nil {
+			i.stack.PushSafe(new(big.Int).Set(i.difficulty))
+		} else {
+			i.stack.PushSafe(big.NewInt(0))
+		}
 	}
 }
 
@@ -272,6 +285,20 @@ func opSelfBalance(i *Interpreter, _ byte) {
 }
 
 func opBaseFee(i *Interpreter, _ byte) {
+	// Check if London is active
+	isLondon := false
+	if i.chainConfig != nil {
+		isLondon = i.chainConfig.Rules(big.NewInt(int64(i.blockNumber))).IsLondon
+	}
+
+	if !isLondon {
+		// If BASEFEE is called before London, it's an invalid opcode.
+		// However, adhering to geth/EIP-3198, opcode 0x48 was invalid before EIP-3198 (London).
+		i.err = fmt.Errorf("invalid opcode: BASEFEE not enabled")
+		i.reverted = true
+		return
+	}
+
 	if i.baseFee != nil {
 		i.stack.PushSafe(new(big.Int).Set(i.baseFee))
 	} else {
@@ -321,7 +348,7 @@ func opExtCodeSize(i *Interpreter, _ byte) {
 		cost = 2600 // GasColdAccountAccess
 		i.statedb.AddAddressToAccessList(addr)
 	}
-	
+
 	// Adjust for already paid base cost
 	baseCost := core.GasTable[core.EXTCODESIZE]
 	if cost > baseCost {

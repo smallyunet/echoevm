@@ -17,32 +17,33 @@ func SetLogger(l zerolog.Logger) {
 }
 
 type Interpreter struct {
-	code        []byte
-	pc          uint64
-	stack       *core.Stack
-	memory      *core.Memory
-	calldata    []byte
-	returned    []byte
-	statedb     core.StateDB
-	address     common.Address
-	caller      common.Address
-	origin      common.Address
-	callvalue   *big.Int
-	blockNumber uint64
-	timestamp   uint64
-	coinbase    common.Address
-	gasLimit    uint64
-	gas         uint64 // Remaining gas
+	code          []byte
+	pc            uint64
+	stack         *core.Stack
+	memory        *core.Memory
+	calldata      []byte
+	returned      []byte
+	statedb       core.StateDB
+	address       common.Address
+	caller        common.Address
+	origin        common.Address
+	callvalue     *big.Int
+	blockNumber   uint64
+	timestamp     uint64
+	coinbase      common.Address
+	gasLimit      uint64
+	gas           uint64 // Remaining gas
 	maxMemorySize uint64 // Highest memory size (in bytes) paid for
-	gasPrice    *big.Int
-	chainID     *big.Int
-	baseFee     *big.Int
-	difficulty  *big.Int
-	random      *big.Int // PREVRANDAO value for post-merge (used by DIFFICULTY opcode)
-	reverted    bool
-	err         error
-	logs        []LogEntry
-	returnData  []byte // return data from last CALL
+	gasPrice      *big.Int
+	chainID       *big.Int
+	baseFee       *big.Int
+	difficulty    *big.Int
+	random        *big.Int          // PREVRANDAO value for post-merge (used by DIFFICULTY opcode)
+	chainConfig   *core.ChainConfig // Fork configuration
+	reverted      bool
+	err           error
+	logs          []LogEntry
+	returnData    []byte // return data from last CALL
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -59,17 +60,18 @@ type TraceStep struct {
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
 	return &Interpreter{
-		code:       code,
-		stack:      core.NewStack(),
-		memory:     core.NewMemory(),
-		statedb:    statedb,
-		address:    address,
-		callvalue:  big.NewInt(0),
-		gasPrice:   big.NewInt(0),
-		chainID:    big.NewInt(1),
-		baseFee:    big.NewInt(0),
-		difficulty: big.NewInt(0),
-		gas:        0,
+		code:        code,
+		stack:       core.NewStack(),
+		memory:      core.NewMemory(),
+		statedb:     statedb,
+		address:     address,
+		callvalue:   big.NewInt(0),
+		gasPrice:    big.NewInt(0),
+		chainID:     big.NewInt(1),
+		baseFee:     big.NewInt(0),
+		difficulty:  big.NewInt(0),
+		gas:         0,
+		chainConfig: core.DefaultChainConfig,
 	}
 }
 
@@ -78,6 +80,11 @@ func NewWithCallData(code []byte, data []byte, statedb core.StateDB, address com
 	i := New(code, statedb, address)
 	i.calldata = data
 	return i
+}
+
+// SetChainConfig sets the chain configuration.
+func (i *Interpreter) SetChainConfig(cfg *core.ChainConfig) {
+	i.chainConfig = cfg
 }
 
 // SetCallData sets the calldata that opcodes like CALLDATALOAD operate on.
@@ -119,11 +126,11 @@ func (i *Interpreter) consumeMemoryExpansion(offset, size uint64) bool {
 	if newSize <= i.maxMemorySize {
 		return true
 	}
-	
+
 	oldCost := core.MemoryGasCost(i.maxMemorySize)
 	newCost := core.MemoryGasCost(newSize)
 	cost := newCost - oldCost
-	
+
 	if i.gas < cost {
 		i.err = fmt.Errorf("out of gas: memory expansion")
 		i.reverted = true

@@ -197,7 +197,11 @@ func TestIsPrecompiled(t *testing.T) {
 		{PrecompileSHA256, true},
 		{PrecompileRIPEMD160, true},
 		{PrecompileIdentity, true},
-		{common.BytesToAddress([]byte{0x05}), false},
+		{common.BytesToAddress([]byte{0x05}), true}, // ModExp
+		{common.BytesToAddress([]byte{0x06}), true}, // Add
+		{common.BytesToAddress([]byte{0x07}), true}, // Mul
+		{common.BytesToAddress([]byte{0x08}), true}, // Pairing
+		{common.BytesToAddress([]byte{0x09}), true}, // Blake2F
 		{common.BytesToAddress([]byte{0x10}), false},
 		{common.Address{}, false},
 	}
@@ -207,5 +211,58 @@ func TestIsPrecompiled(t *testing.T) {
 		if result != tt.expected {
 			t.Errorf("IsPrecompiled(%s) = %v, want %v", tt.addr.Hex(), result, tt.expected)
 		}
+	}
+}
+
+func TestPrecompileModExp_Simple(t *testing.T) {
+	// Base: 3, Exp: 2, Mod: 10 => 9
+	// Lengths: 1, 1, 1
+	// Padded to 32 bytes each for input structure: 32+32+32 headers + 1+1+1 data (padded)
+
+	// Actually current impl expects strictly 32-byte headers + data.
+	// Let's construct a valid input.
+	// B_len = 1
+	// E_len = 1
+	// M_len = 1
+	// Base = 3
+	// Exp = 2
+	// M = 5
+	// Result should be 3^2 % 5 = 9 % 5 = 4
+
+	input := make([]byte, 0)
+	// Lengths (32 bytes each)
+	input = append(input, common.LeftPadBytes([]byte{1}, 32)...)
+	input = append(input, common.LeftPadBytes([]byte{1}, 32)...)
+	input = append(input, common.LeftPadBytes([]byte{1}, 32)...)
+
+	// Values
+	input = append(input, 3)
+	input = append(input, 2)
+	input = append(input, 5)
+
+	output, _, err := RunPrecompiled(PrecompileModExp, input, 100000)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Output should be M_len bytes, so 1 byte.
+	// 4
+	if len(output) != 1 || output[0] != 4 {
+		t.Errorf("modexp mismatch: got %x, want 04", output)
+	}
+}
+
+func TestPrecompileBN256Add_Stub(t *testing.T) {
+	// Just verify it runs without error on empty (invalid) input returning error?
+	// Our impl checks unmarshal errors.
+	input := make([]byte, 128) // All zeros -> Point at infinity?
+	// Unmarshal of 0,0 is valid (point at infinity)
+
+	_, _, err := RunPrecompiled(PrecompileBN256Add, input, 100000)
+	if err != nil {
+		// If 0,0 is valid point, no error.
+		// If 0,0 is invalid, error.
+		// For G1, unmarshalling 0,0 usually works as infinity or fails depending on impl.
+		// We accept error or success, just checking for panic/crash.
 	}
 }

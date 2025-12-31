@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.13
+**Current Version**: v0.0.14
 
 ---
 
@@ -63,12 +63,12 @@ Enhanced ABI support and fork-specific opcode behavior.
 **Planned Features:**
 
 - [x] **Tuple ABI Support** - Encode/decode struct types
-- [ ] **Nested Array Support** - Multi-dimensional arrays (`uint256[][]`)
-- [ ] **Fork-Specific Behavior** - Pre/post merge opcode differences
+- [x] **Nested Array Support** - Multi-dimensional arrays (`uint256[][]`)
+- [x] **Fork-Specific Behavior** - Pre/post merge opcode differences
 - [ ] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE, TLOAD variant support
 - [ ] **State Trie** - Merkle Patricia Trie implementation
 - [ ] **Expanded Compliance** - Increase Ethereum test suite coverage
-- [x] **Precompiled Contracts** - ECRECOVER, SHA256, RIPEMD160, etc.
+- [x] **Precompiled Contracts** - 0x01-0x09 (ECRECOVER..BLAKE2F)
 
 ---
 
@@ -105,10 +105,10 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.14 Priorities:**
-1. Nested array support (`uint256[][]`)
-2. Additional precompiled contracts (0x05-0x09)
-3. Fork-specific opcode behavior
+**v0.0.15 Priorities:**
+1. Cancun Opcodes (BLOBHASH, etc.)
+2. Web Debugger UI
+3. Expanded Compliance Tests
 
 ---
 

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -332,8 +333,8 @@ func parseArrayArg(val string, elemType abi.Type) (interface{}, error) {
 		return makeEmptySlice(elemType)
 	}
 
-	// Split by semicolon (to avoid conflict with comma in arg parsing)
-	parts := strings.Split(inner, ";")
+	// Split by semicolon, respecting nested brackets
+	parts := splitArrayArgs(inner)
 	elements := make([]interface{}, len(parts))
 
 	for i, part := range parts {
@@ -355,7 +356,8 @@ func parseFixedArrayArg(val string, elemType abi.Type, size int) (interface{}, e
 	}
 
 	inner := val[1 : len(val)-1]
-	parts := strings.Split(inner, ";")
+	// Split by semicolon, respecting nested brackets
+	parts := splitArrayArgs(inner)
 
 	if len(parts) != size {
 		return nil, fmt.Errorf("fixed array size mismatch: expected %d, got %d", size, len(parts))
@@ -373,9 +375,53 @@ func parseFixedArrayArg(val string, elemType abi.Type, size int) (interface{}, e
 	return buildTypedSlice(elements, elemType)
 }
 
+// splitArrayArgs splits array arguments by semicolon while respecting nested brackets
+func splitArrayArgs(s string) []string {
+	var result []string
+	var current strings.Builder
+	depth := 0
+
+	for _, c := range s {
+		switch c {
+		case '[':
+			depth++
+			current.WriteRune(c)
+		case ']':
+			depth--
+			current.WriteRune(c)
+		case ';':
+			if depth == 0 {
+				result = append(result, strings.TrimSpace(current.String()))
+				current.Reset()
+			} else {
+				current.WriteRune(c)
+			}
+		default:
+			current.WriteRune(c)
+		}
+	}
+	if current.Len() > 0 {
+		result = append(result, strings.TrimSpace(current.String()))
+	}
+	return result
+}
+
 // makeEmptySlice creates an empty slice of the appropriate type
 func makeEmptySlice(elemType abi.Type) (interface{}, error) {
 	switch elemType.T {
+	case abi.SliceTy, abi.ArrayTy:
+		// Recursive call to get the element type's empty slice
+		innerSlice, err := makeEmptySlice(*elemType.Elem)
+		if err != nil {
+			return nil, err
+		}
+		// innerSlice is an instance of the element type (e.g. []*big.Int for nested uint256[])
+		innerType := reflect.TypeOf(innerSlice)
+
+		// Create a slice of that type
+		sliceType := reflect.SliceOf(innerType)
+		return reflect.MakeSlice(sliceType, 0, 0).Interface(), nil
+
 	case abi.UintTy, abi.IntTy:
 		return []*big.Int{}, nil
 	case abi.AddressTy:
@@ -394,6 +440,23 @@ func makeEmptySlice(elemType abi.Type) (interface{}, error) {
 // buildTypedSlice builds a properly typed slice from interface elements
 func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, error) {
 	switch elemType.T {
+	case abi.SliceTy, abi.ArrayTy:
+		// Use reflection to create a slice of the correct type
+		// Get an empty slice of the element type to determine the correct Go type
+		emptySlice, err := makeEmptySlice(elemType)
+		if err != nil {
+			return nil, err
+		}
+
+		// emptySlice is []Element. e.g. for uint256[][], it is [][]*big.Int (empty)
+		sliceType := reflect.TypeOf(emptySlice)
+
+		slice := reflect.MakeSlice(sliceType, len(elements), len(elements))
+		for i, e := range elements {
+			slice.Index(i).Set(reflect.ValueOf(e))
+		}
+		return slice.Interface(), nil
+
 	case abi.UintTy, abi.IntTy:
 		result := make([]*big.Int, len(elements))
 		for i, e := range elements {

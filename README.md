@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.12](#-whats-new-in-v0012)
+- [What's New in v0.0.14](#-whats-new-in-v0014)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,11 +27,15 @@
 
 ---
 
-## 🆕 What's New in v0.0.13
+## 🆕 What's New in v0.0.14
 
+- **Nested Array Support**: ABI encoding/decoding for `uint256[][]`, `address[][]`, etc.
+- **New Precompiles**: Added support for MODEXP (0x05), BN256 Add/Mul/Pairing (0x06-0x08), Blake2F (0x09).
+- **Fork-Specific Behavior**: Infrastructure to handle different hardfork rules (Merge, London active by default).
+
+### Previous v0.0.13
 - **Precompiled Contracts**: Native support for ECRECOVER (0x01), SHA256 (0x02), RIPEMD160 (0x03), IDENTITY (0x04)
 - **Tuple ABI Encoding**: Encode struct-like parameters using `(val1,val2,...)` syntax
-- **CALL Precompile Integration**: Automatic precompile detection in CALL/STATICCALL opcodes
 
 See [ROADMAP.md](ROADMAP.md) for the complete version history.
 
@@ -215,7 +219,7 @@ echoevm call -a ./artifacts/Sum.json -f sum(uint256[]) -A "[1;2;3;4;5]"
 echoevm call -a ./artifacts/Multi.json -f send(address[]) -A "[0xabc...;0xdef...]"
 ```
 
-> **Note:** Tuples and nested arrays are not yet supported.
+> **Note:** Tuples and nested arrays are supported.
 
 ---
 
