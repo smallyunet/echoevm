@@ -29,6 +29,7 @@
 
 ## 🆕 What's New in v0.0.14
 
+- **Web Debugger UI**: Browser-based EVM execution visualizer (`echoevm web`).
 - **Nested Array Support**: ABI encoding/decoding for `uint256[][]`, `address[][]`, etc.
 - **New Precompiles**: Added support for MODEXP (0x05), BN256 Add/Mul/Pairing (0x06-0x08), Blake2F (0x09).
 - **Fork-Specific Behavior**: Infrastructure to handle different hardfork rules (Merge, London active by default).
@@ -117,7 +118,16 @@ echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | jq
 
 ```bash
 echoevm repl
+echoevm repl
 # Type opcodes: PUSH1 10 PUSH1 20 ADD
+```
+
+### Web Debugger
+
+```bash
+# Start the web debugger
+echoevm web --code "6003600401"
+# Then open http://localhost:8080
 ```
 
 ---
@@ -132,6 +142,7 @@ echoevm repl
 | `trace` | JSON line trace of opcode execution |
 | `disasm` | Disassemble bytecode to human-readable opcodes |
 | `repl` | Interactive EVM shell |
+| `web` | Browser-based visual debugger |
 | `version` | Display build metadata |
 
 ### Global Flags
@@ -289,7 +300,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the complete development roadmap.
 - Tuple and nested array ABI support
 - Fork-specific opcode behavior (Cancun)
 - Improved compliance test coverage
-- Web-based debugger UI
+- [x] Web-based debugger UI
 
 ---
 

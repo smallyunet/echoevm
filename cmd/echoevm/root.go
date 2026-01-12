@@ -47,6 +47,7 @@ func addSubCommands() {
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newReplCmd())
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newWebCmd())
 }
 
 func execute() {

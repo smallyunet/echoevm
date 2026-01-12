@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoEVM Debugger</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>EchoEVM Debugger</h1>
+        <div class="controls">
+            <span id="connection-status" class="status disconnected">Disconnected</span>
+            <button id="clear-btn">Clear Trace</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- Left Panel: Instruction Stream -->
+        <div class="panel" id="opcodes-panel">
+            <h2>Instructions</h2>
+            <div class="content" id="opcode-list">
+                <!-- Opcodes will be appended here -->
+                <div class="placeholder">Waiting for execution...</div>
+            </div>
+        </div>
+
+        <!-- Middle Panel: Stack -->
+        <div class="panel" id="stack-panel">
+            <h2>Stack <span id="stack-size">(0)</span></h2>
+            <div class="content" id="stack-list">
+                <!-- Stack items -->
+            </div>
+        </div>
+
+        <!-- Right Panel: Memory -->
+        <div class="panel" id="memory-panel">
+            <h2>Memory</h2>
+            <div class="content" id="memory-view">
+                <!-- Memory usage -->
+             </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

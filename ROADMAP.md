@@ -80,7 +80,7 @@ Tools and integrations for enhanced developer productivity.
 
 **Planned Features:**
 
-- [ ] **Web Debugger UI** - Browser-based EVM execution visualizer
+- [x] Web Debugger UI - Browser-based EVM execution visualizer
 - [ ] **VS Code Extension** - Inline bytecode visualization
 - [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis

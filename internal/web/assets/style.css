@@ -1,0 +1,130 @@
+:root {
+    --bg-color: #1e1e1e;
+    --panel-bg: #252526;
+    --text-color: #d4d4d4;
+    --accent-color: #007acc;
+    --border-color: #3e3e42;
+    --success-color: #4ec9b0;
+    --error-color: #f44747;
+    --highlight-bg: #3c3c3c;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    background-color: var(--panel-bg);
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status {
+    font-size: 0.8em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+.status.connected { background-color: var(--success-color); color: #1e1e1e; }
+.status.disconnected { background-color: var(--error-color); color: white; }
+
+button {
+    background-color: var(--accent-color);
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+button:hover {
+    background-color: #0062a3;
+}
+
+.container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+.panel {
+    flex: 1;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.panel:last-child {
+    border-right: none;
+}
+
+h2 {
+    font-size: 0.9em;
+    text-transform: uppercase;
+    padding: 10px;
+    background-color: var(--panel-bg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+/* Opcodes */
+.step {
+    padding: 2px 5px;
+    border-bottom: 1px solid transparent;
+}
+.step:hover {
+    background-color: var(--highlight-bg);
+}
+.step.current {
+    background-color: #37373d;
+    border-left: 2px solid var(--accent-color);
+}
+.pc { color: #569cd6; margin-right: 10px; }
+.opcode { color: #dcdcaa; font-weight: bold; }
+.args { color: #9cdcfe; }
+
+/* Stack */
+.stack-item {
+    font-family: monospace;
+    padding: 2px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+.stack-index { color: #808080; margin-right: 10px; user-select: none; }
+.stack-val { color: #ce9178; }
+
+/* Memory */
+.memory-row {
+    display: flex;
+    font-family: monospace;
+    padding: 2px 0;
+}
+.mem-addr { color: #808080; margin-right: 10px; }
+.mem-data { color: #b5cea8; letter-spacing: 1px; }
+
+.placeholder {
+    color: #808080;
+    font-style: italic;
+    text-align: center;
+    margin-top: 20px;
+}
