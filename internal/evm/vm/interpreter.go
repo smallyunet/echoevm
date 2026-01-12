@@ -43,7 +43,9 @@ type Interpreter struct {
 	reverted      bool
 	err           error
 	logs          []LogEntry
-	returnData    []byte // return data from last CALL
+	returnData    []byte        // return data from last CALL
+	blobHashes    []common.Hash // EIP-4844: versioned hashes of transaction blobs
+	blobBaseFee   *big.Int      // EIP-4844: blob base fee for the block
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -175,6 +177,16 @@ func (i *Interpreter) SetRandom(random *big.Int) {
 	i.random = random
 }
 
+// SetBlobHashes sets the versioned blob hashes for EIP-4844 transactions.
+func (i *Interpreter) SetBlobHashes(hashes []common.Hash) {
+	i.blobHashes = hashes
+}
+
+// SetBlobBaseFee sets the blob base fee for the current block (EIP-4844).
+func (i *Interpreter) SetBlobBaseFee(fee *big.Int) {
+	i.blobBaseFee = fee
+}
+
 // Logs returns the collected LOG entries emitted during execution.
 func (i *Interpreter) Logs() []LogEntry { return i.logs }
 
@@ -267,6 +279,8 @@ func init() {
 	handlerMap[core.CHAINID] = opChainID
 	handlerMap[core.SELFBALANCE] = opSelfBalance
 	handlerMap[core.BASEFEE] = opBaseFee
+	handlerMap[core.BLOBHASH] = opBlobHash       // EIP-4844
+	handlerMap[core.BLOBBASEFEE] = opBlobBaseFee // EIP-4844
 	handlerMap[core.PC] = opPC
 	handlerMap[core.MSIZE] = opMSize
 	handlerMap[core.GAS] = opGas

@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.14
+**Current Version**: v0.0.15
 
 ---
 
@@ -43,6 +43,8 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.11 | Disassembly command, ABI parsing enhancements |
 | v0.0.12 | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
 | v0.0.13 | Precompiled contracts (0x01-0x04), Tuple ABI support |
+| v0.0.14 | Bug fixes, stability improvements |
+| v0.0.15 | EIP-4844 Cancun opcodes (BLOBHASH, BLOBBASEFEE) |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -65,7 +67,7 @@ Enhanced ABI support and fork-specific opcode behavior.
 - [x] **Tuple ABI Support** - Encode/decode struct types
 - [x] **Nested Array Support** - Multi-dimensional arrays (`uint256[][]`)
 - [x] **Fork-Specific Behavior** - Pre/post merge opcode differences
-- [ ] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE, TLOAD variant support
+- [x] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE (EIP-4844)
 - [ ] **State Trie** - Merkle Patricia Trie implementation
 - [ ] **Expanded Compliance** - Increase Ethereum test suite coverage
 - [x] **Precompiled Contracts** - 0x01-0x09 (ECRECOVER..BLAKE2F)
@@ -105,8 +107,8 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.15 Priorities:**
-1. Cancun Opcodes (BLOBHASH, etc.)
+**v0.0.16 Priorities:**
+1. State Trie (Merkle Patricia Trie)
 2. Web Debugger UI
 3. Expanded Compliance Tests
 

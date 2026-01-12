@@ -63,6 +63,8 @@ const (
 	CHAINID        = 0x46
 	SELFBALANCE    = 0x47
 	BASEFEE        = 0x48
+	BLOBHASH       = 0x49 // EIP-4844
+	BLOBBASEFEE    = 0x4a // EIP-4844
 
 	// 0x50 - 0x5f: Stack & Memory
 	POP      = 0x50
@@ -165,6 +167,8 @@ var opcodeNames = map[byte]string{
 	CHAINID:        "CHAINID",
 	SELFBALANCE:    "SELFBALANCE",
 	BASEFEE:        "BASEFEE",
+	BLOBHASH:       "BLOBHASH",
+	BLOBBASEFEE:    "BLOBBASEFEE",
 	POP:            "POP",
 	MLOAD:          "MLOAD",
 	MSTORE:         "MSTORE",

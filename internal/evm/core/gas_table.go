@@ -2,40 +2,40 @@ package core
 
 // Gas costs based on EIP-2929 (Berlin) and later specifications
 const (
-	GasZero      = 0
-	GasBase      = 2
-	GasVeryLow   = 3
-	GasLow       = 5
-	GasMid       = 8
-	GasHigh      = 10
-	GasExtCode   = 700
-	GasBalance   = 400  // Warm access (after access list)
-	GasSload     = 100  // Warm storage read (EIP-2929)
-	GasJumpDest  = 1
-	GasSstoreSet = 20000
-	GasSstoreReset = 2900
-	GasSstoreClear = 4800 // Refund for clearing storage
-	GasLog       = 375
-	GasLogData   = 8
-	GasLogTopic  = 375
-	GasCreate    = 32000
-	GasCall      = 100   // Warm call (EIP-2929)
-	GasCallStipend = 2300
-	GasCallValue = 9000
-	GasCallNewAccount = 25000
-	GasSelfDestruct = 5000
+	GasZero                   = 0
+	GasBase                   = 2
+	GasVeryLow                = 3
+	GasLow                    = 5
+	GasMid                    = 8
+	GasHigh                   = 10
+	GasExtCode                = 700
+	GasBalance                = 400 // Warm access (after access list)
+	GasSload                  = 100 // Warm storage read (EIP-2929)
+	GasJumpDest               = 1
+	GasSstoreSet              = 20000
+	GasSstoreReset            = 2900
+	GasSstoreClear            = 4800 // Refund for clearing storage
+	GasLog                    = 375
+	GasLogData                = 8
+	GasLogTopic               = 375
+	GasCreate                 = 32000
+	GasCall                   = 100 // Warm call (EIP-2929)
+	GasCallStipend            = 2300
+	GasCallValue              = 9000
+	GasCallNewAccount         = 25000
+	GasSelfDestruct           = 5000
 	GasSelfDestructNewAccount = 25000
-	GasKeccak256 = 30
-	GasKeccak256Word = 6
-	GasCopy = 3
-	GasBlockhash = 20
-	GasExpByte   = 50   // Per byte of exponent
-	
+	GasKeccak256              = 30
+	GasKeccak256Word          = 6
+	GasCopy                   = 3
+	GasBlockhash              = 20
+	GasExpByte                = 50 // Per byte of exponent
+
 	// EIP-2929: Access list costs
-	GasWarmStorageRead = 100
-	GasColdStorageRead = 2100
+	GasWarmStorageRead   = 100
+	GasColdStorageRead   = 2100
 	GasColdAccountAccess = 2600
-	GasColdSload = 2100
+	GasColdSload         = 2100
 
 	// EIP-3529: Reduced refunds
 	GasSstoreClearRefund = 4800
@@ -46,6 +46,10 @@ const (
 
 	// EIP-5656: MCOPY
 	GasMcopy = 3
+
+	// EIP-4844: Blob opcodes (Cancun)
+	GasBlobHash    = 3 // HASH_OPCODE_GAS
+	GasBlobBaseFee = 2 // Similar to BASEFEE
 
 	// Memory costs
 	GasMemory = 3 // Per word
@@ -114,6 +118,8 @@ var GasTable = [256]uint64{
 	CHAINID:        GasBase,
 	SELFBALANCE:    GasLow,
 	BASEFEE:        GasBase,
+	BLOBHASH:       GasBlobHash,
+	BLOBBASEFEE:    GasBlobBaseFee,
 
 	POP:      GasBase,
 	MLOAD:    GasVeryLow,
@@ -262,7 +268,7 @@ func SstoreGasCost(original, current, newVal [32]byte, isWarm bool) (uint64, uin
 // CallGasCost calculates gas for CALL-family opcodes
 func CallGasCost(isWarm bool, hasValue bool, isNewAccount bool, gas uint64) uint64 {
 	var cost uint64
-	
+
 	if !isWarm {
 		cost = GasColdAccountAccess
 	} else {
