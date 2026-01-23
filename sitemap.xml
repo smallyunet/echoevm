@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://smallyunet.github.io/echoevm/</loc>
+         <lastmod>2026-01-23</lastmod>
+    </url>
+    <url>
+         <loc>https://smallyunet.github.io/echoevm/guides/configuration/</loc>
+         <lastmod>2026-01-23</lastmod>
+    </url>
+    <url>
+         <loc>https://smallyunet.github.io/echoevm/guides/logging/</loc>
+         <lastmod>2026-01-23</lastmod>
+    </url>
+    <url>
+         <loc>https://smallyunet.github.io/echoevm/guides/testing/</loc>
+         <lastmod>2026-01-23</lastmod>
+    </url>
+    <url>
+         <loc>https://smallyunet.github.io/echoevm/reference/cli/</loc>
+         <lastmod>2026-01-23</lastmod>
+    </url>
+</urlset>
