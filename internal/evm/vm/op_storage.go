@@ -4,28 +4,27 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func opSload(i *Interpreter, _ byte) {
 	keyBig := i.stack.PopSafe()
 	key := common.BigToHash(keyBig)
 
-	// GasTable[SLOAD] = 800 (GasSload)
-	// EIP-2929: Warm = 100, Cold = 2100
-
+	// GasTable[SLOAD] already charges the warm read cost.
+	// EIP-2929: Warm = 100, Cold = 2100.
 	if i.statedb.SlotInAccessList(i.address, key) {
-		// Warm: 100. Already paid 800. Refund 700.
-		i.gas += 700
+		// Warm access: no additional gas.
 	} else {
-		// Cold: 2100. Already paid 800. Pay 1300.
-		extra := uint64(1300)
+		extra := uint64(core.GasColdSload - core.GasWarmStorageRead)
 		if i.gas < extra {
 			i.err = fmt.Errorf("out of gas: sload")
 			i.reverted = true
 			return
+		} else {
+			i.gas -= extra
+			i.statedb.AddSlotToAccessList(i.address, key)
 		}
-		i.gas -= extra
-		i.statedb.AddSlotToAccessList(i.address, key)
 	}
 
 	val := i.statedb.GetState(i.address, key)
