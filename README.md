@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.14](#-whats-new-in-v0014)
+- [What's New in v0.0.17](#-whats-new-in-v0017)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,12 +27,11 @@
 
 ---
 
-## 🆕 What's New in v0.0.14
+## 🆕 What's New in v0.0.17
 
-- **Web Debugger UI**: Browser-based EVM execution visualizer (`echoevm web`).
-- **Nested Array Support**: ABI encoding/decoding for `uint256[][]`, `address[][]`, etc.
-- **New Precompiles**: Added support for MODEXP (0x05), BN256 Add/Mul/Pairing (0x06-0x08), Blake2F (0x09).
-- **Fork-Specific Behavior**: Infrastructure to handle different hardfork rules (Merge, London active by default).
+- **Web Debugger Run Control**: Trigger traces directly from the UI via the new Run button.
+- **Web Debugger Origin Allowlist**: Configure allowed WebSocket origins with `ECHOEVM_WEB_ALLOWED_ORIGINS`.
+- **Docs & Version Alignment**: Updated docs and tests to reflect the current release.
 
 ### Previous v0.0.13
 - **Precompiled Contracts**: Native support for ECRECOVER (0x01), SHA256 (0x02), RIPEMD160 (0x03), IDENTITY (0x04)
@@ -51,7 +50,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER, SHA256, RIPEMD160, IDENTITY (0x01-0x04) |
+| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
 | **Testing** | Unit tests, integration tests, Ethereum compliance tests |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
@@ -128,6 +127,7 @@ echoevm repl
 # Start the web debugger
 echoevm web --code "6003600401"
 # Then open http://localhost:8080
+# Click "Run Trace" in the UI to start execution.
 ```
 
 ---
@@ -270,7 +270,7 @@ Arithmetic, Bitwise, Comparison, Stack, Memory, Storage, Control Flow, Environme
 
 ## ⚙️ Configuration
 
-See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) and [docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md) for details.
+See [docs/guides/configuration.md](docs/guides/configuration.md) and [docs/guides/logging.md](docs/guides/logging.md) for details.
 
 **Environment variables:**
 

@@ -12,6 +12,7 @@ EchoEVM provides a set of CLI commands to interact with the EVM.
 | `trace` | JSON line trace of opcode execution |
 | `disasm` | Disassemble bytecode to human-readable opcodes |
 | `repl` | Interactive EVM shell |
+| `web` | Browser-based visual debugger |
 | `version` | Display build metadata |
 
 ### Global Flags
@@ -82,4 +83,13 @@ Start the interactive Read-Eval-Print Loop.
 ```bash
 echoevm repl
 > PUSH1 10 PUSH1 20 ADD
+```
+
+### `web`
+
+Start the web debugger UI.
+
+```bash
+echoevm web --code "6001600201"
+# Open http://localhost:8080 and click "Run Trace"
 ```

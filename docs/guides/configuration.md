@@ -33,6 +33,9 @@ You can override default configuration values using the following environment va
 - `ECHOEVM_API_VERSION`: Default API version (default: `1.0`)
 - `ECHOEVM_API_PUBLIC`: Default API public flag (default: `true`)
 
+### Web Debugger Configuration
+- `ECHOEVM_WEB_ALLOWED_ORIGINS`: Comma-separated allowed WebSocket origins. Use `*` to allow all origins. Empty means same-origin only.
+
 ## Usage Examples
 
 ### Setting Log Level

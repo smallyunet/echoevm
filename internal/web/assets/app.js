@@ -3,10 +3,13 @@ const opcodeListEl = document.getElementById('opcode-list');
 const stackListEl = document.getElementById('stack-list');
 const stackSizeEl = document.getElementById('stack-size');
 const memoryViewEl = document.getElementById('memory-view');
+const runBtn = document.getElementById('run-btn');
 const clearBtn = document.getElementById('clear-btn');
 
 let socket;
 let isConnected = false;
+
+runBtn.disabled = true;
 
 function connect() {
     statusEl.textContent = 'Connecting...';
@@ -17,10 +20,8 @@ function connect() {
         statusEl.textContent = 'Connected';
         statusEl.className = 'status connected';
         isConnected = true;
-        opcodeListEl.innerHTML = '';
-        stackListEl.innerHTML = '';
-        memoryViewEl.innerHTML = '';
-        appendLog('Ready for execution...');
+        runBtn.disabled = false;
+        resetView('Ready for execution...');
     };
 
     socket.onclose = function() {
@@ -28,6 +29,7 @@ function connect() {
         statusEl.textContent = 'Disconnected';
         statusEl.className = 'status disconnected';
         isConnected = false;
+        runBtn.disabled = true;
         // Try to reconnect?
         setTimeout(connect, 2000);
     };
@@ -74,6 +76,10 @@ function handleMessage(msg) {
         if(msg.reverted) {
              appendLog(`REVERTED`, true);
         }
+    } else if (msg.type === 'start') {
+        resetView('Running...');
+    } else {
+        appendLog('Unknown message type', true);
     }
 }
 
@@ -149,8 +155,28 @@ function appendLog(text, isError) {
 }
 
 clearBtn.addEventListener('click', () => {
-    opcodeListEl.innerHTML = '<div class="placeholder">Waiting for execution...</div>';
+    resetView('Waiting for execution...');
 });
+
+runBtn.addEventListener('click', () => {
+    if (!isConnected) {
+        appendLog('Not connected', true);
+    } else {
+        socket.send(JSON.stringify({ type: 'run' }));
+    }
+});
+
+function resetView(statusText) {
+    opcodeListEl.innerHTML = '';
+    stackListEl.innerHTML = '';
+    memoryViewEl.innerHTML = '';
+    stackSizeEl.textContent = '(0)';
+    if (statusText) {
+        appendLog(statusText);
+    } else {
+        appendLog('');
+    }
+}
 
 // Start
 connect();

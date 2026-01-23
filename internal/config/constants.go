@@ -65,6 +65,13 @@ const (
 	DefaultAPIPublic = true
 )
 
+// Web Constants
+const (
+	// DefaultWebAllowedOrigins is the default allowed origins for the web debugger.
+	// Empty means only same-origin requests are allowed.
+	DefaultWebAllowedOrigins = ""
+)
+
 // Execution Constants
 const (
 	// DefaultExecutionMode is the default execution mode

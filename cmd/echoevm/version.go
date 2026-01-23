@@ -14,7 +14,7 @@ import (
 // They default to "dev" when not provided.
 // Version is the current version of the application.
 // It is set at build time or defaults to the hardcoded value here.
-var Version = "v0.0.14"
+var Version = "v0.0.17"
 
 var (
 	GitCommit = "dev"

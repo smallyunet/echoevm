@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.15
+**Current Version**: v0.0.17
 
 ---
 
@@ -45,6 +45,8 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.13 | Precompiled contracts (0x01-0x04), Tuple ABI support |
 | v0.0.14 | Bug fixes, stability improvements |
 | v0.0.15 | EIP-4844 Cancun opcodes (BLOBHASH, BLOBBASEFEE) |
+| v0.0.16 | Web debugger UI stabilization, compliance coverage updates |
+| v0.0.17 | Web debugger run control, origin allowlist, docs alignment |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -107,10 +109,10 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.16 Priorities:**
+**v0.0.17 Priorities:**
 1. State Trie (Merkle Patricia Trie)
-2. Web Debugger UI
-3. Expanded Compliance Tests
+2. Expanded Compliance Tests
+3. Web Debugger UX polish
 
 ---
 

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -19,6 +20,10 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
+}
+
+type ControlMessage struct {
+	Type string `json:"type"`
 }
 
 func NewHub() *Hub {
@@ -57,6 +62,7 @@ type Client struct {
 	hub  *Hub
 	conn *websocket.Conn
 	send chan []byte
+	control chan ControlMessage
 }
 
 func (c *Client) readPump() {
@@ -68,15 +74,38 @@ func (c *Client) readPump() {
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Error().Err(err).Msg("Websocket error")
+			} else {
+				log.Debug().Err(err).Msg("Websocket closed")
 			}
 			break
+		} else {
+			var cmd ControlMessage
+			parseErr := json.Unmarshal(message, &cmd)
+			if parseErr != nil {
+				log.Warn().Err(parseErr).Msg("Invalid websocket control message")
+			} else {
+				if cmd.Type == "" {
+					log.Warn().Msg("Control message missing type")
+				} else {
+					sent := false
+					select {
+					case c.control <- cmd:
+						sent = true
+					default:
+						sent = false
+					}
+					if sent {
+						log.Debug().Str("type", cmd.Type).Msg("Control message received")
+					} else {
+						log.Warn().Str("type", cmd.Type).Msg("Control channel is full")
+					}
+				}
+			}
 		}
-		// For now we don't handle incoming messages (control commands)
-		// but we will add "start", "step", "pause" later.
 	}
 }
 

@@ -19,6 +19,7 @@ const (
 	EnvAPINamespace  = "ECHOEVM_API_NAMESPACE"
 	EnvAPIVersion    = "ECHOEVM_API_VERSION"
 	EnvAPIPublic     = "ECHOEVM_API_PUBLIC"
+	EnvWebOrigins    = "ECHOEVM_WEB_ALLOWED_ORIGINS"
 )
 
 // GetStringEnv returns environment variable value or default
@@ -82,6 +83,7 @@ type RuntimeConfig struct {
 	APINamespace  string
 	APIVersion    string
 	APIPublic     bool
+	WebOrigins    string
 }
 
 // LoadRuntimeConfig loads configuration from environment variables with defaults
@@ -98,6 +100,7 @@ func LoadRuntimeConfig() *RuntimeConfig {
 		APINamespace:  GetStringEnv(EnvAPINamespace, DefaultAPINamespace),
 		APIVersion:    GetStringEnv(EnvAPIVersion, DefaultAPIVersion),
 		APIPublic:     GetBoolEnv(EnvAPIPublic, DefaultAPIPublic),
+		WebOrigins:    GetStringEnv(EnvWebOrigins, DefaultWebAllowedOrigins),
 	}
 }
 

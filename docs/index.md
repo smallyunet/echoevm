@@ -5,15 +5,11 @@
 ---
 
 
-## 🆕 What's New in v0.0.14
+## 🆕 What's New in v0.0.17
 
-- **Nested Array Support**: ABI encoding/decoding for `uint256[][]`, `address[][]`, etc.
-- **New Precompiles**: Added support for MODEXP (0x05), BN256 Add/Mul/Pairing (0x06-0x08), Blake2F (0x09).
-- **Fork-Specific Behavior**: Infrastructure to handle different hardfork rules (Merge, London active by default).
-
-### Previous v0.0.13
-- **Precompiled Contracts**: Native support for ECRECOVER (0x01), SHA256 (0x02), RIPEMD160 (0x03), IDENTITY (0x04)
-- **Tuple ABI Encoding**: Encode struct-like parameters using `(val1,val2,...)` syntax
+- **Web Debugger Run Control**: Trigger traces directly from the UI via the new Run button.
+- **Web Debugger Origin Allowlist**: Configure allowed WebSocket origins with `ECHOEVM_WEB_ALLOWED_ORIGINS`.
+- **Docs & Version Alignment**: Updated docs and tests to reflect the current release.
 
 See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for the complete version history.
 
@@ -28,7 +24,7 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER, SHA256, RIPEMD160, IDENTITY (0x01-0x04) |
+| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
 | **Testing** | Unit tests, integration tests, Ethereum compliance tests |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
@@ -98,6 +94,15 @@ echoevm repl
 # Type opcodes: PUSH1 10 PUSH1 20 ADD
 ```
 
+### Web Debugger
+
+```bash
+# Start the web debugger
+echoevm web --code "6003600401"
+# Then open http://localhost:8080
+# Click "Run Trace" in the UI to start execution.
+```
+
 ---
 
 ## 🖥 CLI Commands
@@ -110,6 +115,7 @@ echoevm repl
 | `trace` | JSON line trace of opcode execution |
 | `disasm` | Disassemble bytecode to human-readable opcodes |
 | `repl` | Interactive EVM shell |
+| `web` | Browser-based visual debugger |
 | `version` | Display build metadata |
 
 ### Global Flags
