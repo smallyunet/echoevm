@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.17](#-whats-new-in-v0017)
+- [What's New in v0.0.18](#-whats-new-in-v0018)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,15 +27,16 @@
 
 ---
 
-## 🆕 What's New in v0.0.17
+## 🆕 What's New in v0.0.18
 
+- **Merkle Patricia Trie (MPT)**: Full implementation of the Ethereum state trie (`internal/trie`), satisfying the Yellow Paper structure.
+- **State Persistence**: StateDB now uses `TrieStateBackend` for lazy loading and persistent storage roots.
+- **Enhanced Compliance**: Expanded test runner now covers the `GeneralStateTests/VMTests` suite.
+- **RLP & Compact Encoding**: Custom encoding implementations for MPT nodes.
+
+### Previous v0.0.17
 - **Web Debugger Run Control**: Trigger traces directly from the UI via the new Run button.
 - **Web Debugger Origin Allowlist**: Configure allowed WebSocket origins with `ECHOEVM_WEB_ALLOWED_ORIGINS`.
-- **Docs & Version Alignment**: Updated docs and tests to reflect the current release.
-
-### Previous v0.0.13
-- **Precompiled Contracts**: Native support for ECRECOVER (0x01), SHA256 (0x02), RIPEMD160 (0x03), IDENTITY (0x04)
-- **Tuple ABI Encoding**: Encode struct-like parameters using `(val1,val2,...)` syntax
 
 See [ROADMAP.md](ROADMAP.md) for the complete version history.
 
@@ -46,6 +47,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | Category | Features |
 |----------|----------|
 | **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
+| **State Management** | **Merkle Patricia Trie**, State persistence, Account/Storage Tries |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |

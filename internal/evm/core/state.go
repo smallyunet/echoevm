@@ -57,3 +57,21 @@ type StateDB interface {
 	Snapshot() int
 	RevertToSnapshot(int)
 }
+
+// Account is the internal representation of an Ethereum account.
+type Account struct {
+	Nonce           uint64
+	Balance         *big.Int
+	CodeHash        []byte      // using []byte to store hash for simplicity, though common.Hash is [32]byte
+	Root            common.Hash // Merkle root of the storage trie
+	Code            []byte
+	Storage         map[common.Hash]common.Hash
+	OriginalStorage map[common.Hash]common.Hash // EIP-2200
+	Suicided        bool
+}
+
+// StateBackend defines the interface for a state backend (e.g. Trie).
+type StateBackend interface {
+	GetAccount(addr common.Address) (*Account, error)
+	GetStorage(addr common.Address, key common.Hash) (common.Hash, error)
+}

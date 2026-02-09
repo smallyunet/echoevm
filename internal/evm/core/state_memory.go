@@ -7,16 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
-type Account struct {
-	Nonce           uint64
-	Balance         *big.Int
-	CodeHash        []byte // using []byte to store hash for simplicity, though common.Hash is [32]byte
-	Code            []byte
-	Storage         map[common.Hash]common.Hash
-	OriginalStorage map[common.Hash]common.Hash // EIP-2200
-	Suicided        bool
-}
-
 func NewAccount() *Account {
 	return &Account{
 		Balance:         new(big.Int),
@@ -117,22 +107,52 @@ type MemoryStateDB struct {
 
 	// Transient Storage (EIP-1153)
 	transientStorage map[common.Address]map[common.Hash]common.Hash
+
+	backend StateBackend
 }
 
 func NewMemoryStateDB() *MemoryStateDB {
 	return &MemoryStateDB{
-		accounts:        make(map[common.Address]*Account),
-		journal:         make([]journalEntry, 0),
-		refund:          0,
-		accessListAddrs: make(map[common.Address]struct{}),
-		accessListSlots: make(map[common.Address]map[common.Hash]struct{}),
+		accounts:         make(map[common.Address]*Account),
+		journal:          make([]journalEntry, 0),
+		refund:           0,
+		accessListAddrs:  make(map[common.Address]struct{}),
+		accessListSlots:  make(map[common.Address]map[common.Hash]struct{}),
 		transientStorage: make(map[common.Address]map[common.Hash]common.Hash),
 	}
+}
+
+func (db *MemoryStateDB) SetBackend(backend StateBackend) {
+	db.backend = backend
 }
 
 func (db *MemoryStateDB) getAccount(addr common.Address) *Account {
 	if acc, ok := db.accounts[addr]; ok {
 		return acc
+	}
+	// Try backend
+	if db.backend != nil {
+		acc, _ := db.backend.GetAccount(addr)
+		if acc != nil {
+			// Cache it in memory for future modifications
+			// But we need to make sure we don't treat it as "created" for rollback unless we want to?
+			// Actually, if we just put it in db.accounts, it becomes part of the "access set".
+			// But for reverting, we usually track changes.
+			// Loading from backend isn't a "change".
+			// Ideally we have a separate cache or we flag it.
+			// For simplicity: put in db.accounts.
+			// Note: This implies we copy it to avoid mutating backend state directly if backend returned pointer.
+			// But backend returns *Account which is ours now.
+			// We must ensure Storage map is initialized.
+			if acc.Storage == nil {
+				acc.Storage = make(map[common.Hash]common.Hash)
+			}
+			if acc.OriginalStorage == nil {
+				acc.OriginalStorage = make(map[common.Hash]common.Hash)
+			}
+			db.accounts[addr] = acc
+			return acc
+		}
 	}
 	return nil
 }
@@ -236,7 +256,24 @@ func (db *MemoryStateDB) GetState(addr common.Address, key common.Hash) common.H
 	if acc == nil {
 		return common.Hash{}
 	}
-	return acc.Storage[key]
+	if val, ok := acc.Storage[key]; ok {
+		return val
+	}
+	// Try backend
+	if db.backend != nil {
+		val, _ := db.backend.GetStorage(addr, key)
+		if (val != common.Hash{}) {
+			acc.Storage[key] = val
+			// Also set original storage if not set?
+			// EIP-2200 requires OriginalStorage to be the value at beginning of transaction.
+			// If we just loaded it, it is original.
+			if _, ok := acc.OriginalStorage[key]; !ok {
+				acc.OriginalStorage[key] = val
+			}
+			return val
+		}
+	}
+	return common.Hash{}
 }
 
 func (db *MemoryStateDB) GetOriginalState(addr common.Address, key common.Hash) common.Hash {

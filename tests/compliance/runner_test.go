@@ -11,8 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
+	"github.com/smallyunet/echoevm/internal/trie"
 )
 
 // Test structures matching ethereum/tests JSON format
@@ -74,21 +77,91 @@ func toUint64(hex string) uint64 {
 	return n.Uint64()
 }
 
+// mockDB implements trie.Database for testing
+type mockDB struct {
+	data map[common.Hash][]byte
+}
+
+func newMockDB() *mockDB {
+	return &mockDB{
+		data: make(map[common.Hash][]byte),
+	}
+}
+
+func (db *mockDB) Node(hash common.Hash) ([]byte, error) {
+	if val, ok := db.data[hash]; ok {
+		return val, nil
+	}
+	return nil, nil
+}
+
+func (db *mockDB) Put(hash common.Hash, val []byte) error {
+	db.data[hash] = val
+	return nil
+}
+
+// MakeTrieState creates a TrieStateBackend from the pre-state
+func MakeTrieState(pre map[string]Account) (*core.TrieStateBackend, common.Hash, error) {
+	db := newMockDB()
+	accTrie, err := trie.New(common.Hash{}, db)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	for addrStr, accObj := range pre {
+		addr := common.HexToAddress(addrStr)
+
+		// 1. Setup Storage Trie
+		storageTrie, err := trie.New(common.Hash{}, db)
+		if err != nil {
+			return nil, common.Hash{}, err
+		}
+		for k, v := range accObj.Storage {
+			key := common.HexToHash(k)
+			val := common.HexToHash(v)
+			valBytes, _ := rlp.EncodeToBytes(val)
+			storageTrie.Update(crypto.Keccak256(key[:]), valBytes)
+		}
+		storageRoot, err := storageTrie.Commit()
+		if err != nil {
+			return nil, common.Hash{}, err
+		}
+
+		// 2. Setup Account
+		trieAcc := core.TrieAccount{
+			Nonce:    toUint64(accObj.Nonce),
+			Balance:  toBig(accObj.Balance),
+			Root:     storageRoot,
+			CodeHash: crypto.Keccak256(accObj.Code),
+		}
+
+		// Store code in DB if present
+		if len(accObj.Code) > 0 {
+			db.Put(common.BytesToHash(trieAcc.CodeHash), accObj.Code)
+		}
+
+		accBytes, _ := rlp.EncodeToBytes(trieAcc)
+		accTrie.Update(crypto.Keccak256(addr[:]), accBytes)
+	}
+
+	root, err := accTrie.Commit()
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	backend, err := core.NewTrieStateBackend(root, db)
+	return backend, root, err
+}
+
 // RunTest executes a single test case
 func RunTest(t *testing.T, name string, test StateTest) {
 	// 1. Setup StateDB
-	statedb := core.NewMemoryStateDB()
-	for addrStr, acc := range test.Pre {
-		addr := common.HexToAddress(addrStr)
-		statedb.CreateAccount(addr)
-		statedb.SetNonce(addr, toUint64(acc.Nonce))
-		statedb.AddBalance(addr, toBig(acc.Balance))
-		statedb.SetCode(addr, acc.Code)
-		for k, v := range acc.Storage {
-			statedb.InitState(addr, common.HexToHash(k), common.HexToHash(v))
-		}
+	backend, _, err := MakeTrieState(test.Pre)
+	if err != nil {
+		t.Fatalf("Failed to create trie state: %v", err)
 	}
-	statedb.ClearJournal()
+	statedb := core.NewMemoryStateDB()
+	statedb.SetBackend(backend)
 
 	// 2. Setup VM & Transaction
 	// Note: GeneralStateTests can have multiple data/value/gasLimit indexes.
@@ -122,7 +195,7 @@ func RunTest(t *testing.T, name string, test StateTest) {
 	}
 
 	// 3. Run
-	_, _, _, err := vm.ApplyTransactionWithContext(statedb, tx, sender, ctx)
+	_, _, _, err = vm.ApplyTransactionWithContext(statedb, tx, sender, ctx)
 
 	if err != nil {
 		// Some tests expect failure.
