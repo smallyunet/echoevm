@@ -115,3 +115,21 @@ func TestTrie_MultipleInserts(t *testing.T) {
 		}
 	}
 }
+
+func TestTrie_InsertKeyThatPrefixesExistingKey(t *testing.T) {
+	db := newMockDB()
+	trie, err := New(common.Hash{}, db)
+	if err != nil {
+		t.Fatalf("failed to create trie: %v", err)
+	}
+
+	trie.Update([]byte("doge"), []byte("coin"))
+	trie.Update([]byte("dog"), []byte("puppy"))
+
+	if got := trie.Get([]byte("doge")); !bytes.Equal(got, []byte("coin")) {
+		t.Fatalf("doge: expected coin, got %s", got)
+	}
+	if got := trie.Get([]byte("dog")); !bytes.Equal(got, []byte("puppy")) {
+		t.Fatalf("dog: expected puppy, got %s", got)
+	}
+}

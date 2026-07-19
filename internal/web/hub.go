@@ -59,9 +59,9 @@ func (h *Hub) Run() {
 }
 
 type Client struct {
-	hub  *Hub
-	conn *websocket.Conn
-	send chan []byte
+	hub     *Hub
+	conn    *websocket.Conn
+	send    chan []byte
 	control chan ControlMessage
 }
 
@@ -123,22 +123,7 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-
-			w, err := c.conn.NextWriter(websocket.TextMessage)
-			if err != nil {
-				return
-			}
-			w.Write(message)
-
-			if len(c.send) > 0 {
-				// Add queued messages to the current websocket message.
-				// This is an optimization.
-				for i := 0; i < len(c.send); i++ {
-					w.Write(<-c.send)
-				}
-			}
-
-			if err := w.Close(); err != nil {
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				return
 			}
 		case <-ticker.C:

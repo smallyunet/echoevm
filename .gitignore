@@ -204,4 +204,4 @@ bin/
 
 # Tests
 tests/fixtures/
-echoevm
+/echoevm

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
@@ -60,6 +61,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 
 	statedb := core.NewMemoryStateDB()
 	intr := vm.New(code, statedb, common.Address{})
+	intr.SetGas(config.DefaultGasLimit)
 
 	if runFlags.debug {
 		fmt.Printf("%-5s %-15s %-10s %-20s\n", "PC", "OP", "GAS", "STACK (Top)")

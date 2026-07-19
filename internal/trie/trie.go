@@ -142,10 +142,15 @@ func (t *Trie) insert(n Node, prefix, key []byte, value Node) (bool, Node, error
 		if err != nil {
 			return false, nil, err
 		}
-		// Insert new child
-		_, branch.Children[key[matchlen]], err = t.insert(nil, append(prefix, key[:matchlen+1]...), key[matchlen+1:], value)
-		if err != nil {
-			return false, nil, err
+		// Insert the new child. If the new key ends at the shared prefix,
+		// its value belongs in the branch value slot instead of a nibble child.
+		if matchlen == len(key) {
+			branch.Children[16] = value
+		} else {
+			_, branch.Children[key[matchlen]], err = t.insert(nil, append(prefix, key[:matchlen+1]...), key[matchlen+1:], value)
+			if err != nil {
+				return false, nil, err
+			}
 		}
 		// Replace this ShortNode with the new branch (or an extension leading to it)
 		if matchlen == 0 {

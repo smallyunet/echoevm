@@ -33,7 +33,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "simple add",
 			args:     []string{"run", "6001600201"}, // PUSH1 1 PUSH1 2 ADD
-			wantOut:  "",                            // Run doesn't output stack unless debug, wait, it might finish silently
+			wantOut:  "Return: 0x",
 			wantCode: 0,
 		},
 		{
