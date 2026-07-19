@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -128,4 +129,72 @@ func TestInterpreterRevert(t *testing.T) {
 	if len(ret) != 1 || ret[0] != 0xAA {
 		t.Fatalf("expected return data [0xAA], got %x", ret)
 	}
+}
+
+func TestRunAndRunWithHookHaveIdenticalSemantics(t *testing.T) {
+	tests := []struct {
+		name string
+		code []byte
+		gas  uint64
+	}{
+		{
+			name: "successful execution",
+			code: []byte{core.PUSH1, 0x01, core.PUSH1, 0x02, core.ADD, core.STOP},
+			gas:  100,
+		},
+		{
+			name: "out of gas",
+			code: []byte{core.PUSH1, 0x01},
+			gas:  2,
+		},
+		{
+			name: "explicit revert",
+			code: []byte{core.PUSH1, 0x00, core.PUSH1, 0x00, core.REVERT},
+			gas:  100,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plain := New(tt.code, core.NewMemoryStateDB(), common.Address{})
+			plain.SetGas(tt.gas)
+			plain.Run()
+
+			traced := New(tt.code, core.NewMemoryStateDB(), common.Address{})
+			traced.SetGas(tt.gas)
+			var steps []TraceStep
+			traced.RunWithHook(func(step TraceStep) bool {
+				steps = append(steps, step)
+				return true
+			})
+
+			if !reflect.DeepEqual(plain.Stack().Snapshot(), traced.Stack().Snapshot()) {
+				t.Fatalf("stack mismatch: plain=%v traced=%v", plain.Stack().Snapshot(), traced.Stack().Snapshot())
+			}
+			if !reflect.DeepEqual(plain.ReturnedCode(), traced.ReturnedCode()) {
+				t.Fatalf("return data mismatch: plain=%x traced=%x", plain.ReturnedCode(), traced.ReturnedCode())
+			}
+			if plain.Gas() != traced.Gas() {
+				t.Fatalf("remaining gas mismatch: plain=%d traced=%d", plain.Gas(), traced.Gas())
+			}
+			if plain.IsReverted() != traced.IsReverted() {
+				t.Fatalf("reverted mismatch: plain=%v traced=%v", plain.IsReverted(), traced.IsReverted())
+			}
+			if errorString(plain.Err()) != errorString(traced.Err()) {
+				t.Fatalf("error mismatch: plain=%v traced=%v", plain.Err(), traced.Err())
+			}
+			for index, step := range steps {
+				if step.IsPost != (index%2 == 1) {
+					t.Fatalf("step %d has unexpected IsPost=%v", index, step.IsPost)
+				}
+			}
+		})
+	}
+}
+
+func errorString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }

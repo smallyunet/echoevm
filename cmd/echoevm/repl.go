@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
@@ -56,6 +57,7 @@ func runRepl(cmd *cobra.Command, args []string) error {
 		intr := vm.New(code, statedb, address)
 		intr.SetStack(stack)
 		intr.SetMemory(memory)
+		intr.SetGas(config.DefaultGasLimit)
 
 		// Run
 		intr.Run()

@@ -55,6 +55,7 @@ type TraceStep struct {
 	OpcodeName string   `json:"opcode_name"`
 	Stack      []string `json:"stack"`
 	StackSize  int      `json:"stack_size"`
+	Gas        uint64   `json:"gas"`
 	Reverted   bool     `json:"reverted"`
 	Halt       bool     `json:"halt"`
 	IsPost     bool     `json:"is_post"`
@@ -315,6 +316,17 @@ func init() {
 }
 
 func (i *Interpreter) Run() {
+	i.run(nil)
+}
+
+// RunWithHook executes bytecode using the same execution loop as Run and emits
+// a TraceStep before and after each opcode. Returning false from the hook stops
+// execution without executing another opcode.
+func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
+	i.run(hook)
+}
+
+func (i *Interpreter) run(hook func(step TraceStep) bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			if err, ok := r.(error); ok {
@@ -323,6 +335,7 @@ func (i *Interpreter) Run() {
 				i.err = fmt.Errorf("execution panic: %v", r)
 			}
 			i.reverted = true
+			i.gas = 0
 			logger.Error().Err(i.err).Msg("EVM execution recovered from panic")
 		}
 	}()
@@ -332,12 +345,21 @@ func (i *Interpreter) Run() {
 		op := i.code[i.pc]
 		i.pc++
 
+		if hook != nil {
+			pre := i.traceStep(pc, op, false, false)
+			if !hook(pre) {
+				return
+			}
+		}
+
 		// Gas deduction
 		cost := core.GasTable[op]
 
 		if i.gas < cost {
 			i.err = fmt.Errorf("out of gas: have %d, want %d", i.gas, cost)
 			i.reverted = true
+			i.gas = 0
+			i.emitPostStep(hook, op, true)
 			return
 		}
 		i.gas -= cost
@@ -365,20 +387,18 @@ func (i *Interpreter) Run() {
 				Strs("stack", i.stack.Snapshot()).
 				Msg("Invalid opcode encountered")
 
-			// Instead of panicking, we'll set the reverted flag
+			i.err = fmt.Errorf("unsupported opcode: 0x%02x", op)
 			i.reverted = true
+			i.gas = 0
+			i.emitPostStep(hook, op, true)
 			return
 		}
 
 		handler(i, op)
 
-		// Check for errors or revert
+		halt := op == core.RETURN || op == core.REVERT || op == core.STOP || i.reverted || i.err != nil
 		if i.err != nil {
 			i.gas = 0
-			return
-		}
-		if i.reverted {
-			return
 		}
 
 		// Log post-execution state
@@ -393,60 +413,31 @@ func (i *Interpreter) Run() {
 				Msg("EVM execution completed")
 		}
 
-		// If RETURN, REVERT or STOP, exit early
-		if op == core.RETURN || op == core.REVERT || op == core.STOP {
+		if !i.emitPostStep(hook, op, halt) || halt {
 			return
 		}
 	}
 }
 
-// RunWithHook executes the bytecode emitting a TraceStep to the provided hook before
-// and after each opcode. If hook returns false, execution stops early.
-func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
-	defer func() {
-		if r := recover(); r != nil {
-			if err, ok := r.(error); ok {
-				i.err = err
-			} else {
-				i.err = fmt.Errorf("execution panic: %v", r)
-			}
-			i.reverted = true
-			// Emit a final trace step for the error if possible?
-			// For now just return, caller can check i.Err()
-		}
-	}()
-
-	for i.pc < uint64(len(i.code)) {
-		pc := i.pc
-		op := i.code[i.pc]
-		i.pc++
-
-		pre := TraceStep{PC: pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: false, IsPost: false}
-		if !hook(pre) {
-			return
-		}
-
-		handler := handlerMap[op]
-		if handler == nil {
-			i.reverted = true
-			post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: true, IsPost: true}
-			hook(post)
-			return
-		}
-		handler(i, op)
-
-		halt := false
-		if op == core.RETURN || op == core.REVERT || op == core.STOP {
-			halt = true
-		}
-		post := TraceStep{PC: i.pc, Opcode: op, OpcodeName: core.OpcodeName(op), Stack: i.stack.Snapshot(), StackSize: i.stack.Len(), Reverted: i.reverted, Halt: halt, IsPost: true}
-		if !hook(post) {
-			return
-		}
-		if halt {
-			return
-		}
+func (i *Interpreter) traceStep(pc uint64, op byte, isPost, halt bool) TraceStep {
+	return TraceStep{
+		PC:         pc,
+		Opcode:     op,
+		OpcodeName: core.OpcodeName(op),
+		Stack:      i.stack.Snapshot(),
+		StackSize:  i.stack.Len(),
+		Gas:        i.gas,
+		Reverted:   i.reverted,
+		Halt:       halt,
+		IsPost:     isPost,
 	}
+}
+
+func (i *Interpreter) emitPostStep(hook func(step TraceStep) bool, op byte, halt bool) bool {
+	if hook == nil {
+		return true
+	}
+	return hook(i.traceStep(i.pc, op, true, halt))
 }
 
 func (i *Interpreter) Stack() *core.Stack {

@@ -12,22 +12,6 @@ func keybytesToHex(str []byte) []byte {
 	return nibbles
 }
 
-// hexToKeybytes converts a nibble slice back to a byte slice.
-// This assumes the nibble slice has an even length.
-func hexToKeybytes(hex []byte) []byte {
-	if hasTerm(hex) {
-		hex = hex[:len(hex)-1]
-	}
-	if len(hex)&1 != 0 {
-		panic("can't convert odd-length hex string")
-	}
-	key := make([]byte, len(hex)/2)
-	for i := 0; i < len(key); i++ {
-		key[i] = hex[i*2]*16 + hex[i*2+1]
-	}
-	return key
-}
-
 // compactEncode encodes a hex slice (nibbles) into a compact byte slice.
 // It adds a prefix to indicate whether the key length is even or odd,
 // and whether the node is a leaf (terminated) or extension.

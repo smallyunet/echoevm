@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.18](#-whats-new-in-v0018)
+- [What's New in v0.0.19](#-whats-new-in-v0019)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,16 +27,19 @@
 
 ---
 
-## 🆕 What's New in v0.0.18
+## 🆕 What's New in v0.0.19
+
+- **Consistent Execution**: `run`, debug tracing, JSON tracing, and the Web Debugger now share one gas-aware interpreter loop.
+- **Reliable CLI Commands**: `run`, `deploy`, `call`, `trace`, `repl`, and `web` use a working default gas budget and return execution errors consistently.
+- **Web Debugger Restored**: Restored the missing `web` command and fixed WebSocket trace message framing.
+- **Trie Stability**: Fixed prefix-key insertion panics in the Merkle Patricia Trie.
+
+### Previous v0.0.18
 
 - **Merkle Patricia Trie (MPT)**: Full implementation of the Ethereum state trie (`internal/trie`), satisfying the Yellow Paper structure.
 - **State Persistence**: StateDB now uses `TrieStateBackend` for lazy loading and persistent storage roots.
 - **Enhanced Compliance**: Expanded test runner now covers the `GeneralStateTests/VMTests` suite.
 - **RLP & Compact Encoding**: Custom encoding implementations for MPT nodes.
-
-### Previous v0.0.17
-- **Web Debugger Run Control**: Trigger traces directly from the UI via the new Run button.
-- **Web Debugger Origin Allowlist**: Configure allowed WebSocket origins with `ECHOEVM_WEB_ALLOWED_ORIGINS`.
 
 See [ROADMAP.md](ROADMAP.md) for the complete version history.
 

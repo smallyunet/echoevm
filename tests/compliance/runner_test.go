@@ -137,7 +137,9 @@ func MakeTrieState(pre map[string]Account) (*core.TrieStateBackend, common.Hash,
 
 		// Store code in DB if present
 		if len(accObj.Code) > 0 {
-			db.Put(common.BytesToHash(trieAcc.CodeHash), accObj.Code)
+			if err := db.Put(common.BytesToHash(trieAcc.CodeHash), accObj.Code); err != nil {
+				return nil, common.Hash{}, err
+			}
 		}
 
 		accBytes, _ := rlp.EncodeToBytes(trieAcc)

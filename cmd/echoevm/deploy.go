@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
@@ -74,7 +75,11 @@ func runDeploy(cmd *cobra.Command) error {
 	}
 
 	intr := vm.New(code, core.NewMemoryStateDB(), common.Address{})
+	intr.SetGas(config.DefaultGasLimit)
 	intr.Run()
+	if intr.Err() != nil {
+		return fmt.Errorf("constructor execution failed: %w", intr.Err())
+	}
 	runtime := intr.ReturnedCode()
 	if len(runtime) == 0 {
 		logger.Warn().Msg("No runtime code returned (empty RETURN range)")

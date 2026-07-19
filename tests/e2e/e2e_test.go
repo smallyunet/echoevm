@@ -27,7 +27,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "version",
 			args:     []string{"version"},
-			wantOut:  "echoevm v0.0.17",
+			wantOut:  "echoevm v0.0.19",
 			wantCode: 0,
 		},
 		{
@@ -41,6 +41,12 @@ func TestE2E_Run(t *testing.T) {
 			args:     []string{"run", "--debug", "6001600201"},
 			wantOut:  "ADD",
 			wantCode: 0,
+		},
+		{
+			name:     "invalid opcode",
+			args:     []string{"run", "fe"},
+			wantOut:  "execution failed: invalid opcode: 0xfe",
+			wantCode: 1,
 		},
 	}
 

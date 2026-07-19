@@ -86,7 +86,7 @@ func (t *Trie) get(n Node, key []byte, pos int) (value []byte, newnode Node, did
 		if err != nil {
 			return nil, n, false
 		}
-		value, newnode, didResolve = t.get(child, key, pos)
+		value, newnode, _ = t.get(child, key, pos)
 		return value, newnode, true
 	default:
 		panic(fmt.Sprintf("%T: invalid node: %v", n, n))
@@ -327,13 +327,6 @@ func (t *Trie) hash(n Node) (common.Hash, Node) {
 	enc, err := rlp.EncodeToBytes(n)
 	if err != nil {
 		panic(err)
-	}
-
-	// 3. If encoded length < 32, return as ValueNode (if not root)
-	// For simplicty, always hash for now (standard MPT optimization is < 32 bytes stored inline)
-	if len(enc) < 32 {
-		// This is tricky because we need to return a Node that represents this inline value
-		// typically we just return the node itself if it's small, handled by parent encoding
 	}
 
 	h := common.BytesToHash(crypto.Keccak256(enc))

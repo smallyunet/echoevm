@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -39,13 +38,7 @@ type (
 
 // nodeFlag contains caching information for a node.
 type nodeFlag struct {
-	hash  hashNode // cached hash of the node (to avoid recomputing)
-	dirty bool     // whether the node has changed
-}
-
-// hashNode is a cached hash of a node.
-type hashNode struct {
-	hash common.Hash
+	dirty bool // whether the node has changed
 }
 
 // fstring implements the Node interface.
@@ -156,9 +149,6 @@ func DecodeNode(hash []byte, buf []byte) (Node, error) {
 			return nil, err
 		}
 		n.Key = compactDecode(key)
-		if len(n.Key) == 0 {
-			// This might be OK if it's an extension node with empty key? No, extension must have key.
-		}
 
 		// Check if it is a leaf (has terminator)
 		if hasTerm(n.Key) {

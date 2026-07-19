@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
@@ -92,10 +93,13 @@ func runCall(cmd *cobra.Command) error {
 	}
 
 	i := vm.NewWithCallData(code, calldata, core.NewMemoryStateDB(), common.Address{})
+	i.SetGas(config.DefaultGasLimit)
 	i.Run()
+	if i.Err() != nil {
+		return fmt.Errorf("execution failed: %w", i.Err())
+	}
 	if i.IsReverted() {
-		logger.Error().Msg("execution reverted")
-		os.Exit(1)
+		return fmt.Errorf("execution reverted")
 	}
 	// Prepare output
 	type logOut struct {

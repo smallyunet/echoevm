@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	"github.com/spf13/cobra"
@@ -91,6 +92,7 @@ func runTrace(cmd *cobra.Command) error {
 	}
 
 	intr := vm.NewWithCallData(code, calldata, core.NewMemoryStateDB(), common.Address{})
+	intr.SetGas(config.DefaultGasLimit)
 	enc := json.NewEncoder(cmd.OutOrStdout())
 	steps := 0
 	type jsonStep struct {
@@ -103,14 +105,13 @@ func runTrace(cmd *cobra.Command) error {
 	}
 	var lastPre *vm.TraceStep
 	intr.RunWithHook(func(s vm.TraceStep) bool {
-		// Distinguish pre vs post by comparing PC progression: pre has Halt false and matches previous PC? We invoked pre first always.
-		if lastPre == nil || lastPre.PC != s.PC || lastPre.Opcode != s.Opcode || lastPre.Halt { // treat as pre
+		if !s.IsPost {
 			cp := s
 			lastPre = &cp
 			if !traceFlags.full {
 				_ = enc.Encode(jsonStep{Type: "step", Pre: &cp})
 			}
-		} else { // post
+		} else {
 			cp := s
 			if traceFlags.full {
 				_ = enc.Encode(jsonStep{Type: "step", Pre: lastPre, Post: &cp})
@@ -127,5 +128,8 @@ func runTrace(cmd *cobra.Command) error {
 		}
 		return true
 	})
+	if intr.Err() != nil {
+		return fmt.Errorf("execution failed: %w", intr.Err())
+	}
 	return nil
 }

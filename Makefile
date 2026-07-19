@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.15
+VERSION    ?= v0.0.19
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build run test coverage clean help
@@ -40,4 +40,3 @@ test-compliance: setup-tests ## Run compliance tests
 	go test -v ./tests/compliance/...
 
 test: setup-tests test-unit test-integration test-compliance ## Run all tests (unit, integration, compliance)
-

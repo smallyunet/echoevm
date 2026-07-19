@@ -73,7 +73,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 				if s.StackSize > 0 {
 					stackTop = s.Stack[s.StackSize-1]
 				}
-				fmt.Printf("%04x  %-15s %-10d %s\n", s.PC, s.OpcodeName, 0, stackTop) // Gas not tracked yet
+				fmt.Printf("%04x  %-15s %-10d %s\n", s.PC, s.OpcodeName, s.Gas, stackTop)
 			}
 			return true
 		})
@@ -82,11 +82,13 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	if intr.IsReverted() {
-		fmt.Println("Execution Reverted")
-	} else {
-		ret := intr.ReturnedCode()
-		fmt.Printf("Return: 0x%x\n", ret)
+		if intr.Err() != nil {
+			return fmt.Errorf("execution failed: %w", intr.Err())
+		}
+		return fmt.Errorf("execution reverted")
 	}
+	ret := intr.ReturnedCode()
+	fmt.Printf("Return: 0x%x\n", ret)
 	return nil
 }
 

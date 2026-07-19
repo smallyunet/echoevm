@@ -5,11 +5,11 @@
 ---
 
 
-## 🆕 What's New in v0.0.17
+## 🆕 What's New in v0.0.19
 
-- **Web Debugger Run Control**: Trigger traces directly from the UI via the new Run button.
-- **Web Debugger Origin Allowlist**: Configure allowed WebSocket origins with `ECHOEVM_WEB_ALLOWED_ORIGINS`.
-- **Docs & Version Alignment**: Updated docs and tests to reflect the current release.
+- **Consistent Execution**: CLI, debug, JSON trace, and Web trace modes share one gas-aware interpreter loop.
+- **Web Debugger Restored**: The `web` command and per-message WebSocket trace delivery work again.
+- **MVP Reliability**: Execution failures now propagate consistently and Trie prefix inserts no longer panic.
 
 See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for the complete version history.
 

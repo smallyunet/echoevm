@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.18
+**Current Version**: v0.0.19
 
 ---
 
@@ -48,6 +48,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.16 | Web debugger UI stabilization, compliance coverage updates |
 | v0.0.17 | Web debugger run control, origin allowlist, docs alignment |
 | v0.0.18 | Merkle Patricia Trie (MPT), StateDB Integration |
+| v0.0.19 | MVP reliability: unified execution semantics, restored Web CLI, Trie prefix fix |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -110,9 +111,9 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.19 Priorities:**
-1. VS Code Extension prototype
-2. Gas Profiler
+**v0.0.20 Priorities:**
+1. Differential execution tests against go-ethereum
+2. Gas profiling based on the unified trace stream
 3. Further compliance refinements
 
 ---
