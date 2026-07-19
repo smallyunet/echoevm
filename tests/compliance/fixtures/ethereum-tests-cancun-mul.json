@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "sourceRepository": "https://github.com/ethereum/legacytests",
+    "sourceCommit": "1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb",
+    "sourceFile": "Cancun/GeneralStateTests/VMTests/vmArithmeticTest/mul.json",
+    "fork": "Cancun"
+  },
+  "cases": [
+    {
+      "name": "mul_3_2",
+      "category": "arithmetic/mul",
+      "pre": {
+        "0x0000000000000000000000000000000000001000": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x600360020260005500","nonce":"0x00","storage":{}},
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x","nonce":"0x00","storage":{}},
+        "0xcccccccccccccccccccccccccccccccccccccccc": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x600060006000600060006004356110000162fffffff100","nonce":"0x00","storage":{}}
+      },
+      "transaction": {"data":"0x693c61390000000000000000000000000000000000000000000000000000000000000000","gasLimit":"0x04c4b400","gasPrice":"0x0a","nonce":"0x00","secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8","sender":"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b","to":"0xcccccccccccccccccccccccccccccccccccccccc","value":"0x01"},
+      "block": {"coinbase":"0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba","difficulty":"0x020000","gasLimit":"0x05f5e100","number":"0x01","timestamp":"0x03e8","baseFee":"0x0a"},
+      "post": {"0x0000000000000000000000000000000000001000":{"storage":{"0x00":"0x06"}}},
+      "return":"0x","reverted":false,"error":""
+    },
+    {
+      "name": "mul_neg1_neg1",
+      "category": "arithmetic/mul",
+      "pre": {
+        "0x0000000000000000000000000000000000001001": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0260005500","nonce":"0x00","storage":{}},
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x","nonce":"0x00","storage":{}},
+        "0xcccccccccccccccccccccccccccccccccccccccc": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x600060006000600060006004356110000162fffffff100","nonce":"0x00","storage":{}}
+      },
+      "transaction": {"data":"0x693c61390000000000000000000000000000000000000000000000000000000000000001","gasLimit":"0x04c4b400","gasPrice":"0x0a","nonce":"0x00","secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8","sender":"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b","to":"0xcccccccccccccccccccccccccccccccccccccccc","value":"0x01"},
+      "block": {"coinbase":"0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba","difficulty":"0x020000","gasLimit":"0x05f5e100","number":"0x01","timestamp":"0x03e8","baseFee":"0x0a"},
+      "post": {"0x0000000000000000000000000000000000001001":{"storage":{"0x00":"0x01"}}},
+      "return":"0x","reverted":false,"error":""
+    },
+    {
+      "name": "mul_1_23",
+      "category": "arithmetic/mul",
+      "pre": {
+        "0x0000000000000000000000000000000000001003": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x600160170260005500","nonce":"0x00","storage":{}},
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x","nonce":"0x00","storage":{}},
+        "0xcccccccccccccccccccccccccccccccccccccccc": {"balance":"0x0ba1a9ce0ba1a9ce","code":"0x600060006000600060006004356110000162fffffff100","nonce":"0x00","storage":{}}
+      },
+      "transaction": {"data":"0x693c61390000000000000000000000000000000000000000000000000000000000000003","gasLimit":"0x04c4b400","gasPrice":"0x0a","nonce":"0x00","secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8","sender":"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b","to":"0xcccccccccccccccccccccccccccccccccccccccc","value":"0x01"},
+      "block": {"coinbase":"0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba","difficulty":"0x020000","gasLimit":"0x05f5e100","number":"0x01","timestamp":"0x03e8","baseFee":"0x0a"},
+      "post": {"0x0000000000000000000000000000000000001003":{"storage":{"0x00":"0x17"}}},
+      "return":"0x","reverted":false,"error":""
+    }
+  ]
+}

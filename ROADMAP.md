@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.20
+**Current Version**: v0.0.21
 
 ---
 
@@ -50,6 +50,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.18 | Merkle Patricia Trie (MPT), StateDB Integration |
 | v0.0.19 | MVP reliability: unified execution semantics, restored Web CLI, Trie prefix fix |
 | v0.0.20 | Transaction correctness, top-level precompiles, pinned compliance baseline |
+| v0.0.21 | Geth differential conformance, visible CI reports, complete BLAKE2F |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -75,7 +76,7 @@ Enhanced ABI support and fork-specific opcode behavior.
 - [x] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE (EIP-4844)
 - [x] **State Trie** - Merkle Patricia Trie implementation
 - [x] **Compliance Baseline** - Run pinned official Ethereum vectors without optional downloads
-- [ ] **Complete Precompiled Contracts** - 0x01-0x08 execute; BLAKE2F (0x09) remains incomplete
+- [x] **Complete Precompiled Contracts** - 0x01-0x09 execute, including EIP-152 BLAKE2F
 
 ---
 
@@ -112,10 +113,10 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.20 Priorities:**
-1. Correct transaction failure, revert, and gas-accounting semantics
-2. Execute top-level precompile transactions
-3. Establish a pinned, non-skippable compliance baseline
+**v0.0.21 Priorities:**
+1. Compare Cancun execution behavior against go-ethereum
+2. Make conformance case counts and categories visible in CI
+3. Complete the EIP-152 BLAKE2F precompile
 
 ---
 

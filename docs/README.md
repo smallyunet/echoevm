@@ -2,7 +2,7 @@
 
 Central index for EchoEVM reference, guides, and examples.
 
-**Current Version**: v0.0.20
+**Current Version**: v0.0.21
 
 ## 📚 Index
 
@@ -76,6 +76,8 @@ make test        # Run all tests
 make test-unit   # Go unit tests only
 make coverage    # Generate coverage report
 make test-compliance # Run the bundled compliance baseline
+make test-differential # Compare behavior with go-ethereum
+make test-conformance # Run both conformance layers
 ```
 
 More detail: [Testing Guide](guides/testing.md).
@@ -83,7 +85,7 @@ More detail: [Testing Guide](guides/testing.md).
 ## 🗺 Roadmap
 
 See [ROADMAP.md](../ROADMAP.md) for:
-- Completed features by version (v0.0.1 - v0.0.20)
+- Completed features by version (v0.0.1 - v0.0.21)
 - Upcoming features (Phase 3-5)
 - Development timeline
 

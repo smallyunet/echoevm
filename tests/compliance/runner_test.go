@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -26,10 +28,12 @@ type fixtureMeta struct {
 	SourceRepository string `json:"sourceRepository"`
 	SourceCommit     string `json:"sourceCommit"`
 	SourceFile       string `json:"sourceFile"`
+	Fork             string `json:"fork"`
 }
 
 type fixtureCase struct {
 	Name        string                    `json:"name"`
+	Category    string                    `json:"category"`
 	Pre         map[string]fixtureAccount `json:"pre"`
 	Transaction fixtureTransaction        `json:"transaction"`
 	Post        map[string]fixtureAccount `json:"post"`
@@ -179,6 +183,8 @@ func TestCompliance(t *testing.T) {
 	}
 
 	executed := 0
+	categories := make(map[string]int)
+	forks := make(map[string]int)
 	for _, path := range fixturePaths {
 		path := path
 		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
@@ -190,7 +196,7 @@ func TestCompliance(t *testing.T) {
 			if err := json.Unmarshal(contents, &fixture); err != nil {
 				t.Fatal(err)
 			}
-			if fixture.Meta.SourceRepository == "" || fixture.Meta.SourceCommit == "" || fixture.Meta.SourceFile == "" {
+			if fixture.Meta.SourceRepository == "" || fixture.Meta.SourceCommit == "" || fixture.Meta.SourceFile == "" || fixture.Meta.Fork == "" {
 				t.Fatal("fixture source metadata is required")
 			}
 			if len(fixture.Cases) == 0 {
@@ -198,7 +204,12 @@ func TestCompliance(t *testing.T) {
 			}
 			for _, test := range fixture.Cases {
 				test := test
+				if test.Name == "" || test.Category == "" {
+					t.Fatalf("fixture case is missing name or category: %+v", test)
+				}
 				executed++
+				categories[test.Category]++
+				forks[fixture.Meta.Fork]++
 				t.Run(test.Name, func(t *testing.T) {
 					runFixture(t, test)
 				})
@@ -208,4 +219,21 @@ func TestCompliance(t *testing.T) {
 	if executed == 0 {
 		t.Fatal("no compliance cases executed")
 	}
+	if executed < 9 {
+		t.Fatalf("official compliance baseline shrank: executed %d cases, require at least 9", executed)
+	}
+	t.Logf("COMPLIANCE SUMMARY official=%d categories=%s forks=%s skipped=0", executed, formatCounts(categories), formatCounts(forks))
+}
+
+func formatCounts(counts map[string]int) string {
+	keys := make([]string, 0, len(counts))
+	for key := range counts {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, key := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", key, counts[key]))
+	}
+	return strings.Join(parts, ",")
 }

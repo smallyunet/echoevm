@@ -188,6 +188,40 @@ func TestPrecompileOutOfGas(t *testing.T) {
 	}
 }
 
+func TestPrecompileBlake2F(t *testing.T) {
+	// EIP-152 vector 5: the BLAKE2b-512 compression result for "abc".
+	input, err := hex.DecodeString("0000000c48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b61626300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := hex.DecodeString("ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d17d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	output, remaining, err := RunPrecompiled(PrecompileBlake2F, input, 100)
+	if err != nil {
+		t.Fatalf("blake2f failed: %v", err)
+	}
+	if !bytes.Equal(output, want) {
+		t.Fatalf("blake2f output = %x, want %x", output, want)
+	}
+	if remaining != 88 {
+		t.Fatalf("remaining gas = %d, want 88", remaining)
+	}
+}
+
+func TestPrecompileBlake2FRejectsMalformedInput(t *testing.T) {
+	if _, _, err := RunPrecompiled(PrecompileBlake2F, make([]byte, 212), 100); err == nil {
+		t.Fatal("expected invalid input length error")
+	}
+	input := make([]byte, 213)
+	input[212] = 2
+	if _, _, err := RunPrecompiled(PrecompileBlake2F, input, 100); err == nil {
+		t.Fatal("expected invalid final flag error")
+	}
+}
+
 func TestIsPrecompiled(t *testing.T) {
 	tests := []struct {
 		addr     common.Address

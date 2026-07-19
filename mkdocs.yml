@@ -52,5 +52,6 @@ nav:
     - Configuration: guides/configuration.md
     - Logging: guides/logging.md
     - Testing: guides/testing.md
+    - Conformance: guides/conformance.md
   - Reference:
     - CLI Commands: reference/cli.md

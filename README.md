@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.20](#-whats-new-in-v0020)
+- [What's New in v0.0.21](#-whats-new-in-v0021)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,15 @@
 
 ---
 
-## 🆕 What's New in v0.0.20
+## 🆕 What's New in v0.0.21
+
+- **Geth Differential Conformance**: 17 Cancun vectors compare return data, gas used, halt class, and persistent storage against go-ethereum across eight behavior categories.
+- **Expanded Official Baseline**: Pinned Cancun ADD, MUL, and SUB fixtures increase the official baseline from 3 to 9 cases.
+- **Non-Shrinking Baselines**: CI fails if official fixtures, differential vectors, required metadata, or required categories disappear.
+- **Visible Conformance Reports**: CI prints official and differential case counts by fork and category with an explicit zero-skip contract.
+- **Complete EIP-152 Precompile**: BLAKE2F (0x09) now validates, charges, and executes the BLAKE2b compression function.
+
+### Previous v0.0.20
 
 - **Correct Transaction Semantics**: Prechecks no longer mutate state, exceptional halts consume gas and return errors, and REVERT remains distinguishable from execution errors.
 - **Transaction Isolation**: Refunds, access lists, transient storage, journals, and original storage snapshots reset between transactions.
@@ -63,8 +71,8 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER..BN256PAIRING (0x01-0x08); BLAKE2F is reserved but not implemented |
-| **Testing** | Unit tests, integration tests, curated Ethereum compliance fixtures |
+| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
+| **Testing** | Unit, integration, E2E, pinned official fixtures, geth differential conformance |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
@@ -254,7 +262,14 @@ make test             # Run all tests (unit, integration, compliance)
 make test-unit        # Run Go unit tests
 make test-integration # Run integration tests
 make test-compliance  # Run the pinned Ethereum compliance baseline
+make test-differential # Compare Cancun behavior with go-ethereum
+make test-conformance # Run both conformance layers with summary output
 ```
+
+The v0.0.21 baseline contains 9 pinned official Cancun cases and 17 geth
+differential vectors across arithmetic, bitwise, control, crypto, environment,
+fault, memory, and storage. Both suites fail on missing metadata, shrinking
+case counts, missing required categories, or skipped execution.
 
 ---
 

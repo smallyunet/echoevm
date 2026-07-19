@@ -2,11 +2,13 @@ package vm
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/blake2b"
 	"github.com/ethereum/go-ethereum/crypto/bn256"
 	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
@@ -361,25 +363,38 @@ type blake2F struct{}
 
 func (c *blake2F) RequiredGas(input []byte) uint64 {
 	if len(input) != 213 {
-		// As per EIP-152, if input length is wrong, it might fail or different gas?
-		// "If the input length is not exactly 213 bytes, the precompile returns an error"
-		// But definition says gas is calculated based on rounds.
-		// Let's assume input is correct for gas calc or return 0 if invalid
-		return 0 // Will fail in Run
+		return 0
 	}
-	// rounds is at offset 0 (4 bytes big endian)
-	rounds := uint64(input[0])<<24 | uint64(input[1])<<16 | uint64(input[2])<<8 | uint64(input[3])
-	return uint64(rounds) // Simplified gas
+	return uint64(binary.BigEndian.Uint32(input[:4]))
 }
 
 func (c *blake2F) Run(input []byte) ([]byte, error) {
 	if len(input) != 213 {
 		return nil, errors.New("blake2f: invalid input length")
 	}
-	// For now, return stub if we don't have blake2b library with 'F' exposed easily without custom implementation.
-	// Implementing COMPRESS directly is involved.
-	// For this exercise, I will return error "not implemented" to allow compilation,
-	// unless user insistence on full functionality.
-	// Given the context of "echoevm" as pedagogical, implementing full blake2f might be overkill if library isn't handy.
-	return nil, errors.New("blake2f: not implemented yet")
+	if input[212] != 0 && input[212] != 1 {
+		return nil, errors.New("blake2f: invalid final flag")
+	}
+
+	rounds := binary.BigEndian.Uint32(input[:4])
+	var h [8]uint64
+	var m [16]uint64
+	var counter [2]uint64
+	for index := range h {
+		offset := 4 + index*8
+		h[index] = binary.LittleEndian.Uint64(input[offset : offset+8])
+	}
+	for index := range m {
+		offset := 68 + index*8
+		m[index] = binary.LittleEndian.Uint64(input[offset : offset+8])
+	}
+	counter[0] = binary.LittleEndian.Uint64(input[196:204])
+	counter[1] = binary.LittleEndian.Uint64(input[204:212])
+
+	blake2b.F(&h, m, counter, input[212] == 1, rounds)
+	output := make([]byte, 64)
+	for index, word := range h {
+		binary.LittleEndian.PutUint64(output[index*8:(index+1)*8], word)
+	}
+	return output, nil
 }

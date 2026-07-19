@@ -2,11 +2,13 @@
   "_meta": {
     "sourceRepository": "https://github.com/ethereum/legacytests",
     "sourceCommit": "1f581b8ccdc4c63acf5f2c5c1b155c690c32a8eb",
-    "sourceFile": "Cancun/GeneralStateTests/VMTests/vmArithmeticTest/add.json"
+    "sourceFile": "Cancun/GeneralStateTests/VMTests/vmArithmeticTest/add.json",
+    "fork": "Cancun"
   },
   "cases": [
     {
       "name": "add_neg1_neg1",
+      "category": "arithmetic/add",
       "pre": {
         "0x0000000000000000000000000000000000001000": {
           "balance": "0x0ba1a9ce0ba1a9ce",
@@ -58,6 +60,7 @@
     },
     {
       "name": "add_neg1_4",
+      "category": "arithmetic/add",
       "pre": {
         "0x0000000000000000000000000000000000001001": {
           "balance": "0x0ba1a9ce0ba1a9ce",
@@ -109,6 +112,7 @@
     },
     {
       "name": "add_neg1_1",
+      "category": "arithmetic/add",
       "pre": {
         "0x0000000000000000000000000000000000001002": {
           "balance": "0x0ba1a9ce0ba1a9ce",

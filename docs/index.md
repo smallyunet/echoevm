@@ -5,12 +5,12 @@
 ---
 
 
-## 🆕 What's New in v0.0.20
+## 🆕 What's New in v0.0.21
 
-- **Correct Transactions**: Prechecks, state rollback, gas charging, exceptional errors, and REVERT now follow one consistent contract.
-- **Top-Level Precompiles**: Transactions can execute native precompiled contracts directly.
-- **Pinned Compliance Baseline**: Official Cancun cases run offline and cannot silently skip.
-- **Reliable Automation**: Transaction JSON mode returns non-zero status for execution failures while preserving structured output.
+- **Geth Differential Conformance**: 17 Cancun vectors cover eight execution categories and compare return data, gas used, halt class, and storage.
+- **Expanded Official Baseline**: Nine pinned Cancun ADD, MUL, and SUB cases run offline.
+- **Visible CI Reports**: Official and differential totals are printed by fork and category with zero skips.
+- **Complete Precompiles**: EIP-152 BLAKE2F (0x09) is implemented and covered by an official vector.
 
 See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for the complete version history.
 
@@ -25,8 +25,8 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER..BN256PAIRING (0x01-0x08); BLAKE2F is not implemented |
-| **Testing** | Unit tests, integration tests, curated Ethereum compliance fixtures |
+| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
+| **Testing** | Unit, integration, E2E, official fixtures, geth differential conformance |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
