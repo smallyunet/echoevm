@@ -126,6 +126,24 @@ func (db *MemoryStateDB) SetBackend(backend StateBackend) {
 	db.backend = backend
 }
 
+// PrepareTransaction resets state that must not leak between transactions and
+// snapshots the currently loaded storage values for EIP-2200 gas accounting.
+func (db *MemoryStateDB) PrepareTransaction() {
+	db.journal = db.journal[:0]
+	db.refund = 0
+	db.accessListAddrs = make(map[common.Address]struct{})
+	db.accessListSlots = make(map[common.Address]map[common.Hash]struct{})
+	db.transientStorage = make(map[common.Address]map[common.Hash]common.Hash)
+
+	for _, acc := range db.accounts {
+		original := make(map[common.Hash]common.Hash, len(acc.Storage))
+		for key, value := range acc.Storage {
+			original[key] = value
+		}
+		acc.OriginalStorage = original
+	}
+}
+
 func (db *MemoryStateDB) getAccount(addr common.Address) *Account {
 	if acc, ok := db.accounts[addr]; ok {
 		return acc

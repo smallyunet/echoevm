@@ -5,11 +5,12 @@
 ---
 
 
-## 🆕 What's New in v0.0.19
+## 🆕 What's New in v0.0.20
 
-- **Consistent Execution**: CLI, debug, JSON trace, and Web trace modes share one gas-aware interpreter loop.
-- **Web Debugger Restored**: The `web` command and per-message WebSocket trace delivery work again.
-- **MVP Reliability**: Execution failures now propagate consistently and Trie prefix inserts no longer panic.
+- **Correct Transactions**: Prechecks, state rollback, gas charging, exceptional errors, and REVERT now follow one consistent contract.
+- **Top-Level Precompiles**: Transactions can execute native precompiled contracts directly.
+- **Pinned Compliance Baseline**: Official Cancun cases run offline and cannot silently skip.
+- **Reliable Automation**: Transaction JSON mode returns non-zero status for execution failures while preserving structured output.
 
 See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for the complete version history.
 
@@ -24,8 +25,8 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
-| **Testing** | Unit tests, integration tests, Ethereum compliance tests |
+| **Precompiles** | ECRECOVER..BN256PAIRING (0x01-0x08); BLAKE2F is not implemented |
+| **Testing** | Unit tests, integration tests, curated Ethereum compliance fixtures |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
@@ -213,8 +214,7 @@ echoevm call -a ./artifacts/Multi.json -f send(address[]) -A "[0xabc...;0xdef...
 make test             # Run all tests (unit, integration, compliance)
 make test-unit        # Run Go unit tests
 make test-integration # Run integration tests
-make test-compliance  # Run Ethereum compliance tests
-make setup-tests      # Download test fixtures (~100MB)
+make test-compliance  # Run the pinned Ethereum compliance baseline
 ```
 
 ---

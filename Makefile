@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.19
+VERSION    ?= v0.0.20
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build run test coverage clean help
@@ -26,9 +26,8 @@ run: $(BIN_DIR)/$(BINARY_NAME) ## Run the built binary
 clean: ## Clean build artifacts
 	rm -rf $(BIN_DIR) coverage.out coverage.html
 
-setup-tests: ## Clone Ethereum test fixtures
-	[ -d tests/fixtures ] || git clone --depth 1 https://github.com/ethereum/tests.git tests/fixtures
-	[ -d tests/fixtures/GeneralStateTests ] || (cd tests/fixtures && tar -xzf fixtures_general_state_tests.tgz)
+setup-tests: ## Show compliance fixture location (fixtures are bundled)
+	@echo "Compliance fixtures are bundled in tests/compliance/fixtures."
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./internal/... ./cmd/...
@@ -36,7 +35,7 @@ test-unit: ## Run Go unit tests
 test-integration: ## Run integration tests
 	go test -v ./tests/integration/...
 
-test-compliance: setup-tests ## Run compliance tests
+test-compliance: ## Run compliance tests
 	go test -v ./tests/compliance/...
 
-test: setup-tests test-unit test-integration test-compliance ## Run all tests (unit, integration, compliance)
+test: test-unit test-integration test-compliance ## Run all tests (unit, integration, compliance)

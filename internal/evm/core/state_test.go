@@ -47,3 +47,34 @@ func TestMemoryStateDB(t *testing.T) {
 		t.Errorf("expected storage value %v, got %v", val, db.GetState(addr, key))
 	}
 }
+
+func TestPrepareTransactionResetsTransactionScopedState(t *testing.T) {
+	db := NewMemoryStateDB()
+	addr := common.HexToAddress("0x1234")
+	key := common.HexToHash("0x01")
+	value := common.HexToHash("0x02")
+
+	db.SetState(addr, key, value)
+	db.SetTransientState(addr, key, value)
+	db.AddAddressToAccessList(addr)
+	db.AddSlotToAccessList(addr, key)
+	db.AddRefund(100)
+
+	db.PrepareTransaction()
+
+	if db.GetRefund() != 0 {
+		t.Fatalf("refund was not reset: %d", db.GetRefund())
+	}
+	if db.AddressInAccessList(addr) || db.SlotInAccessList(addr, key) {
+		t.Fatal("access list was not reset")
+	}
+	if got := db.GetTransientState(addr, key); got != (common.Hash{}) {
+		t.Fatalf("transient storage was not reset: %s", got.Hex())
+	}
+	if got := db.GetOriginalState(addr, key); got != value {
+		t.Fatalf("original storage = %s, want %s", got.Hex(), value.Hex())
+	}
+	if db.HasBeenCreatedInCurrentTx(addr) {
+		t.Fatal("journal entries leaked into the new transaction")
+	}
+}

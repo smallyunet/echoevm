@@ -17,6 +17,50 @@ func TestE2E_Run(t *testing.T) {
 	defer os.Remove("echoevm_test")
 
 	binPath, _ := filepath.Abs("echoevm_test")
+	tempDir := t.TempDir()
+	prestatePath := filepath.Join(tempDir, "prestate.json")
+	prestate := []byte(`{
+  "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+    "balance": "0x100000000",
+    "nonce": "0x0",
+    "code": "0x",
+    "storage": {}
+  },
+  "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb": {
+    "balance": "0x0",
+    "nonce": "0x0",
+    "code": "0xfe",
+    "storage": {}
+  },
+  "0xcccccccccccccccccccccccccccccccccccccccc": {
+    "balance": "0x0",
+    "nonce": "0x0",
+    "code": "0x60006000fd",
+    "storage": {}
+  }
+}`)
+	if err := os.WriteFile(prestatePath, prestate, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	writeTransaction := func(name, to string) string {
+		t.Helper()
+		path := filepath.Join(tempDir, name)
+		contents := []byte(`{
+  "to": "` + to + `",
+  "data": "0x",
+  "value": "0x0",
+  "gasLimit": "0xc350",
+  "gasPrice": "0x1",
+  "sender": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "nonce": "0x0"
+}`)
+		if err := os.WriteFile(path, contents, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	invalidTransactionPath := writeTransaction("invalid.json", "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	revertTransactionPath := writeTransaction("revert.json", "0xcccccccccccccccccccccccccccccccccccccccc")
 
 	tests := []struct {
 		name     string
@@ -27,7 +71,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "version",
 			args:     []string{"version"},
-			wantOut:  "echoevm v0.0.19",
+			wantOut:  "echoevm v0.0.20",
 			wantCode: 0,
 		},
 		{
@@ -46,6 +90,18 @@ func TestE2E_Run(t *testing.T) {
 			name:     "invalid opcode",
 			args:     []string{"run", "fe"},
 			wantOut:  "execution failed: invalid opcode: 0xfe",
+			wantCode: 1,
+		},
+		{
+			name:     "transaction invalid opcode returns JSON and failure",
+			args:     []string{"run", "--prestate", prestatePath, "--tx", invalidTransactionPath},
+			wantOut:  `"error": "invalid opcode: 0xfe"`,
+			wantCode: 1,
+		},
+		{
+			name:     "transaction revert returns JSON and failure",
+			args:     []string{"run", "--prestate", prestatePath, "--tx", revertTransactionPath},
+			wantOut:  `"reverted": true`,
 			wantCode: 1,
 		},
 	}

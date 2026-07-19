@@ -305,5 +305,14 @@ func runTransactionMode(cmd *cobra.Command) error {
 
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
-	return enc.Encode(finalOutput)
+	if encodeErr := enc.Encode(finalOutput); encodeErr != nil {
+		return encodeErr
+	}
+	if err != nil {
+		return fmt.Errorf("transaction execution failed: %w", err)
+	}
+	if reverted {
+		return fmt.Errorf("transaction reverted")
+	}
+	return nil
 }

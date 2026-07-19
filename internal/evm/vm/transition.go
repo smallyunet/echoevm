@@ -50,23 +50,15 @@ func ApplyTransactionWithContext(
 	sender common.Address,
 	ctx *BlockContext,
 ) ([]byte, uint64, bool, error) {
-
-	// 1. Check nonce
+	// Validate the transaction before mutating state.
 	nonce := statedb.GetNonce(sender)
 	if nonce != tx.Nonce() {
 		return nil, 0, false, fmt.Errorf("nonce mismatch: expected %d, got %d", nonce, tx.Nonce())
 	}
 
-	// 2. Buy gas
 	gas := tx.Gas()
 	gasPrice := tx.GasPrice()
-	cost := new(big.Int).Mul(big.NewInt(int64(gas)), gasPrice)
-	if statedb.GetBalance(sender).Cmp(cost) < 0 {
-		return nil, 0, false, fmt.Errorf("insufficient funds for gas: have %v, want %v", statedb.GetBalance(sender), cost)
-	}
-	statedb.SubBalance(sender, cost)
-
-	// Calculate Intrinsic Gas
+	value := tx.Value()
 	intrinsicGas := uint64(21000)
 	if tx.To() == nil {
 		intrinsicGas = 53000 // Contract creation
@@ -92,17 +84,25 @@ func ApplyTransactionWithContext(
 		return nil, 0, false, fmt.Errorf("intrinsic gas too low: have %d, want %d", gas, intrinsicGas)
 	}
 
-	// 3. Increment nonce
+	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(gas), gasPrice)
+	requiredBalance := new(big.Int).Add(new(big.Int).Set(gasCost), value)
+	if statedb.GetBalance(sender).Cmp(requiredBalance) < 0 {
+		return nil, 0, false, fmt.Errorf("insufficient funds: have %v, want %v", statedb.GetBalance(sender), requiredBalance)
+	}
+
+	statedb.PrepareTransaction()
+	statedb.SubBalance(sender, gasCost)
 	statedb.SetNonce(sender, nonce+1)
 
-	// Snapshot state before execution (for revert)
+	// Gas purchase and nonce increment survive execution failure. State changes
+	// after this snapshot are reverted on REVERT or exceptional halt.
 	snapshot := statedb.Snapshot()
 
-	// 4. Value transfer (if any) and execution
-	value := tx.Value()
 	to := tx.To()
 	var ret []byte
 	var reverted bool
+	var executionErr error
+	gasRemaining := gas - intrinsicGas
 
 	// Calculate contract address if creation
 	var contractAddr common.Address
@@ -133,9 +133,6 @@ func ApplyTransactionWithContext(
 
 	// Transfer value
 	if value.Sign() > 0 {
-		if statedb.GetBalance(sender).Cmp(value) < 0 {
-			return nil, 0, false, fmt.Errorf("insufficient funds for transfer: have %v, want %v", statedb.GetBalance(sender), value)
-		}
 		statedb.SubBalance(sender, value)
 		if to != nil {
 			statedb.AddBalance(*to, value)
@@ -171,21 +168,26 @@ func ApplyTransactionWithContext(
 		}
 	}
 
-	// Create Interpreter
-	var intr *Interpreter
-	if to == nil {
+	if to != nil && IsPrecompiled(*to) {
+		ret, gasRemaining, executionErr = RunPrecompiled(*to, tx.Data(), gasRemaining)
+		if executionErr != nil {
+			reverted = true
+			gasRemaining = 0
+			statedb.RevertToSnapshot(snapshot)
+		}
+	} else if to == nil {
 		// Contract Creation
-		intr = New(tx.Data(), statedb, contractAddr)
+		intr := New(tx.Data(), statedb, contractAddr)
 		configureInterpreter(intr)
 
 		intr.Run()
 
 		ret = intr.ReturnedCode()
 		reverted = intr.IsReverted()
+		executionErr = intr.Err()
+		gasRemaining = intr.Gas()
 
-		if intr.Err() != nil {
-			statedb.RevertToSnapshot(snapshot)
-		} else if reverted {
+		if executionErr != nil || reverted {
 			statedb.RevertToSnapshot(snapshot)
 		} else {
 			statedb.SetCode(contractAddr, ret)
@@ -193,21 +195,21 @@ func ApplyTransactionWithContext(
 	} else {
 		// Call
 		code := statedb.GetCode(*to)
-		intr = NewWithCallData(code, tx.Data(), statedb, *to)
+		intr := NewWithCallData(code, tx.Data(), statedb, *to)
 		configureInterpreter(intr)
 
 		intr.Run()
 		ret = intr.ReturnedCode()
 		reverted = intr.IsReverted()
+		executionErr = intr.Err()
+		gasRemaining = intr.Gas()
 
-		if intr.Err() != nil || reverted {
+		if executionErr != nil || reverted {
 			statedb.RevertToSnapshot(snapshot)
 		}
 	}
 
-	// Calculate Gas Used
-	gasRemaining := intr.Gas()
-	if intr.Err() != nil {
+	if executionErr != nil {
 		gasRemaining = 0
 	}
 	gasUsed := gas - gasRemaining
@@ -222,7 +224,7 @@ func ApplyTransactionWithContext(
 	gasUsed -= refund
 
 	// Refund unused gas
-	refundEth := new(big.Int).Mul(big.NewInt(int64(gasRemaining)), gasPrice)
+	refundEth := new(big.Int).Mul(new(big.Int).SetUint64(gasRemaining), gasPrice)
 	statedb.AddBalance(sender, refundEth)
 
 	// Pay Miner
@@ -235,8 +237,8 @@ func ApplyTransactionWithContext(
 		}
 	}
 
-	minerReward := new(big.Int).Mul(big.NewInt(int64(gasUsed)), effectiveTip)
+	minerReward := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), effectiveTip)
 	statedb.AddBalance(ctx.Coinbase, minerReward)
 
-	return ret, gasUsed, reverted, nil
+	return ret, gasUsed, reverted, executionErr
 }

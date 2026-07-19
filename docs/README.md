@@ -2,7 +2,7 @@
 
 Central index for EchoEVM reference, guides, and examples.
 
-**Current Version**: v0.0.19
+**Current Version**: v0.0.20
 
 ## 📚 Index
 
@@ -75,7 +75,7 @@ echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 10
 make test        # Run all tests
 make test-unit   # Go unit tests only
 make coverage    # Generate coverage report
-make setup-tests # Initialize test fixtures submodule
+make test-compliance # Run the bundled compliance baseline
 ```
 
 More detail: [Testing Guide](guides/testing.md).
@@ -83,7 +83,7 @@ More detail: [Testing Guide](guides/testing.md).
 ## 🗺 Roadmap
 
 See [ROADMAP.md](../ROADMAP.md) for:
-- Completed features by version (v0.0.1 - v0.0.19)
+- Completed features by version (v0.0.1 - v0.0.20)
 - Upcoming features (Phase 3-5)
 - Development timeline
 

@@ -9,6 +9,9 @@ import (
 // StateDB defines the interface for accessing and modifying the state.
 // It is a simplified version of the go-ethereum StateDB interface.
 type StateDB interface {
+	// PrepareTransaction resets transaction-scoped state before execution.
+	PrepareTransaction()
+
 	CreateAccount(addr common.Address)
 
 	SubBalance(addr common.Address, amount *big.Int)

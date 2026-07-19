@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.19](#-whats-new-in-v0019)
+- [What's New in v0.0.20](#-whats-new-in-v0020)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,15 @@
 
 ---
 
-## 🆕 What's New in v0.0.19
+## 🆕 What's New in v0.0.20
+
+- **Correct Transaction Semantics**: Prechecks no longer mutate state, exceptional halts consume gas and return errors, and REVERT remains distinguishable from execution errors.
+- **Transaction Isolation**: Refunds, access lists, transient storage, journals, and original storage snapshots reset between transactions.
+- **Top-Level Precompiles**: Transactions addressed directly to precompiled contracts now execute through the native implementation.
+- **Reliable Compliance Baseline**: Three pinned official Cancun vectors run offline and the suite fails instead of silently passing with zero fixtures.
+- **Machine-Detectable CLI Failures**: Transaction JSON output is preserved while exceptional halts and REVERT return a non-zero exit code.
+
+### Previous v0.0.19
 
 - **Consistent Execution**: `run`, debug tracing, JSON tracing, and the Web Debugger now share one gas-aware interpreter loop.
 - **Reliable CLI Commands**: `run`, `deploy`, `call`, `trace`, `repl`, and `web` use a working default gas budget and return execution errors consistently.
@@ -37,8 +45,8 @@
 ### Previous v0.0.18
 
 - **Merkle Patricia Trie (MPT)**: Full implementation of the Ethereum state trie (`internal/trie`), satisfying the Yellow Paper structure.
-- **State Persistence**: StateDB now uses `TrieStateBackend` for lazy loading and persistent storage roots.
-- **Enhanced Compliance**: Expanded test runner now covers the `GeneralStateTests/VMTests` suite.
+- **Trie-backed Reads**: StateDB can lazily load accounts and storage from `TrieStateBackend`; committing modified state roots is not yet supported.
+- **Compliance Baseline**: A small, pinned subset of official Ethereum execution vectors runs in the normal test suite.
 - **RLP & Compact Encoding**: Custom encoding implementations for MPT nodes.
 
 See [ROADMAP.md](ROADMAP.md) for the complete version history.
@@ -50,13 +58,13 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | Category | Features |
 |----------|----------|
 | **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
-| **State Management** | **Merkle Patricia Trie**, State persistence, Account/Storage Tries |
+| **State Management** | **Merkle Patricia Trie**, lazy trie-backed reads, in-memory journaling |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
-| **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
-| **Testing** | Unit tests, integration tests, Ethereum compliance tests |
+| **Precompiles** | ECRECOVER..BN256PAIRING (0x01-0x08); BLAKE2F is reserved but not implemented |
+| **Testing** | Unit tests, integration tests, curated Ethereum compliance fixtures |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
@@ -245,8 +253,7 @@ echoevm call -a ./artifacts/Multi.json -f send(address[]) -A "[0xabc...;0xdef...
 make test             # Run all tests (unit, integration, compliance)
 make test-unit        # Run Go unit tests
 make test-integration # Run integration tests
-make test-compliance  # Run Ethereum compliance tests
-make setup-tests      # Download test fixtures (~100MB)
+make test-compliance  # Run the pinned Ethereum compliance baseline
 ```
 
 ---

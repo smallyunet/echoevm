@@ -1,6 +1,8 @@
 package compliance
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"os"
@@ -9,295 +11,201 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
-	"github.com/smallyunet/echoevm/internal/trie"
 )
 
-// Test structures matching ethereum/tests JSON format
-type StateTest struct {
-	Env         Env                    `json:"env"`
-	Pre         map[string]Account     `json:"pre"`
-	Transaction Transaction            `json:"transaction"`
-	Post        map[string][]PostState `json:"post"`
+type fixtureFile struct {
+	Meta  fixtureMeta   `json:"_meta"`
+	Cases []fixtureCase `json:"cases"`
 }
 
-type PostState struct {
-	Hash    common.Hash        `json:"hash"`
-	Indexes map[string]int     `json:"indexes"`
-	Logs    common.Hash        `json:"logs"`
-	State   map[string]Account `json:"state"`
-	TxBytes hexutil.Bytes      `json:"txbytes"`
+type fixtureMeta struct {
+	SourceRepository string `json:"sourceRepository"`
+	SourceCommit     string `json:"sourceCommit"`
+	SourceFile       string `json:"sourceFile"`
 }
 
-type Env struct {
-	CurrentCoinbase   common.Address `json:"currentCoinbase"`
-	CurrentDifficulty string         `json:"currentDifficulty"`
-	CurrentGasLimit   string         `json:"currentGasLimit"`
-	CurrentNumber     string         `json:"currentNumber"`
-	CurrentTimestamp  string         `json:"currentTimestamp"`
-	CurrentBaseFee    string         `json:"currentBaseFee"`
+type fixtureCase struct {
+	Name        string                    `json:"name"`
+	Pre         map[string]fixtureAccount `json:"pre"`
+	Transaction fixtureTransaction        `json:"transaction"`
+	Post        map[string]fixtureAccount `json:"post"`
+	Block       fixtureBlock              `json:"block"`
+	Return      string                    `json:"return"`
+	Reverted    bool                      `json:"reverted"`
+	Error       string                    `json:"error"`
 }
 
-type Account struct {
+type fixtureAccount struct {
 	Balance string            `json:"balance"`
-	Code    hexutil.Bytes     `json:"code"`
+	Code    string            `json:"code"`
 	Nonce   string            `json:"nonce"`
 	Storage map[string]string `json:"storage"`
 }
 
-type Transaction struct {
-	Data      []hexutil.Bytes `json:"data"`
-	GasLimit  []string        `json:"gasLimit"`
-	GasPrice  string          `json:"gasPrice"`
-	Nonce     string          `json:"nonce"`
-	SecretKey common.Hash     `json:"secretKey"`
-	To        *common.Address `json:"to"`
-	Sender    *common.Address `json:"sender"` // Sometimes provided, otherwise derived
-	Value     []string        `json:"value"`
+type fixtureTransaction struct {
+	Data      string `json:"data"`
+	GasLimit  string `json:"gasLimit"`
+	GasPrice  string `json:"gasPrice"`
+	Nonce     string `json:"nonce"`
+	SecretKey string `json:"secretKey"`
+	Sender    string `json:"sender"`
+	To        string `json:"to"`
+	Value     string `json:"value"`
 }
 
-func toBig(hex string) *big.Int {
-	if hex == "" {
+type fixtureBlock struct {
+	Coinbase   string `json:"coinbase"`
+	Difficulty string `json:"difficulty"`
+	GasLimit   string `json:"gasLimit"`
+	Number     string `json:"number"`
+	Timestamp  string `json:"timestamp"`
+	BaseFee    string `json:"baseFee"`
+}
+
+func parseBig(t *testing.T, value string) *big.Int {
+	t.Helper()
+	if value == "" {
 		return new(big.Int)
 	}
-	n, _ := new(big.Int).SetString(strings.TrimPrefix(hex, "0x"), 16)
+	n, ok := new(big.Int).SetString(strings.TrimPrefix(value, "0x"), 16)
+	if !ok {
+		t.Fatalf("invalid hexadecimal integer %q", value)
+	}
 	return n
 }
 
-func toUint64(hex string) uint64 {
-	if hex == "" {
-		return 0
-	}
-	n, _ := new(big.Int).SetString(strings.TrimPrefix(hex, "0x"), 16)
-	return n.Uint64()
-}
-
-// mockDB implements trie.Database for testing
-type mockDB struct {
-	data map[common.Hash][]byte
-}
-
-func newMockDB() *mockDB {
-	return &mockDB{
-		data: make(map[common.Hash][]byte),
-	}
-}
-
-func (db *mockDB) Node(hash common.Hash) ([]byte, error) {
-	if val, ok := db.data[hash]; ok {
-		return val, nil
-	}
-	return nil, nil
-}
-
-func (db *mockDB) Put(hash common.Hash, val []byte) error {
-	db.data[hash] = val
-	return nil
-}
-
-// MakeTrieState creates a TrieStateBackend from the pre-state
-func MakeTrieState(pre map[string]Account) (*core.TrieStateBackend, common.Hash, error) {
-	db := newMockDB()
-	accTrie, err := trie.New(common.Hash{}, db)
+func parseBytes(t *testing.T, value string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
 	if err != nil {
-		return nil, common.Hash{}, err
+		t.Fatalf("invalid hexadecimal bytes %q: %v", value, err)
 	}
-
-	for addrStr, accObj := range pre {
-		addr := common.HexToAddress(addrStr)
-
-		// 1. Setup Storage Trie
-		storageTrie, err := trie.New(common.Hash{}, db)
-		if err != nil {
-			return nil, common.Hash{}, err
-		}
-		for k, v := range accObj.Storage {
-			key := common.HexToHash(k)
-			val := common.HexToHash(v)
-			valBytes, _ := rlp.EncodeToBytes(val)
-			storageTrie.Update(crypto.Keccak256(key[:]), valBytes)
-		}
-		storageRoot, err := storageTrie.Commit()
-		if err != nil {
-			return nil, common.Hash{}, err
-		}
-
-		// 2. Setup Account
-		trieAcc := core.TrieAccount{
-			Nonce:    toUint64(accObj.Nonce),
-			Balance:  toBig(accObj.Balance),
-			Root:     storageRoot,
-			CodeHash: crypto.Keccak256(accObj.Code),
-		}
-
-		// Store code in DB if present
-		if len(accObj.Code) > 0 {
-			if err := db.Put(common.BytesToHash(trieAcc.CodeHash), accObj.Code); err != nil {
-				return nil, common.Hash{}, err
-			}
-		}
-
-		accBytes, _ := rlp.EncodeToBytes(trieAcc)
-		accTrie.Update(crypto.Keccak256(addr[:]), accBytes)
-	}
-
-	root, err := accTrie.Commit()
-	if err != nil {
-		return nil, common.Hash{}, err
-	}
-
-	backend, err := core.NewTrieStateBackend(root, db)
-	return backend, root, err
+	return b
 }
 
-// RunTest executes a single test case
-func RunTest(t *testing.T, name string, test StateTest) {
-	// 1. Setup StateDB
-	backend, _, err := MakeTrieState(test.Pre)
-	if err != nil {
-		t.Fatalf("Failed to create trie state: %v", err)
-	}
+func loadState(t *testing.T, accounts map[string]fixtureAccount) *core.MemoryStateDB {
+	t.Helper()
 	statedb := core.NewMemoryStateDB()
-	statedb.SetBackend(backend)
-
-	// 2. Setup VM & Transaction
-	// Note: GeneralStateTests can have multiple data/value/gasLimit indexes.
-	// We usually iterate them. For simplicity here, we take the first one (index 0).
-
-	data := test.Transaction.Data[0]
-	gasLimit := toUint64(test.Transaction.GasLimit[0])
-	value := toBig(test.Transaction.Value[0])
-	gasPrice := toBig(test.Transaction.GasPrice)
-	nonce := toUint64(test.Transaction.Nonce)
-
-	var tx *types.Transaction
-	if test.Transaction.To != nil {
-		tx = types.NewTransaction(nonce, *test.Transaction.To, value, gasLimit, gasPrice, data)
-	} else {
-		tx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, data)
+	for address, account := range accounts {
+		addr := common.HexToAddress(address)
+		statedb.CreateAccount(addr)
+		statedb.AddBalance(addr, parseBig(t, account.Balance))
+		statedb.SetNonce(addr, parseBig(t, account.Nonce).Uint64())
+		statedb.SetCode(addr, parseBytes(t, account.Code))
+		for key, value := range account.Storage {
+			statedb.SetState(addr, common.HexToHash(key), common.HexToHash(value))
+		}
 	}
+	return statedb
+}
 
-	// Determine Sender
-	// Standard test sender
-	sender := common.HexToAddress("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
+func runFixture(t *testing.T, test fixtureCase) {
+	t.Helper()
+	statedb := loadState(t, test.Pre)
 
-	// Setup Block Context
-	ctx := &vm.BlockContext{
-		BlockNumber: toBig(test.Env.CurrentNumber),
-		Timestamp:   toUint64(test.Env.CurrentTimestamp),
-		Coinbase:    test.Env.CurrentCoinbase,
-		GasLimit:    toUint64(test.Env.CurrentGasLimit),
-		Difficulty:  toBig(test.Env.CurrentDifficulty),
-		BaseFee:     toBig(test.Env.CurrentBaseFee),
-	}
-
-	// 3. Run
-	_, _, _, err = vm.ApplyTransactionWithContext(statedb, tx, sender, ctx)
-
+	privateKey, err := crypto.ToECDSA(parseBytes(t, test.Transaction.SecretKey))
 	if err != nil {
-		// Some tests expect failure.
-		// t.Logf("Execution error: %v", err)
-		_ = err
+		t.Fatalf("invalid transaction secret key: %v", err)
+	}
+	sender := crypto.PubkeyToAddress(privateKey.PublicKey)
+	if expectedSender := common.HexToAddress(test.Transaction.Sender); sender != expectedSender {
+		t.Fatalf("derived sender %s does not match fixture sender %s", sender, expectedSender)
 	}
 
-	// 4. Verify Post State
-	for fork, postStates := range test.Post {
-		// For now, we only verify if we find a post state that matches our execution (index 0)
-		// and we assume our VM behaves like the fork specified.
-		// Since we don't support fork configuration yet, this is a best-effort verification.
-		for i, postState := range postStates {
-			if postState.Indexes["data"] != 0 || postState.Indexes["gas"] != 0 || postState.Indexes["value"] != 0 {
-				continue
-			}
+	to := common.HexToAddress(test.Transaction.To)
+	tx := types.NewTransaction(
+		parseBig(t, test.Transaction.Nonce).Uint64(),
+		to,
+		parseBig(t, test.Transaction.Value),
+		parseBig(t, test.Transaction.GasLimit).Uint64(),
+		parseBig(t, test.Transaction.GasPrice),
+		parseBytes(t, test.Transaction.Data),
+	)
+	ctx := &vm.BlockContext{
+		BlockNumber: parseBig(t, test.Block.Number),
+		Timestamp:   parseBig(t, test.Block.Timestamp).Uint64(),
+		Coinbase:    common.HexToAddress(test.Block.Coinbase),
+		GasLimit:    parseBig(t, test.Block.GasLimit).Uint64(),
+		Difficulty:  parseBig(t, test.Block.Difficulty),
+		BaseFee:     parseBig(t, test.Block.BaseFee),
+	}
 
-			t.Logf("Verifying post state for fork: %s, index: %d", fork, i)
-			for addrStr, expectedAcc := range postState.State {
-				addr := common.HexToAddress(addrStr)
+	ret, _, reverted, executionErr := vm.ApplyTransactionWithContext(statedb, tx, sender, ctx)
+	gotError := ""
+	if executionErr != nil {
+		gotError = executionErr.Error()
+	}
+	if got := gotError; got != test.Error {
+		t.Fatalf("execution error mismatch: want %q, got %q", test.Error, got)
+	}
+	if reverted != test.Reverted {
+		t.Fatalf("reverted mismatch: want %t, got %t", test.Reverted, reverted)
+	}
+	if expected := parseBytes(t, test.Return); !bytes.Equal(ret, expected) {
+		t.Fatalf("return data mismatch: want 0x%x, got 0x%x", expected, ret)
+	}
 
-				// Verify Balance
-				expectedBalance := toBig(expectedAcc.Balance)
-				actualBalance := statedb.GetBalance(addr)
-				if expectedBalance.Cmp(actualBalance) != 0 {
-					t.Errorf("[%s] Balance mismatch for %s: expected %v, got %v", fork, addrStr, expectedBalance, actualBalance)
-				}
-
-				// Verify Nonce
-				expectedNonce := toUint64(expectedAcc.Nonce)
-				actualNonce := statedb.GetNonce(addr)
-				if expectedNonce != actualNonce {
-					t.Errorf("[%s] Nonce mismatch for %s: expected %v, got %v", fork, addrStr, expectedNonce, actualNonce)
-				}
-
-				// Verify Code
-				expectedCode := expectedAcc.Code
-				actualCode := statedb.GetCode(addr)
-				if len(expectedCode) != len(actualCode) { // Simple length check first
-					t.Errorf("[%s] Code length mismatch for %s: expected %d, got %d", fork, addrStr, len(expectedCode), len(actualCode))
-				} else {
-					// Deep comparison if needed, or just rely on length for now if large
-					for i := range expectedCode {
-						if expectedCode[i] != actualCode[i] {
-							t.Errorf("[%s] Code mismatch for %s at byte %d", fork, addrStr, i)
-							break
-						}
-					}
-				}
-
-				// Verify Storage
-				for keyStr, valStr := range expectedAcc.Storage {
-					key := common.HexToHash(keyStr)
-					expectedVal := common.HexToHash(valStr)
-					actualVal := statedb.GetState(addr, key)
-					if expectedVal != actualVal {
-						t.Errorf("[%s] Storage mismatch for %s at %s: expected %s, got %s", fork, addrStr, keyStr, expectedVal.Hex(), actualVal.Hex())
-					}
-				}
+	for address, account := range test.Post {
+		addr := common.HexToAddress(address)
+		if account.Balance != "" && statedb.GetBalance(addr).Cmp(parseBig(t, account.Balance)) != 0 {
+			t.Errorf("balance mismatch for %s: want %s, got 0x%x", addr, account.Balance, statedb.GetBalance(addr))
+		}
+		if account.Nonce != "" && statedb.GetNonce(addr) != parseBig(t, account.Nonce).Uint64() {
+			t.Errorf("nonce mismatch for %s: want %s, got 0x%x", addr, account.Nonce, statedb.GetNonce(addr))
+		}
+		if account.Code != "" && !bytes.Equal(statedb.GetCode(addr), parseBytes(t, account.Code)) {
+			t.Errorf("code mismatch for %s", addr)
+		}
+		for key, value := range account.Storage {
+			want := common.HexToHash(value)
+			if got := statedb.GetState(addr, common.HexToHash(key)); got != want {
+				t.Errorf("storage mismatch for %s at %s: want %s, got %s", addr, key, want, got)
 			}
 		}
 	}
 }
 
-// TestCompliance runs all JSON tests in a directory
 func TestCompliance(t *testing.T) {
-	fixturesDir := "../fixtures/GeneralStateTests/VMTests" // Start with VMTests as they are simpler
-	if _, err := os.Stat(fixturesDir); os.IsNotExist(err) {
-		t.Skip("Fixtures not found, skipping compliance tests")
+	fixturePaths, err := filepath.Glob(filepath.Join("fixtures", "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(fixturePaths) == 0 {
+		t.Fatal("no compliance fixture files found")
 	}
 
-	err := filepath.Walk(fixturesDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !strings.HasSuffix(path, ".json") {
-			return nil
-		}
-
-		t.Run(filepath.Base(path), func(t *testing.T) {
-			file, err := os.ReadFile(path)
+	executed := 0
+	for _, path := range fixturePaths {
+		path := path
+		t.Run(strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), func(t *testing.T) {
+			contents, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			var tests map[string]StateTest
-			if err := json.Unmarshal(file, &tests); err != nil {
+			var fixture fixtureFile
+			if err := json.Unmarshal(contents, &fixture); err != nil {
 				t.Fatal(err)
 			}
-
-			for name, test := range tests {
-				t.Run(name, func(t *testing.T) {
-					RunTest(t, name, test)
+			if fixture.Meta.SourceRepository == "" || fixture.Meta.SourceCommit == "" || fixture.Meta.SourceFile == "" {
+				t.Fatal("fixture source metadata is required")
+			}
+			if len(fixture.Cases) == 0 {
+				t.Fatal("fixture file contains no cases")
+			}
+			for _, test := range fixture.Cases {
+				test := test
+				executed++
+				t.Run(test.Name, func(t *testing.T) {
+					runFixture(t, test)
 				})
 			}
 		})
-		return nil
-	})
-
-	if err != nil {
-		t.Fatal(err)
+	}
+	if executed == 0 {
+		t.Fatal("no compliance cases executed")
 	}
 }

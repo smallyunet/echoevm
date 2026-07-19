@@ -15,22 +15,18 @@ make coverage
 
 ## Test Fixtures
 
-EchoEVM uses the [ethereum/tests](https://github.com/ethereum/tests) repository as a git submodule for test fixtures.
-
-```bash
-# Initialize test fixtures (required before running some tests)
-make setup-tests
-```
-
-This will clone the Ethereum test fixtures into `tests/fixtures/`.
+EchoEVM keeps a small, pinned subset adapted from the official Ethereum
+execution tests in `tests/compliance/fixtures/`. The source repository, commit,
+and file are recorded in each fixture, so compliance tests run offline and do
+not silently skip when an external checkout is missing.
 
 ## Test Structure
 
 ```
 tests/
-├── fixtures/           # Git submodule: ethereum/tests
-├── state_test.go       # State transition tests
-└── genesis_test.json   # Genesis configuration for tests
+├── compliance/         # Pinned Ethereum fixtures and runner
+├── e2e/                # Built CLI behavior tests
+└── integration/        # Cross-package behavior tests
 
 internal/
 ├── evm/core/           # Core tests (stack, memory, genesis, opcodes)
