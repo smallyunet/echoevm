@@ -36,6 +36,7 @@ const (
 type NormalizedStep struct {
 	Index       int      `json:"index"`
 	Depth       int      `json:"depth"`
+	Address     string   `json:"address,omitempty"`
 	PC          uint64   `json:"pc"`
 	Opcode      string   `json:"opcode"`
 	OpcodeName  string   `json:"opcodeName"`

@@ -14,6 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/replay"
 )
 
 //go:embed assets/*
@@ -27,12 +28,21 @@ type Server struct {
 	control      chan ControlMessage
 	differential *differential.Engine
 	diffSlots    chan struct{}
+	replay       *replay.Service
+	replaySlots  chan struct{}
 }
 
 func NewDifferentialServer(addr string, engine *differential.Engine) *Server {
 	s := NewServer(addr)
 	s.differential = engine
 	s.diffSlots = make(chan struct{}, 1)
+	s.replaySlots = make(chan struct{}, 1)
+	service, err := replay.NewService(context.Background(), config.GetRuntimeConfig().EthereumRPC)
+	if err != nil {
+		log.Warn().Err(err).Msg("Transaction replay is unavailable")
+	} else {
+		s.replay = service
+	}
 	return s
 }
 
@@ -70,6 +80,7 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/", s.serveDifferentialIndex)
 		mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir))))
 		mux.HandleFunc("/api/diff", s.serveDiff)
+		mux.HandleFunc("/api/replay", s.serveReplay)
 		mux.HandleFunc("/healthz", s.serveHealth)
 	} else {
 		mux.Handle("/", http.FileServer(http.FS(s.assetsDir)))
@@ -82,6 +93,46 @@ func (s *Server) Start() error {
 	}
 	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
+}
+
+func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.replay == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "transaction replay is unavailable: configure ECHOEVM_ETHEREUM_RPC with a trace-capable RPC endpoint")
+		return
+	}
+	select {
+	case s.replaySlots <- struct{}{}:
+		defer func() { <-s.replaySlots }()
+	default:
+		writeJSONError(w, http.StatusTooManyRequests, "another transaction replay is already running")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	var req replay.Request
+	if err := decoder.Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeJSONError(w, http.StatusBadRequest, "invalid request: expected one JSON object")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	result, err := s.replay.Replay(ctx, req)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {

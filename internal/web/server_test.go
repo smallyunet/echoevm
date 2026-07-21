@@ -51,3 +51,18 @@ func TestDifferentialHealth(t *testing.T) {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestReplayAPIRequiresConfiguredService(t *testing.T) {
+	server := NewServer(":0")
+	server.replaySlots = make(chan struct{}, 1)
+	recorder := httptest.NewRecorder()
+	server.serveReplay(recorder, httptest.NewRequest(http.MethodPost, "/api/replay", strings.NewReader(`{"input":"0x00"}`)))
+	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), "trace-capable RPC") {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	server.serveReplay(recorder, httptest.NewRequest(http.MethodGet, "/api/replay", nil))
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET status=%d", recorder.Code)
+	}
+}

@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.21](#-whats-new-in-v0021)
+- [What's New in v0.0.22](#-whats-new-in-v0022)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,14 @@
 
 ---
 
-## 🆕 What's New in v0.0.21
+## 🆕 What's New in v0.0.22
+
+- **Transaction Replay**: Paste a transaction hash or Etherscan URL in the Explorer, hydrate exact execution prestate through `prestateTracer`, and compare status, output, gas, post-state, and instructions.
+- **Full Call-Frame Tracing**: Opcode hooks now propagate through nested `CALL`, `DELEGATECALL`, `STATICCALL`, `CREATE`, and `CREATE2` frames.
+- **Replay CLI**: `echoevm replay` exposes the same transaction-level engine with text or JSON output.
+- **Safer RPC Integration**: Explorer links are parsed through an allowlist, RPC credentials remain server-side, and unsupported forks are reported explicitly.
+
+### Previous v0.0.21
 
 - **Geth Differential Conformance**: 17 Cancun vectors compare return data, gas used, halt class, and persistent storage against go-ethereum across eight behavior categories.
 - **Expanded Official Baseline**: Pinned Cancun ADD, MUL, and SUB fixtures increase the official baseline from 3 to 9 cases.
@@ -66,6 +73,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | Category | Features |
 |----------|----------|
 | **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
+| **Replay** | Transaction hash/Etherscan input, RPC prestate hydration, nested call-frame comparison |
 | **State Management** | **Merkle Patricia Trie**, lazy trie-backed reads, in-memory journaling |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
@@ -130,6 +138,24 @@ The differential engine runs both implementations under Cancun rules with
 isolated in-memory state. A `MATCH` applies only to that input and environment;
 it is not a claim that EchoEVM is completely EVM-compatible.
 
+### Replay a real transaction
+
+Transaction replay requires an RPC endpoint with `debug_traceTransaction` and
+the built-in `prestateTracer` enabled.
+
+```bash
+echoevm replay 0x0123... --rpc-url https://your-trace-rpc.example
+echoevm replay https://etherscan.io/tx/0x0123... --format json
+
+ECHOEVM_ETHEREUM_RPC=https://your-trace-rpc.example \
+  echoevm diff --web --addr :8080
+```
+
+The Explorer keeps raw bytecode comparison under its Advanced section. Replay
+supports confirmed Ethereum Mainnet and Sepolia transactions. EchoEVM currently
+executes Cancun rules; transactions from other forks remain inspectable but are
+marked with a compatibility warning.
+
 ### Server deployment
 
 Production deployment uses Docker Compose and
@@ -142,6 +168,8 @@ check. A failed health check restores the previous image. The workflow can also
 be run manually from GitHub Actions. Its dedicated root SSH key is bound to a
 forced command and cannot open a shell, forward ports, or run arbitrary
 commands; the existing operator SSH key is never copied to GitHub.
+Set `ECHOEVM_ETHEREUM_RPC` in the deployment environment to enable replay; the
+endpoint must expose `debug_traceTransaction` and `prestateTracer`.
 
 ### Run bytecode directly
 
@@ -191,6 +219,7 @@ echoevm web --code "6003600401"
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
 | `diff` | Compare results and normalized traces with embedded Geth |
+| `replay` | Replay a confirmed transaction from RPC prestate |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |
@@ -205,7 +234,7 @@ echoevm web --code "6003600401"
 --log-level, -L   Log level (trace|debug|info|warn|error)
 --output, -o      Output format (plain|json)
 --config, -c      Config file path (reserved)
---rpc-url         Ethereum RPC endpoint
+--rpc-url         Ethereum RPC endpoint; replay requires debug tracing
 ```
 
 ### Command Examples
@@ -299,7 +328,7 @@ make test-differential # Compare Cancun behavior with go-ethereum
 make test-conformance # Run both conformance layers with summary output
 ```
 
-The v0.0.21 baseline contains 9 pinned official Cancun cases and 17 geth
+The v0.0.22 baseline contains 9 pinned official Cancun cases and 17 geth
 differential vectors across arithmetic, bitwise, control, crypto, environment,
 fault, memory, and storage. Both suites fail on missing metadata, shrinking
 case counts, missing required categories, or skipped execution.
@@ -313,6 +342,7 @@ echoevm/
 ├── cmd/echoevm/     # CLI commands (deploy, call, trace, etc.)
 ├── internal/
 │   ├── differential/  # Reusable EchoEVM/Geth runners and comparison engine
+│   ├── replay/        # Transaction input parser, RPC prestate, and replay engine
 │   ├── evm/
 │   │   ├── core/    # Stack, memory, opcode table
 │   │   └── vm/      # Interpreter, opcode implementations

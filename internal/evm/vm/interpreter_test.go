@@ -192,6 +192,40 @@ func TestRunAndRunWithHookHaveIdenticalSemantics(t *testing.T) {
 	}
 }
 
+func TestTraceHookIncludesNestedCallFrames(t *testing.T) {
+	state := core.NewMemoryStateDB()
+	parent := common.HexToAddress("0x1000000000000000000000000000000000000001")
+	child := common.HexToAddress("0x2000000000000000000000000000000000000002")
+	state.SetCode(child, []byte{core.PUSH1, 0x01, core.STOP})
+	code := []byte{
+		core.PUSH1, 0x00, core.PUSH1, 0x00, core.PUSH1, 0x00, core.PUSH1, 0x00, core.PUSH1, 0x00,
+		core.PUSH1 + 19,
+	}
+	code = append(code, child.Bytes()...)
+	code = append(code, core.PUSH1+1, 0x27, 0x10, core.CALL, core.STOP)
+	intr := New(code, state, parent)
+	intr.SetGas(100_000)
+	var depths []int
+	intr.RunWithHook(func(step TraceStep) bool {
+		if !step.IsPost {
+			depths = append(depths, step.Depth)
+		}
+		return true
+	})
+	if intr.Err() != nil {
+		t.Fatal(intr.Err())
+	}
+	foundNested := false
+	for _, depth := range depths {
+		if depth == 1 {
+			foundNested = true
+		}
+	}
+	if !foundNested {
+		t.Fatalf("trace depths = %v, want a nested depth", depths)
+	}
+}
+
 func errorString(err error) string {
 	if err == nil {
 		return ""

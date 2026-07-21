@@ -20,6 +20,7 @@ type BlockContext struct {
 	Difficulty  *big.Int
 	Random      *big.Int // PREVRANDAO for post-merge
 	ChainID     *big.Int
+	BlobBaseFee *big.Int
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database.
@@ -50,6 +51,18 @@ func ApplyTransactionWithContext(
 	sender common.Address,
 	ctx *BlockContext,
 ) ([]byte, uint64, bool, error) {
+	return ApplyTransactionWithContextAndHook(statedb, tx, sender, ctx, nil)
+}
+
+// ApplyTransactionWithContextAndHook applies a full transaction and emits a
+// transaction-wide opcode trace, including nested CALL and CREATE frames.
+func ApplyTransactionWithContextAndHook(
+	statedb core.StateDB,
+	tx *types.Transaction,
+	sender common.Address,
+	ctx *BlockContext,
+	hook func(TraceStep) bool,
+) ([]byte, uint64, bool, error) {
 	// Validate the transaction before mutating state.
 	nonce := statedb.GetNonce(sender)
 	if nonce != tx.Nonce() {
@@ -58,6 +71,9 @@ func ApplyTransactionWithContext(
 
 	gas := tx.Gas()
 	gasPrice := tx.GasPrice()
+	if ctx.BaseFee != nil && tx.Type() != types.LegacyTxType && tx.Type() != types.AccessListTxType {
+		gasPrice = new(big.Int).Add(ctx.BaseFee, tx.EffectiveGasTipValue(ctx.BaseFee))
+	}
 	value := tx.Value()
 	intrinsicGas := uint64(21000)
 	if tx.To() == nil {
@@ -70,6 +86,10 @@ func ApplyTransactionWithContext(
 		} else {
 			intrinsicGas += 16
 		}
+	}
+	if tx.To() == nil && len(data) > 0 {
+		// EIP-3860 (Shanghai): charge two gas for each 32-byte initcode word.
+		intrinsicGas += 2 * ((uint64(len(data)) + 31) / 32)
 	}
 
 	// Add Access List intrinsic gas
@@ -85,13 +105,21 @@ func ApplyTransactionWithContext(
 	}
 
 	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(gas), gasPrice)
-	requiredBalance := new(big.Int).Add(new(big.Int).Set(gasCost), value)
+	blobCost := new(big.Int)
+	if ctx.BlobBaseFee != nil && tx.BlobGas() > 0 {
+		blobCost.Mul(new(big.Int).SetUint64(tx.BlobGas()), ctx.BlobBaseFee)
+	}
+	requiredBalance := new(big.Int).Add(new(big.Int).Set(gasCost), blobCost)
+	requiredBalance.Add(requiredBalance, value)
 	if statedb.GetBalance(sender).Cmp(requiredBalance) < 0 {
 		return nil, 0, false, fmt.Errorf("insufficient funds: have %v, want %v", statedb.GetBalance(sender), requiredBalance)
 	}
 
 	statedb.PrepareTransaction()
 	statedb.SubBalance(sender, gasCost)
+	if blobCost.Sign() > 0 {
+		statedb.SubBalance(sender, blobCost)
+	}
 	statedb.SetNonce(sender, nonce+1)
 
 	// Gas purchase and nonce increment survive execution failure. State changes
@@ -154,6 +182,11 @@ func ApplyTransactionWithContext(
 		intr.SetOrigin(sender)
 		intr.SetCallValue(value)
 		intr.SetGasPrice(gasPrice)
+		intr.SetTraceContext(hook, 0)
+		intr.SetBlobHashes(tx.BlobHashes())
+		if ctx.BlobBaseFee != nil {
+			intr.SetBlobBaseFee(ctx.BlobBaseFee)
+		}
 		if ctx.BaseFee != nil {
 			intr.SetBaseFee(ctx.BaseFee)
 		}

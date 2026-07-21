@@ -15,7 +15,7 @@ EchoEVM supports configuration through multiple sources in the following order o
 You can override default configuration values using the following environment variables:
 
 ### Network Configuration
-- `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint (default: `https://cloudflare-eth.com`)
+- `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint (default: `https://cloudflare-eth.com`). Transaction replay requires `debug_traceTransaction` and `prestateTracer`; many public read-only endpoints do not expose them.
 
 ### Logging Configuration
 - `ECHOEVM_LOG_LEVEL`: Log level (default: `info`)
@@ -52,8 +52,8 @@ echoevm run 6001600201
 
 ### Setting Ethereum RPC Endpoint
 ```bash
-export ECHOEVM_ETHEREUM_RPC="https://mainnet.infura.io/v3/<key>"
-echoevm run 6001600201
+export ECHOEVM_ETHEREUM_RPC="https://your-trace-rpc.example"
+echoevm replay 0xabc...
 ```
 
 ### Using JSON Logging
@@ -107,7 +107,7 @@ The following constants are defined in `internal/config/constants.go`:
 
 2. **Logging**: Use JSON format for production logging to enable better log aggregation and analysis.
 
-3. **Security**: Be careful with file permissions when logging to files. The default file mode is 0666, but you may want to use more restrictive permissions in production.
+3. **Security**: Keep authenticated RPC URLs in environment configuration. The Explorer accepts only transaction hashes or allowlisted Etherscan URLs and never accepts user-supplied RPC endpoints.
 
 4. **Performance**: Adjust gas limits and upstream RPC endpoints based on your specific use case and network conditions.
 
@@ -136,3 +136,4 @@ If you're migrating from a version with hardcoded values, you can:
 ### Performance Issues
 - Increase gas limits if transactions are failing due to out-of-gas errors
 - Use appropriate log levels to reduce logging overhead
+- Use an archive/debug-capable RPC if replay reports that prestate or opcode tracing is unavailable

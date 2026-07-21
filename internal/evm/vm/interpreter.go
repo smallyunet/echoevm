@@ -46,6 +46,8 @@ type Interpreter struct {
 	returnData    []byte        // return data from last CALL
 	blobHashes    []common.Hash // EIP-4844: versioned hashes of transaction blobs
 	blobBaseFee   *big.Int      // EIP-4844: blob base fee for the block
+	traceHook     func(TraceStep) bool
+	traceDepth    int
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -59,6 +61,8 @@ type TraceStep struct {
 	Reverted   bool     `json:"reverted"`
 	Halt       bool     `json:"halt"`
 	IsPost     bool     `json:"is_post"`
+	Depth      int      `json:"depth"`
+	Address    string   `json:"address"`
 }
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
@@ -316,14 +320,52 @@ func init() {
 }
 
 func (i *Interpreter) Run() {
-	i.run(nil)
+	i.run(i.traceHook)
 }
 
 // RunWithHook executes bytecode using the same execution loop as Run and emits
 // a TraceStep before and after each opcode. Returning false from the hook stops
 // execution without executing another opcode.
 func (i *Interpreter) RunWithHook(hook func(step TraceStep) bool) {
+	i.traceHook = hook
 	i.run(hook)
+}
+
+// SetTraceContext installs a transaction-wide trace hook. Child interpreters
+// inherit it with an incremented depth so nested calls remain observable.
+func (i *Interpreter) SetTraceContext(hook func(step TraceStep) bool, depth int) {
+	i.traceHook = hook
+	i.traceDepth = depth
+}
+
+func (i *Interpreter) inheritExecutionContext(parent *Interpreter) {
+	i.blockNumber = parent.blockNumber
+	i.timestamp = parent.timestamp
+	i.coinbase = parent.coinbase
+	i.gasLimit = parent.gasLimit
+	i.origin = parent.origin
+	if parent.gasPrice != nil {
+		i.gasPrice = new(big.Int).Set(parent.gasPrice)
+	}
+	if parent.chainID != nil {
+		i.chainID = new(big.Int).Set(parent.chainID)
+	}
+	if parent.baseFee != nil {
+		i.baseFee = new(big.Int).Set(parent.baseFee)
+	}
+	if parent.difficulty != nil {
+		i.difficulty = new(big.Int).Set(parent.difficulty)
+	}
+	if parent.random != nil {
+		i.random = new(big.Int).Set(parent.random)
+	}
+	i.chainConfig = parent.chainConfig
+	i.blobHashes = append([]common.Hash(nil), parent.blobHashes...)
+	if parent.blobBaseFee != nil {
+		i.blobBaseFee = new(big.Int).Set(parent.blobBaseFee)
+	}
+	i.traceHook = parent.traceHook
+	i.traceDepth = parent.traceDepth + 1
 }
 
 func (i *Interpreter) run(hook func(step TraceStep) bool) {
@@ -430,6 +472,8 @@ func (i *Interpreter) traceStep(pc uint64, op byte, isPost, halt bool) TraceStep
 		Reverted:   i.reverted,
 		Halt:       halt,
 		IsPost:     isPost,
+		Depth:      i.traceDepth,
+		Address:    i.address.Hex(),
 	}
 }
 

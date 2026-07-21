@@ -2,7 +2,7 @@
 
 Central index for EchoEVM reference, guides, and examples.
 
-**Current Version**: v0.0.21
+**Current Version**: v0.0.22
 
 ## 📚 Index
 
@@ -20,6 +20,8 @@ Central index for EchoEVM reference, guides, and examples.
 | Command | Description |
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
+| `diff` | Compare EchoEVM with embedded Geth or open the Explorer |
+| `replay` | Replay a confirmed transaction from trace-capable RPC prestate |
 | `deploy` | Run constructor, extract runtime |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |
@@ -34,6 +36,12 @@ Run bytecode:
 ```bash
 echoevm run 6001600201
 echoevm run --debug 6001600201
+```
+
+Replay a transaction:
+```bash
+export ECHOEVM_ETHEREUM_RPC="https://your-trace-rpc.example"
+echoevm replay https://etherscan.io/tx/0x... --format json
 ```
 
 Deploy (print runtime):
@@ -85,7 +93,7 @@ More detail: [Testing Guide](guides/testing.md).
 ## 🗺 Roadmap
 
 See [ROADMAP.md](../ROADMAP.md) for:
-- Completed features by version (v0.0.1 - v0.0.21)
+- Completed features by version (v0.0.1 - v0.0.22)
 - Upcoming features (Phase 3-5)
 - Development timeline
 

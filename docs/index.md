@@ -5,7 +5,13 @@
 ---
 
 
-## 🆕 What's New in v0.0.21
+## 🆕 What's New in v0.0.22
+
+- **Transaction Replay**: The Explorer and `echoevm replay` accept transaction hashes and Etherscan URLs, fetch exact prestate from a trace-capable RPC, and execute the transaction in EchoEVM.
+- **Nested Trace Frames**: Transaction traces now include contract creation and nested call-family execution.
+- **Progressive Explorer Input**: Transaction replay is the primary workflow; raw bytecode remains available under Advanced.
+
+### Previous v0.0.21
 
 - **Geth Differential Conformance**: 17 Cancun vectors cover eight execution categories and compare return data, gas used, halt class, and storage.
 - **Expanded Official Baseline**: Nine pinned Cancun ADD, MUL, and SUB cases run offline.
@@ -21,6 +27,7 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 | Category | Features |
 |----------|----------|
 | **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
+| **Replay** | Mainnet/Sepolia transaction input, RPC prestate hydration, Geth trace comparison |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
@@ -64,6 +71,13 @@ echoevm --help
 ---
 
 ## 🚀 Quick Start
+
+### Replay a transaction
+
+```bash
+export ECHOEVM_ETHEREUM_RPC="https://your-trace-rpc.example"
+echoevm replay https://etherscan.io/tx/0x... --format json
+```
 
 ### Run bytecode directly
 
@@ -111,6 +125,8 @@ echoevm web --code "6003600401"
 | Command | Description |
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
+| `diff` | Compare EchoEVM with embedded Geth or open the Explorer |
+| `replay` | Replay a confirmed transaction from trace-capable RPC prestate |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |

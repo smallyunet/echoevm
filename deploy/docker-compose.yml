@@ -5,6 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "0.0.0.0:8080:8080"
+    environment:
+      ECHOEVM_ETHEREUM_RPC: ${ECHOEVM_ETHEREUM_RPC:-https://cloudflare-eth.com}
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777

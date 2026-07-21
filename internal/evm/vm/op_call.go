@@ -49,6 +49,7 @@ func opCreate(i *Interpreter, _ byte) {
 
 	// 5. Execute init code
 	contract := New(initCode, i.statedb, addr)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -132,6 +133,7 @@ func opCreate2(i *Interpreter, _ byte) {
 
 	// 6. Execute init code
 	contract := New(initCode, i.statedb, addr)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -273,6 +275,7 @@ func opCall(i *Interpreter, _ byte) {
 
 	// 6. Execute regular contract
 	contract := NewWithCallData(code, args, i.statedb, addr)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -398,6 +401,7 @@ func opCallCode(i *Interpreter, _ byte) {
 
 	// Execute in caller's context (address stays as i.address)
 	contract := NewWithCallData(code, args, i.statedb, i.address)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -532,6 +536,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 
 	// Execute in caller's context, preserving caller and value
 	contract := NewWithCallData(code, args, i.statedb, i.address)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -691,6 +696,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 
 	// Execute regular contract (read-only)
 	contract := NewWithCallData(code, args, i.statedb, addr)
+	contract.inheritExecutionContext(i)
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)

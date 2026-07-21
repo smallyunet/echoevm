@@ -8,6 +8,7 @@ EchoEVM provides a set of CLI commands to interact with the EVM.
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
 | `diff` | Compare EchoEVM and embedded Geth results and traces |
+| `replay` | Replay a confirmed transaction using exact RPC prestate |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |
@@ -22,7 +23,7 @@ EchoEVM provides a set of CLI commands to interact with the EVM.
 --log-level, -L   Log level (trace|debug|info|warn|error)
 --output, -o      Output format (plain|json)
 --config, -c      Config file path (reserved)
---rpc-url         Ethereum RPC endpoint
+--rpc-url         Ethereum RPC endpoint; replay requires debug tracing
 ```
 
 ## Command Details
@@ -44,8 +45,9 @@ echoevm diff --code 00 --format json
 echoevm diff --web --addr :8080
 ```
 
-Only Cancun and isolated in-memory state are supported. The Explorer API does
-not accept RPC URLs. Inputs are bounded to 24,576 bytes of bytecode, 128 KiB of
+Raw comparisons support Cancun and isolated in-memory state. RPC URLs are
+configured only on the server and are never accepted from Explorer users.
+Inputs are bounded to 24,576 bytes of bytecode, 128 KiB of
 calldata, 30 million gas, and 2,000 trace steps. The web service accepts one
 comparison at a time and applies a five-second request timeout.
 
@@ -53,6 +55,25 @@ Normalized steps use pre-op PC/opcode/gas/stack. Post-op gas and non-terminal
 stack are compared when both tracers can align them at the next top-level
 opcode. Terminal stack and memory are deliberately excluded rather than
 reported with false precision.
+
+### `replay`
+
+Replay a confirmed Ethereum Mainnet or Sepolia transaction from a hash or
+Etherscan transaction URL. The configured RPC must expose
+`debug_traceTransaction` and Geth-compatible `prestateTracer` output.
+
+```bash
+echoevm replay 0xabc... --rpc-url https://your-trace-rpc.example
+echoevm replay https://etherscan.io/tx/0xabc... --format json
+```
+
+Replay hydrates the transaction's execution prestate, block context, typed
+transaction fields, contract code, and touched storage. The opcode hook follows
+nested calls and creates, while a diff-mode witness verifies changed balances,
+nonces, code, and storage against EchoEVM's post-state. Traces are capped at 50,000 instructions, replay is
+limited to one concurrent request in the Explorer, and HTTP replay has a
+30-second timeout. Transactions outside the Cancun ruleset are labeled with a
+compatibility warning.
 
 ### `deploy`
 

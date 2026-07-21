@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.21
+**Current Version**: v0.0.22
 
 ---
 
@@ -51,6 +51,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.19 | MVP reliability: unified execution semantics, restored Web CLI, Trie prefix fix |
 | v0.0.20 | Transaction correctness, top-level precompiles, pinned compliance baseline |
 | v0.0.21 | Geth differential conformance, visible CI reports, complete BLAKE2F |
+| v0.0.22 | RPC-backed transaction replay, Etherscan input, nested call-frame tracing |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -92,6 +93,7 @@ Tools and integrations for enhanced developer productivity.
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis
 - [ ] **Contract Analyzer** - Security pattern detection
 - [x] **Differential Explorer** - Reusable Cancun EchoEVM/Geth engine, CLI, JSON API, and local trace UI
+- [x] **Transaction Replay** - Hash/Etherscan input, RPC prestate hydration, and full call-frame trace comparison
 - [ ] **Export Formats** - Trace export to JSON, CSV, CallGraph
 
 ---
@@ -113,21 +115,15 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.21 Priorities:**
-1. Compare Cancun execution behavior against go-ethereum
-2. Make conformance case counts and categories visible in CI
-3. Complete the EIP-152 BLAKE2F precompile
+**v0.0.22 Priorities:**
+1. Turn transaction hashes and Etherscan URLs into reproducible EchoEVM executions
+2. Preserve nested call frames in transaction-wide opcode traces
+3. Keep RPC credentials server-side with bounded replay concurrency and timeouts
 
-**Current local implementation (unreleased):**
-1. Existing Geth conformance runners are exposed as a reusable Go package
-2. Normalized top-level opcode traces identify the first reliable divergence
-3. `echoevm diff` and a local-first Web Differential Explorer share that engine
-
-The first Explorer release intentionally excludes historical transaction/block
-replay, external RPCs, other EVM clients, Solidity compilation, AI explanation,
-and fuzzing. Public hosting would require deployment-specific rate limiting and
-hard process isolation beyond the local request, gas, trace, timeout, body, and
-concurrency limits.
+The replay engine intentionally requires a trace-capable RPC and does not
+approximate transaction prestate from the parent block. Cancun remains the only
+fully declared EchoEVM ruleset; other fork eras are labeled instead of silently
+claiming exact compatibility.
 
 ---
 

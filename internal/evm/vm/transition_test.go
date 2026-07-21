@@ -150,3 +150,35 @@ func TestApplyTransactionHandlesUint64GasWithoutSignedOverflow(t *testing.T) {
 		t.Fatalf("sender balance = %s, want %s", state.GetBalance(sender), wantBalance)
 	}
 }
+
+func TestApplyTransactionUsesDynamicFeeEffectiveGasPrice(t *testing.T) {
+	state, sender, recipient, ctx := newTransitionTestState(nil)
+	ctx.BaseFee = big.NewInt(2)
+	initial := new(big.Int).Set(state.GetBalance(sender))
+	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(1), Nonce: 0, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(10), Gas: 21_000, To: &recipient})
+
+	_, gasUsed, reverted, err := ApplyTransactionWithContext(state, tx, sender, ctx)
+	if err != nil || reverted || gasUsed != 21_000 {
+		t.Fatalf("reverted=%v gas=%d err=%v", reverted, gasUsed, err)
+	}
+	wantSender := new(big.Int).Sub(initial, big.NewInt(63_000))
+	if state.GetBalance(sender).Cmp(wantSender) != 0 {
+		t.Fatalf("sender balance=%s want=%s", state.GetBalance(sender), wantSender)
+	}
+	if state.GetBalance(ctx.Coinbase).Cmp(big.NewInt(21_000)) != 0 {
+		t.Fatalf("coinbase balance=%s want=21000", state.GetBalance(ctx.Coinbase))
+	}
+}
+
+func TestApplyTransactionChargesInitCodeWordGas(t *testing.T) {
+	state, sender, _, ctx := newTransitionTestState(nil)
+	tx := types.NewContractCreation(0, big.NewInt(0), 100_000, big.NewInt(1), []byte{core.STOP})
+
+	_, gasUsed, reverted, err := ApplyTransactionWithContext(state, tx, sender, ctx)
+	if err != nil || reverted {
+		t.Fatalf("reverted=%v err=%v", reverted, err)
+	}
+	if gasUsed != 53_006 {
+		t.Fatalf("gas used=%d want=53006", gasUsed)
+	}
+}
