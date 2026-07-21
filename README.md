@@ -111,6 +111,25 @@ echoevm --help
 
 ## 🚀 Quick Start
 
+### Compare EchoEVM with embedded Geth
+
+```bash
+echoevm diff \
+  --code 60026003015f5260205ff3 \
+  --input 0x \
+  --gas 1000000
+
+# Machine-readable output
+echoevm diff --code 00 --format json
+
+# Local Differential Explorer
+echoevm diff --web --addr :8080
+```
+
+The differential engine runs both implementations under Cancun rules with
+isolated in-memory state. A `MATCH` applies only to that input and environment;
+it is not a claim that EchoEVM is completely EVM-compatible.
+
 ### Run bytecode directly
 
 ```bash
@@ -158,6 +177,7 @@ echoevm web --code "6003600401"
 | Command | Description |
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
+| `diff` | Compare results and normalized traces with embedded Geth |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |
@@ -279,6 +299,7 @@ case counts, missing required categories, or skipped execution.
 echoevm/
 ├── cmd/echoevm/     # CLI commands (deploy, call, trace, etc.)
 ├── internal/
+│   ├── differential/  # Reusable EchoEVM/Geth runners and comparison engine
 │   ├── evm/
 │   │   ├── core/    # Stack, memory, opcode table
 │   │   └── vm/      # Interpreter, opcode implementations

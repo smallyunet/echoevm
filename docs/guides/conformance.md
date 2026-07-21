@@ -17,13 +17,23 @@ fixture files, missing provenance, missing case categories, or a baseline below
 
 ## Geth differential vectors
 
-`tests/differential/` runs the same Cancun bytecode through EchoEVM and
-go-ethereum v1.15.11. It compares:
+`internal/differential/` provides the production EchoEVM and embedded Geth
+runners used by the CLI, local Web Explorer, and `tests/differential/`. The
+test suite runs the same Cancun bytecode through go-ethereum v1.15.11 and
+compares:
 
 - return or revert data;
 - gas used;
 - halt class: success, REVERT, or exceptional fault;
-- persistent storage slot zero.
+- observed persistent storage slots;
+- normalized top-level opcode sequence, gas, and reliably aligned stack state;
+- the first field and step where the normalized executions diverge.
+
+The normalized trace treats PC, opcode, gas, and stack captured immediately
+before an opcode as the shared anchor. Post-op gas and non-terminal stack are
+derived from the next top-level pre-op callback. Terminal stack and memory are
+not compared because the two tracer APIs do not expose them with equivalent
+semantics.
 
 The current baseline contains 17 vectors across 8 categories: arithmetic,
 bitwise, control, crypto, environment, fault, memory, and storage. CI requires

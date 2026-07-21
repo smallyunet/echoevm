@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EchoEVM Differential Explorer</title>
+  <link rel="stylesheet" href="/assets/diff.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to comparison form</a>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">EchoEVM developer tools</p>
+      <h1>Differential Explorer</h1>
+    </div>
+    <div class="environment"><span class="dot"></span>Cancun · isolated memory</div>
+  </header>
+
+  <main id="main-content">
+    <section class="card input-card" aria-labelledby="input-title">
+      <div class="section-heading">
+        <div><h2 id="input-title">Reproducible input</h2><p>Runs locally in this process. No RPC or chain state is used.</p></div>
+        <label class="preset-label">Preset
+          <select id="preset" aria-label="Differential vector preset"></select>
+        </label>
+      </div>
+      <div class="form-grid">
+        <label class="field code-field">Bytecode
+          <textarea id="bytecode" rows="4" spellcheck="false" autocomplete="off"></textarea>
+          <span class="hint">Hex, with or without 0x</span>
+        </label>
+        <label class="field">Calldata
+          <textarea id="calldata" rows="4" spellcheck="false" autocomplete="off">0x</textarea>
+          <span class="hint">Maximum 128 KiB</span>
+        </label>
+        <label class="field compact">Fork
+          <input value="Cancun" disabled>
+        </label>
+        <label class="field compact">Gas limit
+          <input id="gas" type="number" min="1" max="30000000" value="1000000">
+        </label>
+      </div>
+      <div class="actions">
+        <button id="compare" class="primary">Compare engines</button>
+        <span id="request-status" role="status" aria-live="polite"></span>
+      </div>
+      <div id="error" class="error" role="alert" hidden></div>
+    </section>
+
+    <section id="results" hidden>
+      <div class="result-head">
+        <div><p class="eyebrow">Comparison result</p><h2 id="verdict"></h2><p id="scope-note"></p></div>
+        <div class="result-actions">
+          <button id="copy-cli" class="secondary">Copy CLI command</button>
+          <button id="export-json" class="secondary">Export JSON</button>
+        </div>
+      </div>
+
+      <div id="summary" class="summary-grid"></div>
+      <section id="divergence" class="divergence" hidden>
+        <p class="eyebrow">First divergence</p>
+        <h3 id="divergence-title"></h3>
+        <div class="engine-grid"><pre id="div-echo"></pre><pre id="div-geth"></pre></div>
+      </section>
+
+      <section class="card trace-card" aria-labelledby="trace-title">
+        <div class="section-heading trace-heading">
+          <div><h2 id="trace-title">Normalized opcode trace</h2><p>Pre-op identity/state; post-op values only where both tracers align reliably.</p></div>
+          <label class="toggle"><input id="show-equal" type="checkbox"> Show matching steps</label>
+        </div>
+        <div class="trace-labels"><strong>EchoEVM</strong><strong>Geth v1.15.11</strong></div>
+        <div id="trace-list" class="trace-list"></div>
+      </section>
+    </section>
+  </main>
+  <script src="/assets/diff.js"></script>
+</body>
+</html>

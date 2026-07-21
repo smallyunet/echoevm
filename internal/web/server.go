@@ -1,25 +1,39 @@
 package web
 
 import (
+	"context"
 	"embed"
+	"encoding/json"
+	"io"
 	"io/fs"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/config"
+	"github.com/smallyunet/echoevm/internal/differential"
 )
 
 //go:embed assets/*
 var assetsEmbed embed.FS
 
 type Server struct {
-	addr      string
-	upgrader  websocket.Upgrader
-	hub       *Hub
-	assetsDir fs.FS
-	control   chan ControlMessage
+	addr         string
+	upgrader     websocket.Upgrader
+	hub          *Hub
+	assetsDir    fs.FS
+	control      chan ControlMessage
+	differential *differential.Engine
+	diffSlots    chan struct{}
+}
+
+func NewDifferentialServer(addr string, engine *differential.Engine) *Server {
+	s := NewServer(addr)
+	s.differential = engine
+	s.diffSlots = make(chan struct{}, 2)
+	return s
 }
 
 func NewServer(addr string) *Server {
@@ -52,11 +66,77 @@ func (s *Server) Start() error {
 	go s.hub.Run()
 
 	mux := http.NewServeMux()
-	mux.Handle("/", http.FileServer(http.FS(s.assetsDir)))
-	mux.HandleFunc("/ws", s.serveWs)
+	if s.differential != nil {
+		mux.HandleFunc("/", s.serveDifferentialIndex)
+		mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir))))
+		mux.HandleFunc("/api/diff", s.serveDiff)
+	} else {
+		mux.Handle("/", http.FileServer(http.FS(s.assetsDir)))
+		mux.HandleFunc("/ws", s.serveWs)
+	}
 
-	log.Info().Str("addr", s.addr).Msg("Starting Web Debugger UI")
+	name := "Web Debugger"
+	if s.differential != nil {
+		name = "Differential Explorer"
+	}
+	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
+}
+
+func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	data, err := fs.ReadFile(s.assetsDir, "diff.html")
+	if err != nil {
+		http.Error(w, "Explorer asset unavailable", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
+}
+
+func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	select {
+	case s.diffSlots <- struct{}{}:
+		defer func() { <-s.diffSlots }()
+	default:
+		writeJSONError(w, http.StatusTooManyRequests, "too many concurrent comparisons")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 512*1024)
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	var req differential.Request
+	if err := decoder.Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeJSONError(w, http.StatusBadRequest, "invalid request: expected one JSON object")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	result, err := s.differential.Compare(ctx, req)
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func writeJSONError(w http.ResponseWriter, status int, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": message})
 }
 
 func (s *Server) serveWs(w http.ResponseWriter, r *http.Request) {

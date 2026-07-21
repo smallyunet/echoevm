@@ -7,6 +7,7 @@ EchoEVM provides a set of CLI commands to interact with the EVM.
 | Command | Description |
 |---------|-------------|
 | `run` | Execute raw bytecode with optional debug tracing |
+| `diff` | Compare EchoEVM and embedded Geth results and traces |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
 | `trace` | JSON line trace of opcode execution |
@@ -25,6 +26,32 @@ EchoEVM provides a set of CLI commands to interact with the EVM.
 ```
 
 ## Command Details
+
+### `diff`
+
+Run the same bytecode and calldata through EchoEVM and the module's embedded
+go-ethereum dependency, then compare halt class, return/revert data, gas,
+observed persistent storage, and the normalized top-level opcode trace.
+
+```bash
+echoevm diff \
+  --code 60026003015f5260205ff3 \
+  --input 0x \
+  --gas 1000000 \
+  --format text
+
+echoevm diff --code 00 --format json
+echoevm diff --web --addr :8080
+```
+
+Only Cancun and isolated in-memory state are supported. The Explorer API does
+not accept RPC URLs. Inputs are bounded to 24,576 bytes of bytecode, 128 KiB of
+calldata, 30 million gas, and 10,000 trace steps.
+
+Normalized steps use pre-op PC/opcode/gas/stack. Post-op gas and non-terminal
+stack are compared when both tracers can align them at the next top-level
+opcode. Terminal stack and memory are deliberately excluded rather than
+reported with false precision.
 
 ### `deploy`
 

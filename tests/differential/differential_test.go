@@ -1,25 +1,16 @@
 package differential
 
 import (
-	"bytes"
-	"encoding/hex"
-	"errors"
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/tracing"
-	gethvm "github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/core/vm/runtime"
-	"github.com/smallyunet/echoevm/internal/evm/core"
-	"github.com/smallyunet/echoevm/internal/evm/vm"
+	"github.com/smallyunet/echoevm/internal/differential"
 )
 
 const differentialGasLimit = uint64(1_000_000)
-
-var contractAddress = common.BytesToAddress([]byte("contract"))
 
 type vector struct {
 	name     string
@@ -51,95 +42,21 @@ var vectors = []vector{
 	{name: "stack-underflow", category: "fault", code: "01"},
 }
 
-type result struct {
-	output  []byte
-	status  string
-	storage common.Hash
-	gasUsed uint64
-}
-
-func decodeHex(t *testing.T, value string) []byte {
-	t.Helper()
-	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "0x"))
-	if err != nil {
-		t.Fatalf("invalid test vector hex %q: %v", value, err)
-	}
-	return decoded
-}
-
-func runEchoEVM(t *testing.T, test vector) result {
-	t.Helper()
-	state := core.NewMemoryStateDB()
-	state.PrepareTransaction()
-	state.AddAddressToAccessList(contractAddress)
-	intr := vm.NewWithCallData(decodeHex(t, test.code), decodeHex(t, test.input), state, contractAddress)
-	intr.SetGas(differentialGasLimit)
-	intr.Run()
-
-	status := "success"
-	if intr.Err() != nil {
-		status = "fault"
-	} else if intr.IsReverted() {
-		status = "revert"
-	}
-	return result{
-		output:  intr.ReturnedCode(),
-		status:  status,
-		storage: state.GetState(contractAddress, common.Hash{}),
-		gasUsed: differentialGasLimit - intr.Gas(),
-	}
-}
-
-func runGeth(t *testing.T, test vector) result {
-	t.Helper()
-	var gasUsed uint64
-	output, state, err := runtime.Execute(
-		decodeHex(t, test.code),
-		decodeHex(t, test.input),
-		&runtime.Config{
-			GasLimit: differentialGasLimit,
-			EVMConfig: gethvm.Config{Tracer: &tracing.Hooks{
-				OnExit: func(depth int, _ []byte, used uint64, _ error, _ bool) {
-					if depth == 0 {
-						gasUsed = used
-					}
-				},
-			}},
-		},
-	)
-	status := "success"
-	if errors.Is(err, gethvm.ErrExecutionReverted) {
-		status = "revert"
-	} else if err != nil {
-		status = "fault"
-	}
-	return result{
-		output:  output,
-		status:  status,
-		storage: state.GetState(contractAddress, common.Hash{}),
-		gasUsed: gasUsed,
-	}
-}
-
 func TestCancunDifferentialAgainstGeth(t *testing.T) {
+	engine := differential.DefaultEngine()
 	categories := make(map[string]int)
 	for _, test := range vectors {
 		test := test
 		categories[test.category]++
 		t.Run(fmt.Sprintf("%s/%s", test.category, test.name), func(t *testing.T) {
-			echoResult := runEchoEVM(t, test)
-			gethResult := runGeth(t, test)
-			if echoResult.status != gethResult.status {
-				t.Fatalf("halt mismatch: echoevm=%s geth=%s", echoResult.status, gethResult.status)
+			result, err := engine.Compare(context.Background(), differential.Request{
+				Fork: differential.ForkCancun, Bytecode: test.code, Calldata: test.input, GasLimit: differentialGasLimit,
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
-			if !bytes.Equal(echoResult.output, gethResult.output) {
-				t.Fatalf("return mismatch: echoevm=0x%x geth=0x%x", echoResult.output, gethResult.output)
-			}
-			if echoResult.storage != gethResult.storage {
-				t.Fatalf("storage[0] mismatch: echoevm=%s geth=%s", echoResult.storage, gethResult.storage)
-			}
-			if echoResult.gasUsed != gethResult.gasUsed {
-				t.Fatalf("gas mismatch: echoevm=%d geth=%d", echoResult.gasUsed, gethResult.gasUsed)
+			if !result.Match {
+				t.Fatalf("first divergence: %+v", result.FirstDivergence)
 			}
 		})
 	}

@@ -91,7 +91,7 @@ Tools and integrations for enhanced developer productivity.
 - [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis
 - [ ] **Contract Analyzer** - Security pattern detection
-- [ ] **Diff Mode** - Compare execution traces between EVMs
+- [x] **Differential Explorer** - Reusable Cancun EchoEVM/Geth engine, CLI, JSON API, and local trace UI
 - [ ] **Export Formats** - Trace export to JSON, CSV, CallGraph
 
 ---
@@ -117,6 +117,17 @@ Full compliance and ecosystem integration.
 1. Compare Cancun execution behavior against go-ethereum
 2. Make conformance case counts and categories visible in CI
 3. Complete the EIP-152 BLAKE2F precompile
+
+**Current local implementation (unreleased):**
+1. Existing Geth conformance runners are exposed as a reusable Go package
+2. Normalized top-level opcode traces identify the first reliable divergence
+3. `echoevm diff` and a local-first Web Differential Explorer share that engine
+
+The first Explorer release intentionally excludes historical transaction/block
+replay, external RPCs, other EVM clients, Solidity compilation, AI explanation,
+and fuzzing. Public hosting would require deployment-specific rate limiting and
+hard process isolation beyond the local request, gas, trace, timeout, body, and
+concurrency limits.
 
 ---
 

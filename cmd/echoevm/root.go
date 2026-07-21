@@ -43,6 +43,7 @@ func addSubCommands() {
 	rootCmd.AddCommand(newCallCmd())
 	rootCmd.AddCommand(newDeployCmd())
 	rootCmd.AddCommand(newDisasmCmd())
+	rootCmd.AddCommand(newDiffCmd())
 	rootCmd.AddCommand(newTraceCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newReplCmd())
