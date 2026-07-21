@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.22
+VERSION    ?= v0.0.23
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build run test test-unit test-integration test-e2e test-compliance test-differential test-conformance coverage clean help

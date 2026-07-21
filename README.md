@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.22](#-whats-new-in-v0022)
+- [What's New in v0.0.23](#-whats-new-in-v0023)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,12 +27,18 @@
 
 ---
 
-## 🆕 What's New in v0.0.22
+## 🆕 What's New in v0.0.23
+
+- **Lint-Clean Release**: Normalized replay parser errors for the repository's staticcheck contract; behavior is unchanged from the transaction replay implementation introduced in v0.0.22.
 
 - **Transaction Replay**: Paste a transaction hash or Etherscan URL in the Explorer, hydrate exact execution prestate through `prestateTracer`, and compare status, output, gas, post-state, and instructions.
 - **Full Call-Frame Tracing**: Opcode hooks now propagate through nested `CALL`, `DELEGATECALL`, `STATICCALL`, `CREATE`, and `CREATE2` frames.
 - **Replay CLI**: `echoevm replay` exposes the same transaction-level engine with text or JSON output.
 - **Safer RPC Integration**: Explorer links are parsed through an allowlist, RPC credentials remain server-side, and unsupported forks are reported explicitly.
+
+### Previous v0.0.22
+
+- Introduced RPC-backed transaction replay, Etherscan input, nested call-frame tracing, and post-state comparison.
 
 ### Previous v0.0.21
 
@@ -328,7 +334,7 @@ make test-differential # Compare Cancun behavior with go-ethereum
 make test-conformance # Run both conformance layers with summary output
 ```
 
-The v0.0.22 baseline contains 9 pinned official Cancun cases and 17 geth
+The v0.0.23 baseline contains 9 pinned official Cancun cases and 17 geth
 differential vectors across arithmetic, bitwise, control, crypto, environment,
 fault, memory, and storage. Both suites fail on missing metadata, shrinking
 case counts, missing required categories, or skipped execution.

@@ -29,7 +29,7 @@ type Service struct {
 
 func NewService(ctx context.Context, rpcURL string) (*Service, error) {
 	if strings.TrimSpace(rpcURL) == "" {
-		return nil, errors.New("Ethereum RPC URL is not configured")
+		return nil, errors.New("ethereum RPC URL is not configured")
 	}
 	client, err := rpc.DialContext(ctx, rpcURL)
 	if err != nil {
@@ -333,7 +333,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.22", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.23", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}

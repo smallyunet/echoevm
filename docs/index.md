@@ -5,11 +5,17 @@
 ---
 
 
-## 🆕 What's New in v0.0.22
+## 🆕 What's New in v0.0.23
+
+- **Lint-Clean Patch**: v0.0.23 preserves the v0.0.22 transaction replay behavior while satisfying the repository's staticcheck release contract.
 
 - **Transaction Replay**: The Explorer and `echoevm replay` accept transaction hashes and Etherscan URLs, fetch exact prestate from a trace-capable RPC, and execute the transaction in EchoEVM.
 - **Nested Trace Frames**: Transaction traces now include contract creation and nested call-family execution.
 - **Progressive Explorer Input**: Transaction replay is the primary workflow; raw bytecode remains available under Advanced.
+
+### Previous v0.0.22
+
+- Introduced RPC-backed transaction replay, Etherscan input, nested call-frame tracing, and post-state comparison.
 
 ### Previous v0.0.21
 

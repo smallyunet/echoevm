@@ -29,11 +29,11 @@ func ParseTransactionReference(input string) (transactionReference, error) {
 	}
 	parts := strings.Split(strings.Trim(parsed.EscapedPath(), "/"), "/")
 	if len(parts) != 2 || parts[0] != "tx" {
-		return transactionReference{}, fmt.Errorf("Etherscan URL must use /tx/<transaction-hash>")
+		return transactionReference{}, fmt.Errorf("etherscan URL must use /tx/<transaction-hash>")
 	}
 	hashValue, err := url.PathUnescape(parts[1])
 	if err != nil || !common.IsHexHash(hashValue) {
-		return transactionReference{}, fmt.Errorf("Etherscan URL contains an invalid transaction hash")
+		return transactionReference{}, fmt.Errorf("etherscan URL contains an invalid transaction hash")
 	}
 	return transactionReference{Hash: common.HexToHash(hashValue), ChainID: chainID}, nil
 }
