@@ -52,6 +52,44 @@ func TestDifferentialHealth(t *testing.T) {
 	}
 }
 
+func TestDifferentialIndexVersionsAssets(t *testing.T) {
+	server := NewDifferentialServer(":0", differential.DefaultEngine())
+	recorder := httptest.NewRecorder()
+	server.serveDifferentialIndex(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if got := recorder.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Fatalf("Cache-Control=%q", got)
+	}
+	body := recorder.Body.String()
+	for _, asset := range []string{"diff.css", "diff.js"} {
+		want := "/assets/" + asset + "?v=" + server.assetVersion
+		if !strings.Contains(body, want) {
+			t.Fatalf("index does not reference %q", want)
+		}
+	}
+	if strings.Contains(body, "{{ASSET_VERSION}}") {
+		t.Fatal("asset version placeholder was not replaced")
+	}
+}
+
+func TestVersionedAssetsAreImmutable(t *testing.T) {
+	handler := cacheVersionedAsset(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/assets/diff.js?v=test", nil))
+	if got := recorder.Header().Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Fatalf("Cache-Control=%q", got)
+	}
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/assets/diff.js", nil))
+	if got := recorder.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Fatalf("unversioned Cache-Control=%q", got)
+	}
+}
+
 func TestReplayAPIRequiresConfiguredService(t *testing.T) {
 	server := NewServer(":0")
 	server.replaySlots = make(chan struct{}, 1)

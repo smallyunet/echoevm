@@ -5,7 +5,11 @@
 ---
 
 
-## 🆕 What's New in v0.0.23
+## 🆕 What's New in v0.0.24
+
+- **Reliable Explorer Assets**: Content-versioned JavaScript and CSS prevent stale CDN assets from disabling transaction replay controls after a deployment.
+
+### Previous v0.0.23
 
 - **Lint-Clean Patch**: v0.0.23 preserves the v0.0.22 transaction replay behavior while satisfying the repository's staticcheck release contract.
 

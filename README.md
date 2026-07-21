@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.23](#-whats-new-in-v0023)
+- [What's New in v0.0.24](#-whats-new-in-v0024)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,11 @@
 
 ---
 
-## 🆕 What's New in v0.0.23
+## 🆕 What's New in v0.0.24
+
+- **Reliable Explorer Assets**: Versioned JavaScript and CSS URLs prevent CDN caches from pairing a new transaction-replay page with an older script that lacks the replay button handler.
+
+### Previous v0.0.23
 
 - **Lint-Clean Release**: Normalized replay parser errors for the repository's staticcheck contract; behavior is unchanged from the transaction replay implementation introduced in v0.0.22.
 
@@ -334,7 +338,7 @@ make test-differential # Compare Cancun behavior with go-ethereum
 make test-conformance # Run both conformance layers with summary output
 ```
 
-The v0.0.23 baseline contains 9 pinned official Cancun cases and 17 geth
+The v0.0.24 baseline contains 9 pinned official Cancun cases and 17 geth
 differential vectors across arithmetic, bitwise, control, crypto, environment,
 fault, memory, and storage. Both suites fail on missing metadata, shrinking
 case counts, missing required categories, or skipped execution.

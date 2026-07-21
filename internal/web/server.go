@@ -2,8 +2,10 @@ package web
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -25,6 +27,7 @@ type Server struct {
 	upgrader     websocket.Upgrader
 	hub          *Hub
 	assetsDir    fs.FS
+	assetVersion string
 	control      chan ControlMessage
 	differential *differential.Engine
 	diffSlots    chan struct{}
@@ -66,10 +69,34 @@ func NewServer(addr string) *Server {
 				return isOriginAllowed(r, allowedOrigins, allowAll)
 			},
 		},
-		hub:       NewHub(),
-		assetsDir: assets,
-		control:   make(chan ControlMessage, 16),
+		hub:          NewHub(),
+		assetsDir:    assets,
+		assetVersion: fingerprintAssets(assets, "diff.css", "diff.js"),
+		control:      make(chan ControlMessage, 16),
 	}
+}
+
+func fingerprintAssets(assets fs.FS, names ...string) string {
+	hash := sha256.New()
+	for _, name := range names {
+		data, err := fs.ReadFile(assets, name)
+		if err != nil {
+			panic(fmt.Sprintf("read embedded asset %s: %v", name, err))
+		}
+		_, _ = hash.Write(data)
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil))[:16]
+}
+
+func cacheVersionedAsset(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("v") == "" {
+			w.Header().Set("Cache-Control", "no-cache")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) Start() error {
@@ -78,7 +105,8 @@ func (s *Server) Start() error {
 	mux := http.NewServeMux()
 	if s.differential != nil {
 		mux.HandleFunc("/", s.serveDifferentialIndex)
-		mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir))))
+		assets := http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir)))
+		mux.Handle("/assets/", cacheVersionedAsset(assets))
 		mux.HandleFunc("/api/diff", s.serveDiff)
 		mux.HandleFunc("/api/replay", s.serveReplay)
 		mux.HandleFunc("/healthz", s.serveHealth)
@@ -155,6 +183,8 @@ func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Explorer asset unavailable", http.StatusInternalServerError)
 		return
 	}
+	data = []byte(strings.ReplaceAll(string(data), "{{ASSET_VERSION}}", s.assetVersion))
+	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(data)
 }
