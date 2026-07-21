@@ -130,6 +130,18 @@ The differential engine runs both implementations under Cancun rules with
 isolated in-memory state. A `MATCH` applies only to that input and environment;
 it is not a claim that EchoEVM is completely EVM-compatible.
 
+### Server deployment
+
+Production deployment uses Docker Compose and
+`.github/workflows/deploy-server.yml`. Every push to `main` runs the test suite,
+publishes an immutable Linux/amd64 image to GHCR, then asks a restricted server
+wrapper to pull and activate that digest. Compose applies a non-root user,
+read-only filesystem, dropped capabilities, resource limits, and a `/healthz`
+check. A failed health check restores the previous image. The workflow can also
+be run manually from GitHub Actions. Its dedicated root SSH key is bound to a
+forced command and cannot open a shell, forward ports, or run arbitrary
+commands; the existing operator SSH key is never copied to GitHub.
+
 ### Run bytecode directly
 
 ```bash

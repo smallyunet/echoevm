@@ -32,7 +32,7 @@ type Server struct {
 func NewDifferentialServer(addr string, engine *differential.Engine) *Server {
 	s := NewServer(addr)
 	s.differential = engine
-	s.diffSlots = make(chan struct{}, 2)
+	s.diffSlots = make(chan struct{}, 1)
 	return s
 }
 
@@ -70,6 +70,7 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/", s.serveDifferentialIndex)
 		mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir))))
 		mux.HandleFunc("/api/diff", s.serveDiff)
+		mux.HandleFunc("/healthz", s.serveHealth)
 	} else {
 		mux.Handle("/", http.FileServer(http.FS(s.assetsDir)))
 		mux.HandleFunc("/ws", s.serveWs)
@@ -81,6 +82,16 @@ func (s *Server) Start() error {
 	}
 	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
+}
+
+func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "echoevm-differential-explorer"})
 }
 
 func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) {

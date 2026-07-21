@@ -11,7 +11,7 @@ const (
 	MaxGasLimit      = uint64(30_000_000)
 	MaxBytecodeBytes = 24_576
 	MaxCalldataBytes = 128 * 1024
-	MaxTraceSteps    = 10_000
+	MaxTraceSteps    = 2_000
 )
 
 type Request struct {

@@ -86,7 +86,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 		exitErr = callErr
 	}
 	if traceOverflow {
-		return ExecutionResult{}, errors.New("trace exceeds maximum 10000 steps")
+		return ExecutionResult{}, errors.New("trace exceeds maximum 2000 steps")
 	}
 	if err := ctx.Err(); err != nil {
 		return ExecutionResult{}, err

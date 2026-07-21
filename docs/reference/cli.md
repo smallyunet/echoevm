@@ -46,7 +46,8 @@ echoevm diff --web --addr :8080
 
 Only Cancun and isolated in-memory state are supported. The Explorer API does
 not accept RPC URLs. Inputs are bounded to 24,576 bytes of bytecode, 128 KiB of
-calldata, 30 million gas, and 10,000 trace steps.
+calldata, 30 million gas, and 2,000 trace steps. The web service accepts one
+comparison at a time and applies a five-second request timeout.
 
 Normalized steps use pre-op PC/opcode/gas/stack. Post-op gas and non-terminal
 stack are compared when both tracers can align them at the next top-level

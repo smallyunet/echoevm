@@ -42,3 +42,12 @@ func TestDifferentialAPIRejectsInvalidRequests(t *testing.T) {
 		t.Fatalf("GET status=%d", recorder.Code)
 	}
 }
+
+func TestDifferentialHealth(t *testing.T) {
+	server := NewDifferentialServer(":0", differential.DefaultEngine())
+	recorder := httptest.NewRecorder()
+	server.serveHealth(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"status":"ok"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
