@@ -58,20 +58,29 @@ func runDiff(ctx context.Context, out io.Writer, flags *diffFlags) error {
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(result)
 	}
-	writeDiffText(out, result)
-	return nil
+	return writeDiffText(out, result)
 }
 
-func writeDiffText(out io.Writer, result differential.ComparisonResult) {
+func writeDiffText(out io.Writer, result differential.ComparisonResult) error {
 	verdict := "MATCH"
 	if !result.Match {
 		verdict = "DIVERGENCE"
 	}
-	fmt.Fprintf(out, "%s — EchoEVM vs Geth (%s, isolated memory state)\n", verdict, result.Request.Fork)
-	fmt.Fprintf(out, "status  echo=%s geth=%s match=%t\n", result.EchoEVM.Status, result.Geth.Status, result.StatusMatch)
-	fmt.Fprintf(out, "return  echo=%s geth=%s match=%t\n", result.EchoEVM.ReturnData, result.Geth.ReturnData, result.ReturnDataMatch)
-	fmt.Fprintf(out, "gas     echo=%d geth=%d match=%t\n", result.EchoEVM.GasUsed, result.Geth.GasUsed, result.GasMatch)
-	fmt.Fprintf(out, "storage match=%t  trace match=%t steps=%d/%d\n", result.StorageMatch, result.TraceMatch, len(result.EchoEVM.Trace), len(result.Geth.Trace))
+	if _, err := fmt.Fprintf(out, "%s — EchoEVM vs Geth (%s, isolated memory state)\n", verdict, result.Request.Fork); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "status  echo=%s geth=%s match=%t\n", result.EchoEVM.Status, result.Geth.Status, result.StatusMatch); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "return  echo=%s geth=%s match=%t\n", result.EchoEVM.ReturnData, result.Geth.ReturnData, result.ReturnDataMatch); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "gas     echo=%d geth=%d match=%t\n", result.EchoEVM.GasUsed, result.Geth.GasUsed, result.GasMatch); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(out, "storage match=%t  trace match=%t steps=%d/%d\n", result.StorageMatch, result.TraceMatch, len(result.EchoEVM.Trace), len(result.Geth.Trace)); err != nil {
+		return err
+	}
 	if d := result.FirstDivergence; d != nil {
 		location := "result"
 		if d.Step != nil {
@@ -85,7 +94,10 @@ func writeDiffText(out io.Writer, result differential.ComparisonResult) {
 		}
 		left, _ := json.Marshal(d.EchoEVM)
 		right, _ := json.Marshal(d.Geth)
-		fmt.Fprintf(out, "first divergence: %s field=%s\n  EchoEVM: %s\n  Geth:    %s\n", location, d.Field, left, right)
+		if _, err := fmt.Fprintf(out, "first divergence: %s field=%s\n  EchoEVM: %s\n  Geth:    %s\n", location, d.Field, left, right); err != nil {
+			return err
+		}
 	}
-	fmt.Fprintf(out, "Scope: this input matched only in the environment shown; this is not a claim of complete EVM compatibility.\n")
+	_, err := fmt.Fprintln(out, "Scope: this input matched only in the environment shown; this is not a claim of complete EVM compatibility.")
+	return err
 }

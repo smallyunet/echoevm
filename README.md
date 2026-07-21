@@ -1,6 +1,6 @@
 # echoevm
 
-[![Go Version](https://img.shields.io/badge/go-1.23.2+-00ADD8?style=flat&logo=go)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![Release](https://img.shields.io/github/v/release/smallyunet/echoevm?style=flat&color=blue)](https://github.com/smallyunet/echoevm/releases)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat)]()
@@ -79,7 +79,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 
 ## ✅ Requirements
 
-- Go 1.23.2+
+- Go 1.25+
 - (Optional) `solc` for compiling `.sol` files directly
 
 ---

@@ -32,7 +32,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	for key, value := range req.InitialStorage {
 		state.SetState(contractAddress, common.HexToHash(key), common.HexToHash(value))
 	}
-	state.SetCode(contractAddress, code)
+	state.SetCode(contractAddress, code, tracing.CodeChangeUnspecified)
 
 	trace := make([]NormalizedStep, 0, 128)
 	topDepth := -1
@@ -75,12 +75,13 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	rules := cfg.ChainConfig.Rules(cfg.BlockNumber, cfg.Random != nil, cfg.Time)
 	state.Prepare(rules, cfg.Origin, cfg.Coinbase, &contractAddress, gethvm.ActivePrecompiles(rules), nil)
 	env := runtime.NewEnv(cfg)
-	ret, left, callErr := env.Call(cfg.Origin, contractAddress, input, req.GasLimit, uint256.NewInt(0))
+	initialGas := gethvm.NewGasBudget(req.GasLimit, 0)
+	ret, left, callErr := env.Call(cfg.Origin, contractAddress, input, initialGas, uint256.NewInt(0))
 	if output == nil {
 		output = ret
 	}
-	if gasUsed == 0 && left != req.GasLimit {
-		gasUsed = req.GasLimit - left
+	if gasUsed == 0 && left.RegularGas != req.GasLimit {
+		gasUsed = left.Used(initialGas)
 	}
 	if exitErr == nil {
 		exitErr = callErr

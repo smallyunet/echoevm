@@ -92,7 +92,7 @@ func New(config *Config) (*Logger, error) {
 
 // WithContext creates a new logger with additional context
 func (l *Logger) WithContext(fields map[string]interface{}) *Logger {
-	event := l.Logger.With()
+	event := l.With()
 	for k, v := range fields {
 		event = event.Interface(k, v)
 	}
@@ -107,7 +107,7 @@ func (l *Logger) WithContext(fields map[string]interface{}) *Logger {
 // WithComponent creates a new logger with a specific component
 func (l *Logger) WithComponent(component string) *Logger {
 	return &Logger{
-		Logger:    l.Logger.With().Str("component", component).Logger(),
+		Logger:    l.With().Str("component", component).Logger(),
 		component: component,
 		version:   l.version,
 	}
@@ -116,7 +116,7 @@ func (l *Logger) WithComponent(component string) *Logger {
 // WithRequestID creates a new logger with a request ID
 func (l *Logger) WithRequestID(requestID string) *Logger {
 	return &Logger{
-		Logger:    l.Logger.With().Str("request_id", requestID).Logger(),
+		Logger:    l.With().Str("request_id", requestID).Logger(),
 		component: l.component,
 		version:   l.version,
 	}
@@ -125,7 +125,7 @@ func (l *Logger) WithRequestID(requestID string) *Logger {
 // WithTransaction creates a new logger with transaction context
 func (l *Logger) WithTransaction(txHash string, blockNumber uint64) *Logger {
 	return &Logger{
-		Logger:    l.Logger.With().Str("tx_hash", txHash).Uint64("block_number", blockNumber).Logger(),
+		Logger:    l.With().Str("tx_hash", txHash).Uint64("block_number", blockNumber).Logger(),
 		component: l.component,
 		version:   l.version,
 	}
@@ -134,7 +134,7 @@ func (l *Logger) WithTransaction(txHash string, blockNumber uint64) *Logger {
 // WithEVMContext creates a new logger with EVM execution context
 func (l *Logger) WithEVMContext(pc uint64, opcode byte, gas uint64) *Logger {
 	return &Logger{
-		Logger:    l.Logger.With().Uint64("pc", pc).Uint8("opcode", opcode).Uint64("gas", gas).Logger(),
+		Logger:    l.With().Uint64("pc", pc).Uint8("opcode", opcode).Uint64("gas", gas).Logger(),
 		component: l.component,
 		version:   l.version,
 	}
@@ -240,9 +240,9 @@ func (l *Logger) ContractExecution(contractAddress, function string, input []byt
 
 // ContractResult logs contract execution results
 func (l *Logger) ContractResult(contractAddress string, output []byte, gasUsed uint64, success bool) {
-	level := l.Logger.Info()
+	level := l.Info()
 	if !success {
-		level = l.Logger.Error()
+		level = l.Error()
 	}
 
 	level.
@@ -318,7 +318,7 @@ func (l *Logger) Performance(operation string, duration time.Duration, metadata 
 
 // Security logs security-related events
 func (l *Logger) Security(event string, details map[string]interface{}) {
-	eventLogger := l.Logger.Warn().
+	eventLogger := l.Warn().
 		Str("security_event", event)
 
 	for k, v := range details {

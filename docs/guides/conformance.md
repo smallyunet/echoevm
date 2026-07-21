@@ -19,7 +19,7 @@ fixture files, missing provenance, missing case categories, or a baseline below
 
 `internal/differential/` provides the production EchoEVM and embedded Geth
 runners used by the CLI, local Web Explorer, and `tests/differential/`. The
-test suite runs the same Cancun bytecode through go-ethereum v1.15.11 and
+test suite runs the same Cancun bytecode through go-ethereum v1.17.4 and
 compares:
 
 - return or revert data;

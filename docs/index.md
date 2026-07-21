@@ -33,7 +33,7 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 
 ## ✅ Requirements
 
-- Go 1.23.2+
+- Go 1.25+
 - (Optional) `solc` for compiling `.sol` files directly
 
 ---

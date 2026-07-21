@@ -30,7 +30,7 @@ func (e *Engine) Compare(ctx context.Context, req Request) (ComparisonResult, er
 	}
 	geth, err := e.geth.Run(ctx, normalized)
 	if err != nil {
-		return ComparisonResult{}, fmt.Errorf("Geth runner: %w", err)
+		return ComparisonResult{}, fmt.Errorf("geth runner: %w", err)
 	}
 	result := CompareResults(normalized, echo, geth)
 	result.TraceSemantics = traceSemantics

@@ -93,7 +93,9 @@ func runDeploy(cmd *cobra.Command) error {
 		logger.Info().Msgf("Runtime code written to %s (%d bytes)", deployFlags.out, len(runtime))
 	}
 	if deployFlags.printCode || deployFlags.out == "" {
-		fmt.Fprintln(cmd.OutOrStdout(), runtimeHex)
+		if _, err := fmt.Fprintln(cmd.OutOrStdout(), runtimeHex); err != nil {
+			return fmt.Errorf("write runtime code: %w", err)
+		}
 	}
 	if intr.IsReverted() {
 		return fmt.Errorf("constructor execution reverted")

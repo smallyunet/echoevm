@@ -132,9 +132,13 @@ func runCall(cmd *cobra.Command) error {
 		logger.Info().Msg("No return value")
 	}
 	if len(logs) > 0 {
-		fmt.Fprintf(cmd.OutOrStdout(), "Emitted %d log(s):\n", len(logs))
+		if _, err := fmt.Fprintf(cmd.OutOrStdout(), "Emitted %d log(s):\n", len(logs)); err != nil {
+			return fmt.Errorf("write log summary: %w", err)
+		}
 		for _, l := range logs {
-			fmt.Fprintf(cmd.OutOrStdout(), "  #%d topics=%v data=%s\n", l.Index, l.Topics, l.Data)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "  #%d topics=%v data=%s\n", l.Index, l.Topics, l.Data); err != nil {
+				return fmt.Errorf("write log entry: %w", err)
+			}
 		}
 	}
 	return nil

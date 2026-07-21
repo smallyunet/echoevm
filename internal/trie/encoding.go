@@ -23,7 +23,7 @@ func compactEncode(hex []byte) []byte {
 	}
 	oddlen := len(hex) & 1
 	flags := byte(2*term + oddlen)
-	var firstByte byte = flags << 4
+	firstByte := flags << 4
 	if oddlen != 0 {
 		firstByte |= hex[0]
 		hex = hex[1:]

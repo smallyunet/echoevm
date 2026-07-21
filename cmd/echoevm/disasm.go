@@ -131,9 +131,13 @@ func disassemble(code []byte) []Instruction {
 func outputDisasmPlain(cmd *cobra.Command, instructions []Instruction) error {
 	for _, inst := range instructions {
 		if inst.Operand != "" {
-			fmt.Fprintf(cmd.OutOrStdout(), "%04x: %s %s\n", inst.Offset, inst.OpcodeName, inst.Operand)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%04x: %s %s\n", inst.Offset, inst.OpcodeName, inst.Operand); err != nil {
+				return err
+			}
 		} else {
-			fmt.Fprintf(cmd.OutOrStdout(), "%04x: %s\n", inst.Offset, inst.OpcodeName)
+			if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%04x: %s\n", inst.Offset, inst.OpcodeName); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

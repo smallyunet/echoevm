@@ -14,7 +14,7 @@ func TestE2E_Run(t *testing.T) {
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to build echoevm: %v", err)
 	}
-	defer os.Remove("echoevm_test")
+	defer func() { _ = os.Remove("echoevm_test") }()
 
 	binPath, _ := filepath.Abs("echoevm_test")
 	tempDir := t.TempDir()

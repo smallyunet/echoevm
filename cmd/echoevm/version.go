@@ -50,8 +50,8 @@ func newVersionCmd() *cobra.Command {
 				enc.SetIndent("", "  ")
 				return enc.Encode(info)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "echoevm %s (commit %s, built %s) %s %s\n", info.Version, info.GitCommit, info.BuildDate, info.Platform, info.GoVersion)
-			return nil
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "echoevm %s (commit %s, built %s) %s %s\n", info.Version, info.GitCommit, info.BuildDate, info.Platform, info.GoVersion)
+			return err
 		},
 		Example: "echoevm version --json",
 	}
