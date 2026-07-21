@@ -169,13 +169,13 @@ marked with a compatibility warning.
 ### Server deployment
 
 Production deployment uses Docker Compose and
-`.github/workflows/deploy-server.yml`. Every push to `main` or a `v*` release
-tag runs the test suite, publishes an immutable Linux/amd64 image to GHCR, then
-asks a restricted server wrapper to pull and activate that digest. Compose
-applies a non-root user,
-read-only filesystem, dropped capabilities, resource limits, and a `/healthz`
-check. A failed health check restores the previous image. The workflow can also
-be run manually from GitHub Actions. Its dedicated root SSH key is bound to a
+`.github/workflows/deploy-server.yml`. Deployments are manual: starting the
+workflow runs the test suite, publishes an immutable Linux/amd64 image to GHCR,
+then asks a restricted server wrapper to pull and activate that digest. Pushes
+to `main` and release tags do not deploy automatically. Compose applies a
+non-root user, read-only filesystem, dropped capabilities, resource limits, and
+a `/healthz` check. A failed health check restores the previous image. Its
+dedicated root SSH key is bound to a
 forced command and cannot open a shell, forward ports, or run arbitrary
 commands; the existing operator SSH key is never copied to GitHub.
 Set `ECHOEVM_ETHEREUM_RPC` in the deployment environment to enable replay; the
