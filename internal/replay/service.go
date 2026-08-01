@@ -52,7 +52,10 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	if ref.ChainID != 0 && ref.ChainID != chainID {
+	if chainID != ethereumMainnetChainID {
+		return Result{}, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID)
+	}
+	if ref.ChainID != chainID {
 		return Result{}, fmt.Errorf("input targets chain %d but configured RPC is chain %d", ref.ChainID, chainID)
 	}
 	tx, meta, err := s.transaction(ctx, ref.Hash)
@@ -98,7 +101,7 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	}
 	result.Transaction = summarize(tx, meta, &receipt, &header, chainID)
 	result.TraceSemantics = traceSemantics
-	result.Warnings = replayWarnings(chainID, header.Time, tx, echo)
+	result.Warnings = replayWarnings(header.Time, tx, echo)
 	return result, nil
 }
 
@@ -314,11 +317,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	}
 	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID)}
 	if header.ExcessBlobGas != nil {
-		chainConfig := params.MainnetChainConfig
-		if chainID == 11155111 {
-			chainConfig = params.SepoliaChainConfig
-		}
-		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(chainConfig, header)
+		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(params.MainnetChainConfig, header)
 	}
 	output, gasUsed, reverted, executionErr := vm.ApplyTransactionWithContextAndHook(state, tx, sender, ctxBlock, hook)
 	if ctx.Err() != nil {
@@ -333,7 +332,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.24", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.25", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}
@@ -404,21 +403,15 @@ func summarize(tx *types.Transaction, meta rawTransaction, receipt *types.Receip
 	if receipt.Status == types.ReceiptStatusFailed {
 		status = "reverted"
 	}
-	return TransactionSummary{Hash: tx.Hash().Hex(), ExplorerURL: explorerURL(chainID, tx.Hash()), ChainID: chainID, BlockNumber: meta.BlockNumber, BlockHash: meta.BlockHash.Hex(), Index: meta.Index, From: meta.From.Hex(), To: to, Value: tx.Value().String(), GasLimit: tx.Gas(), GasUsed: receipt.GasUsed, Type: tx.Type(), Input: hexutil.Encode(tx.Data()), Status: status, Fork: forkName(chainID, header.Time)}
+	return TransactionSummary{Hash: tx.Hash().Hex(), ExplorerURL: explorerURL(tx.Hash()), ChainID: chainID, BlockNumber: meta.BlockNumber, BlockHash: meta.BlockHash.Hex(), Index: meta.Index, From: meta.From.Hex(), To: to, Value: tx.Value().String(), GasLimit: tx.Gas(), GasUsed: receipt.GasUsed, Type: tx.Type(), Input: hexutil.Encode(tx.Data()), Status: status, Fork: forkName(header.Time)}
 }
 
-func explorerURL(chainID uint64, hash common.Hash) string {
-	if chainID == 11155111 {
-		return "https://sepolia.etherscan.io/tx/" + hash.Hex()
-	}
+func explorerURL(hash common.Hash) string {
 	return "https://etherscan.io/tx/" + hash.Hex()
 }
 
-func forkName(chainID, timestamp uint64) string {
+func forkName(timestamp uint64) string {
 	cancun, prague, osaka := uint64(1710338135), uint64(1746612311), uint64(1764798551)
-	if chainID == 11155111 {
-		cancun, prague, osaka = 1706655072, 1741159776, 1760427360
-	}
 	switch {
 	case timestamp >= osaka:
 		return "Osaka"
@@ -431,10 +424,10 @@ func forkName(chainID, timestamp uint64) string {
 	}
 }
 
-func replayWarnings(chainID, timestamp uint64, tx *types.Transaction, echo differential.ExecutionResult) []string {
+func replayWarnings(timestamp uint64, tx *types.Transaction, echo differential.ExecutionResult) []string {
 	warnings := make([]string, 0, 3)
-	if forkName(chainID, timestamp) != "Cancun" {
-		warnings = append(warnings, "EchoEVM currently executes Cancun rules; this transaction belongs to "+forkName(chainID, timestamp)+", so a divergence may reflect unsupported fork semantics.")
+	if forkName(timestamp) != "Cancun" {
+		warnings = append(warnings, "EchoEVM currently executes Cancun rules; this transaction belongs to "+forkName(timestamp)+", so a divergence may reflect unsupported fork semantics.")
 	}
 	if tx.Type() == types.SetCodeTxType {
 		warnings = append(warnings, "EIP-7702 set-code transaction semantics are not implemented by EchoEVM.")

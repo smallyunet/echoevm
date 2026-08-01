@@ -9,9 +9,9 @@ func TestParseTransactionReference(t *testing.T) {
 		input string
 		chain uint64
 	}{
-		{testHash, 0},
+		{testHash, ethereumMainnetChainID},
 		{" https://etherscan.io/tx/" + testHash + "?utm_source=test ", 1},
-		{"https://sepolia.etherscan.io/tx/" + testHash, 11155111},
+		{"https://www.etherscan.io/tx/" + testHash, 1},
 	}
 	for _, test := range tests {
 		ref, err := ParseTransactionReference(test.input)
@@ -25,7 +25,7 @@ func TestParseTransactionReference(t *testing.T) {
 }
 
 func TestParseTransactionReferenceRejectsUnsafeOrMalformedInput(t *testing.T) {
-	for _, input := range []string{"", "0x1234", "https://example.com/tx/" + testHash, "https://etherscan.io/address/" + testHash} {
+	for _, input := range []string{"", "0x1234", "https://example.com/tx/" + testHash, "https://sepolia.etherscan.io/tx/" + testHash, "https://etherscan.io/address/" + testHash} {
 		if _, err := ParseTransactionReference(input); err == nil {
 			t.Fatalf("expected %q to be rejected", input)
 		}

@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.24](#-whats-new-in-v0024)
+- [What's New in v0.0.25](#-whats-new-in-v0025)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,11 @@
 
 ---
 
-## 🆕 What's New in v0.0.24
+## 🆕 What's New in v0.0.25
+
+- **Mainnet-Only Replay**: Transaction hashes and Etherscan URLs now resolve consistently to Ethereum Mainnet, and non-mainnet RPC endpoints are rejected before transaction lookup.
+
+### Previous v0.0.24
 
 - **Reliable Explorer Assets**: Versioned JavaScript and CSS URLs prevent CDN caches from pairing a new transaction-replay page with an older script that lacks the replay button handler.
 
@@ -162,7 +166,7 @@ ECHOEVM_ETHEREUM_RPC=https://your-trace-rpc.example \
 ```
 
 The Explorer keeps raw bytecode comparison under its Advanced section. Replay
-supports confirmed Ethereum Mainnet and Sepolia transactions. EchoEVM currently
+supports confirmed Ethereum Mainnet transactions. EchoEVM currently
 executes Cancun rules; transactions from other forks remain inspectable but are
 marked with a compatibility warning.
 
@@ -338,7 +342,7 @@ make test-differential # Compare Cancun behavior with go-ethereum
 make test-conformance # Run both conformance layers with summary output
 ```
 
-The v0.0.24 baseline contains 9 pinned official Cancun cases and 17 geth
+The v0.0.25 baseline contains 9 pinned official Cancun cases and 17 geth
 differential vectors across arithmetic, bitwise, control, crypto, environment,
 fault, memory, and storage. Both suites fail on missing metadata, shrinking
 case counts, missing required categories, or skipped execution.

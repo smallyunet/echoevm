@@ -5,7 +5,11 @@
 ---
 
 
-## 🆕 What's New in v0.0.24
+## 🆕 What's New in v0.0.25
+
+- **Mainnet-Only Replay**: Transaction hashes and Etherscan URLs resolve to Ethereum Mainnet, with early rejection for non-mainnet RPC endpoints.
+
+### Previous v0.0.24
 
 - **Reliable Explorer Assets**: Content-versioned JavaScript and CSS prevent stale CDN assets from disabling transaction replay controls after a deployment.
 
@@ -37,7 +41,7 @@ See [ROADMAP.md](https://github.com/smallyunet/echoevm/blob/main/ROADMAP.md) for
 | Category | Features |
 |----------|----------|
 | **Execution** | Constructor deployment, runtime calls, bytecode disassembly |
-| **Replay** | Mainnet/Sepolia transaction input, RPC prestate hydration, Geth trace comparison |
+| **Replay** | Ethereum Mainnet transaction input, RPC prestate hydration, Geth trace comparison |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
 | **Tracing** | JSON structured per-opcode tracing with pre/post state |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |

@@ -37,7 +37,10 @@ func initRoot() {
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.logLevel, "log-level", "L", "info", "Global log level")
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.output, "output", "o", "plain", "Output format (plain|json)")
 	rootCmd.PersistentFlags().StringVarP(&globalFlags.config, "config", "c", "", "Config file path (optional)")
-	rootCmd.PersistentFlags().StringVar(&globalFlags.RPCURL, "rpc-url", config.GetRuntimeConfig().EthereumRPC, "Ethereum RPC endpoint (must support debug_traceTransaction for replay)")
+	rootCmd.PersistentFlags().StringVar(&globalFlags.RPCURL, "rpc-url", config.GetRuntimeConfig().EthereumRPC, "Ethereum Mainnet RPC endpoint (must support debug_traceTransaction for replay)")
+	if os.Getenv(config.EnvEthereumRPC) != "" {
+		rootCmd.PersistentFlags().Lookup("rpc-url").DefValue = "<configured>"
+	}
 }
 
 func addSubCommands() {

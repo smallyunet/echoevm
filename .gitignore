@@ -205,3 +205,6 @@ bin/
 # Tests
 tests/fixtures/
 /echoevm
+
+# Local environment and RPC credentials
+.env

@@ -58,7 +58,7 @@ reported with false precision.
 
 ### `replay`
 
-Replay a confirmed Ethereum Mainnet or Sepolia transaction from a hash or
+Replay a confirmed Ethereum Mainnet transaction from a hash or
 Etherscan transaction URL. The configured RPC must expose
 `debug_traceTransaction` and Geth-compatible `prestateTracer` output.
 

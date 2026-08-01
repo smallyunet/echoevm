@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.24
+**Current Version**: v0.0.25
 
 ---
 
@@ -54,6 +54,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.22 | RPC-backed transaction replay, Etherscan input, nested call-frame tracing |
 | v0.0.23 | Lint-clean immutable patch release for transaction replay |
 | v0.0.24 | Cache-safe Explorer assets for reliable transaction replay controls |
+| v0.0.25 | Ethereum Mainnet-only transaction recognition and RPC validation |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -117,10 +118,11 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.24 Priorities:**
+**v0.0.25 Priorities:**
 1. Turn transaction hashes and Etherscan URLs into reproducible EchoEVM executions
 2. Preserve nested call frames in transaction-wide opcode traces
 3. Keep RPC credentials server-side with bounded replay concurrency and timeouts
+4. Resolve every replay input against Ethereum Mainnet and reject non-mainnet RPC endpoints
 
 The replay engine intentionally requires a trace-capable RPC and does not
 approximate transaction prestate from the parent block. Cancun remains the only

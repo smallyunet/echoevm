@@ -14,7 +14,7 @@ func newReplayCmd() *cobra.Command {
 	var format string
 	cmd := &cobra.Command{
 		Use:   "replay <transaction-hash-or-etherscan-url>",
-		Short: "Replay a confirmed Ethereum transaction with RPC prestate",
+		Short: "Replay a confirmed Ethereum Mainnet transaction with RPC prestate",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if format != "text" && format != "json" {

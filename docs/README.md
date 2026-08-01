@@ -2,7 +2,7 @@
 
 Central index for EchoEVM reference, guides, and examples.
 
-**Current Version**: v0.0.24
+**Current Version**: v0.0.25
 
 ## 📚 Index
 
@@ -93,7 +93,7 @@ More detail: [Testing Guide](guides/testing.md).
 ## 🗺 Roadmap
 
 See [ROADMAP.md](../ROADMAP.md) for:
-- Completed features by version (v0.0.1 - v0.0.24)
+- Completed features by version (v0.0.1 - v0.0.25)
 - Upcoming features (Phase 3-5)
 - Development timeline
 

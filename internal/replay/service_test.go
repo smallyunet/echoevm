@@ -13,6 +13,7 @@ import (
 )
 
 type replayFixtureRPC struct {
+	chainID   uint64
 	raw       json.RawMessage
 	header    types.Header
 	receipt   types.Receipt
@@ -24,7 +25,11 @@ type replayFixtureRPC struct {
 func (f *replayFixtureRPC) CallContext(_ context.Context, result any, method string, args ...any) error {
 	switch method {
 	case "eth_chainId":
-		*result.(*hexutil.Uint64) = 1
+		chainID := f.chainID
+		if chainID == 0 {
+			chainID = ethereumMainnetChainID
+		}
+		*result.(*hexutil.Uint64) = hexutil.Uint64(chainID)
 	case "eth_getTransactionByHash":
 		*result.(*json.RawMessage) = append(json.RawMessage(nil), f.raw...)
 	case "eth_getTransactionReceipt":
@@ -47,6 +52,13 @@ func (f *replayFixtureRPC) CallContext(_ context.Context, result any, method str
 		panic("unexpected RPC method " + method)
 	}
 	return nil
+}
+
+func TestReplayRejectsNonMainnetRPC(t *testing.T) {
+	_, err := NewServiceWithCaller(&replayFixtureRPC{chainID: 11155111}).Replay(context.Background(), Request{Input: testHash})
+	if err == nil || err.Error() != "configured RPC is chain 11155111; Ethereum Mainnet chain 1 is required" {
+		t.Fatalf("Replay error = %v", err)
+	}
 }
 
 func TestReplayHydratesPrestateAndExecutesTransaction(t *testing.T) {
