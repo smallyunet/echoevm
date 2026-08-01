@@ -40,12 +40,12 @@ func opSstore(i *Interpreter, _ byte) {
 	// GasTable[SSTORE] = 0.
 
 	var cost uint64
-	// 1. Cold SLOAD cost
+	// EIP-2929 adds the cold-slot surcharge to SSTORE. Warm access does not
+	// add a separate charge: the EIP-2200 costs below already use the warm
+	// SLOAD cost as their baseline.
 	if !i.statedb.SlotInAccessList(i.address, key) {
 		cost += 2100
 		i.statedb.AddSlotToAccessList(i.address, key)
-	} else {
-		cost += 100
 	}
 
 	// 2. Dynamic cost (EIP-2200)

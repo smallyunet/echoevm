@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.26
+**Current Version**: v0.0.27
 
 ---
 
@@ -56,6 +56,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.24 | Cache-safe Explorer assets for reliable transaction replay controls |
 | v0.0.25 | Ethereum Mainnet-only transaction recognition and RPC validation |
 | v0.0.26 | Trace-aware readiness, credential-safe atomic deployment bundles, and typed replay failures |
+| v0.0.27 | Correct SSTORE gas replay, normalized Geth opcodes, recent-transaction shortcuts, and a light Explorer UI |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -119,12 +120,12 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.26 Priorities:**
-1. Turn transaction hashes and Etherscan URLs into reproducible EchoEVM executions
-2. Preserve nested call frames in transaction-wide opcode traces
-3. Keep RPC credentials server-side with bounded replay concurrency and timeouts
-4. Resolve every replay input against Ethereum Mainnet and reject non-mainnet RPC endpoints
-5. Require trace-capable RPC readiness and atomically deploy the complete production stack without losing credentials
+**v0.0.27 Priorities:**
+1. Compare transaction opcode gas costs without treating Geth's `KECCAK256` name as a missing `SHA3` instruction
+2. Match EIP-2200 and EIP-2929 SSTORE gas accounting for warm storage slots
+3. Offer a bounded, server-cached list of recent Mainnet transactions only when the Explorer is opened
+4. Keep replay explicit: selecting a recent transaction fills the input but does not consume trace RPC quota
+5. Present replay, warnings, divergences, and traces in an accessible light interface
 
 The replay engine intentionally requires a trace-capable RPC and does not
 approximate transaction prestate from the parent block. Cancun remains the only

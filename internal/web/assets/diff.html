@@ -35,6 +35,19 @@
           <button id="replay" class="primary">Replay transaction</button>
         </div>
         <span class="hint" id="transaction-hint">The configured RPC must support debug_traceTransaction and prestateTracer.</span>
+        <section class="recent-picker" aria-labelledby="recent-title">
+          <div class="recent-heading">
+            <div><h3 id="recent-title">Try a recent transaction</h3><p>Select one to fill the input. Replay starts only when you press the button.</p></div>
+            <span id="recent-status" role="status" aria-live="polite">Loading latest block…</span>
+          </div>
+          <div id="recent-transactions" class="recent-list" aria-busy="true">
+            <span class="recent-skeleton" aria-hidden="true"></span>
+            <span class="recent-skeleton" aria-hidden="true"></span>
+            <span class="recent-skeleton" aria-hidden="true"></span>
+            <span class="recent-skeleton" aria-hidden="true"></span>
+            <span class="recent-skeleton" aria-hidden="true"></span>
+          </div>
+        </section>
       </div>
       <div class="actions"><span id="request-status" role="status" aria-live="polite"></span></div>
       <div id="error" class="error" role="alert" hidden></div>

@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.26](#-whats-new-in-v0026)
+- [What's New in v0.0.27](#-whats-new-in-v0027)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,14 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.26
+## 🆕 What's New in v0.0.27
+
+- **Correct SSTORE Gas**: Warm storage writes no longer receive an extra 100-gas charge on top of the EIP-2200 baseline.
+- **Reliable Opcode Comparison**: Geth's `KECCAK256` trace name is normalized to EVM `SHA3`, and transaction traces now compare per-opcode gas cost explicitly.
+- **Recent Mainnet Transactions**: Opening the Explorer loads five transactions from the latest Ethereum block through a short server-side cache; selecting one only fills the replay input.
+- **Light Differential Explorer**: The complete replay, warning, divergence, and trace interface now uses an accessible light color system.
+
+### Previous v0.0.26
 
 - **Replay Readiness**: `/readyz` verifies Ethereum Mainnet, `prestateTracer`, and opcode-trace support before a deployment is accepted.
 - **Atomic Deployment Bundle**: Immutable images carry Compose, Caddy, and deployment configuration; the server validates and atomically activates the bundle with whole-stack rollback.

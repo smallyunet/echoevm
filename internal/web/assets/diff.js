@@ -27,6 +27,40 @@ el('compare').addEventListener('click', compare);
 el('show-equal').addEventListener('change', renderTrace);
 el('copy-cli').addEventListener('click', copyCLI);
 el('export-json').addEventListener('click', exportJSON);
+loadRecentTransactions();
+
+async function loadRecentTransactions() {
+  const list = el('recent-transactions'); const status = el('recent-status');
+  try {
+    const response = await fetch('/api/recent-transactions', {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    list.replaceChildren(); list.setAttribute('aria-busy', 'false');
+    status.textContent = `Ethereum block ${data.blockNumber}`;
+    if (!data.transactions?.length) return renderRecentEmpty('The latest block has no transactions. Paste a hash instead.');
+    data.transactions.forEach(transaction => {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'recent-transaction';
+      button.setAttribute('aria-pressed', 'false'); button.setAttribute('aria-label', `Use transaction ${transaction.hash}`); button.title = transaction.hash;
+      button.append(textNode('code', shortHash(transaction.hash)), textNode('span', `Transaction #${transaction.transactionIndex}`));
+      button.addEventListener('click', () => selectRecentTransaction(transaction.hash, button)); list.append(button);
+    });
+  } catch (_) {
+    list.setAttribute('aria-busy', 'false'); status.textContent = 'Recent transactions unavailable';
+    renderRecentEmpty('Paste a confirmed transaction hash or Etherscan URL instead.');
+  }
+}
+
+function renderRecentEmpty(message) {
+  const list = el('recent-transactions'); list.replaceChildren();
+  const empty = textNode('p', message); empty.className = 'recent-empty'; list.append(empty);
+}
+
+function selectRecentTransaction(hash, selected) {
+  el('transaction-input').value = hash;
+  document.querySelectorAll('.recent-transaction').forEach(button => button.setAttribute('aria-pressed', String(button === selected)));
+  el('request-status').textContent = `Selected ${shortHash(hash)}. Press Replay transaction to run it.`;
+  el('error').hidden = true;
+}
 
 async function replay() {
   const input = el('transaction-input').value.trim();
@@ -83,7 +117,7 @@ function render(result) {
   const d = result.firstDivergence; el('divergence').hidden = !d;
   if (d) {
     const where = d.step === undefined ? 'final result' : `step ${d.step}${d.pc === undefined ? '' : ` · PC ${d.pc}`}${d.opcode ? ` · ${d.opcode}` : ''}`;
-    el('divergence-title').textContent = `${where} · ${d.field}`;
+    el('divergence-title').textContent = `${where} · ${formatDivergenceField(d.field)}`;
     el('div-echo').textContent = `EchoEVM\n${formatValue(d.echoevm)}`; el('div-geth').textContent = `Geth\n${formatValue(d.geth)}`;
   }
   el('trace-note').textContent = result.traceSemantics;
@@ -130,15 +164,21 @@ function traceCell(step, index) {
   if (!step) { cell.textContent = `Step ${index}: missing`; return cell; }
   const title = document.createElement('div'); title.className = 'trace-title';
   title.append(textNode('span', `#${step.index} · D${step.depth} · PC ${step.pc}`), textNode('strong', step.opcodeName));
-  const details = document.createElement('pre'); details.textContent = `gas ${step.gasBefore} → ${step.gasAfter}\nstack pre  ${formatStack(step.stackBefore)}\nstack post ${formatStack(step.stackAfter)}${step.address ? `\naddress ${step.address}` : ''}${step.haltClass ? `\nhalt ${step.haltClass}` : ''}`;
+  const details = document.createElement('pre'); details.textContent = `gas ${step.gasBefore} → ${step.gasAfter} · cost ${traceGasCost(step)}\nstack pre  ${formatStack(step.stackBefore)}\nstack post ${formatStack(step.stackAfter)}${step.address ? `\naddress ${step.address}` : ''}${step.haltClass ? `\nhalt ${step.haltClass}` : ''}`;
   cell.append(title, details); return cell;
 }
 
 function stepsEqual(a, b) {
   if (!a || !b) return false;
-  const keys = resultMode === 'transaction' ? ['depth','pc','opcode'] : ['pc','opcode','opcodeName','gasBefore','gasAfter','stackBefore','stackAfter','haltClass'];
-  return keys.every(key => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
+  if (resultMode === 'transaction') {
+    const identityMatches = ['depth','pc','opcode'].every(key => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
+    return identityMatches && traceGasCost(a) === traceGasCost(b);
+  }
+  return ['pc','opcode','opcodeName','gasBefore','gasAfter','stackBefore','stackAfter','haltClass']
+    .every(key => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
 }
+function traceGasCost(step) { return Math.max(0, step.gasBefore - step.gasAfter); }
+function formatDivergenceField(field) { return field === 'gasCost' ? 'gas cost' : field; }
 function formatStack(stack) { return stack ? `[${stack.join(', ')}]` : 'not compared'; }
 function formatValue(value) { return typeof value === 'string' ? value : JSON.stringify(value, null, 2); }
 function textNode(tag, text) { const node = document.createElement(tag); node.textContent = text; return node; }

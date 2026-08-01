@@ -10,9 +10,21 @@ import (
 )
 
 const MaxTraceSteps = 50_000
+const RecentTransactionLimit = 5
 
 type Request struct {
 	Input string `json:"input"`
+}
+
+type RecentTransaction struct {
+	Hash        string `json:"hash"`
+	ExplorerURL string `json:"explorerUrl"`
+	Index       uint64 `json:"transactionIndex"`
+}
+
+type RecentTransactions struct {
+	BlockNumber  uint64              `json:"blockNumber"`
+	Transactions []RecentTransaction `json:"transactions"`
 }
 
 type TransactionSummary struct {

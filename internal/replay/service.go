@@ -113,6 +113,34 @@ func (s *Service) chainID(ctx context.Context) (uint64, error) {
 	return uint64(value), nil
 }
 
+type rpcRecentBlock struct {
+	Number       hexutil.Uint64 `json:"number"`
+	Transactions []common.Hash  `json:"transactions"`
+}
+
+func (s *Service) RecentTransactions(ctx context.Context) (RecentTransactions, error) {
+	if s == nil || s.rpc == nil {
+		return RecentTransactions{}, errors.New("transaction replay service is not configured")
+	}
+	chainID, err := s.chainID(ctx)
+	if err != nil {
+		return RecentTransactions{}, err
+	}
+	if chainID != ethereumMainnetChainID {
+		return RecentTransactions{}, NewError(ErrorUnavailable, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID))
+	}
+	var block rpcRecentBlock
+	if err := s.rpc.CallContext(ctx, &block, "eth_getBlockByNumber", "latest", false); err != nil {
+		return RecentTransactions{}, NewError(ErrorUpstream, fmt.Errorf("load latest Ethereum block: %w", err))
+	}
+	transactions := make([]RecentTransaction, 0, min(RecentTransactionLimit, len(block.Transactions)))
+	for index := len(block.Transactions) - 1; index >= 0 && len(transactions) < RecentTransactionLimit; index-- {
+		hash := block.Transactions[index]
+		transactions = append(transactions, RecentTransaction{Hash: hash.Hex(), ExplorerURL: explorerURL(hash), Index: uint64(index)})
+	}
+	return RecentTransactions{BlockNumber: uint64(block.Number), Transactions: transactions}, nil
+}
+
 func (s *Service) Probe(ctx context.Context) (Readiness, error) {
 	status := Readiness{}
 	if s == nil || s.rpc == nil {
@@ -300,15 +328,17 @@ func (s *Service) referenceTrace(ctx context.Context, hash common.Hash, receipt 
 }
 
 func decodeOpcode(raw json.RawMessage, name string) (byte, string) {
-	if name != "" {
-		if opcode, ok := core.OpcodeByName(name); ok {
-			return opcode, name
-		}
+	if opcode, ok := opcodeByRPCName(name); ok {
+		return opcode, core.OpcodeName(opcode)
 	}
 	var stringValue string
 	if json.Unmarshal(raw, &stringValue) == nil {
-		if opcode, ok := core.OpcodeByName(stringValue); ok {
-			return opcode, stringValue
+		if opcode, ok := opcodeByRPCName(stringValue); ok {
+			return opcode, core.OpcodeName(opcode)
+		}
+		if value, err := strconv.ParseUint(strings.TrimPrefix(strings.ToLower(stringValue), "0x"), 16, 8); err == nil {
+			opcode := byte(value)
+			return opcode, core.OpcodeName(opcode)
 		}
 	}
 	var number byte
@@ -316,6 +346,14 @@ func decodeOpcode(raw json.RawMessage, name string) (byte, string) {
 		return number, core.OpcodeName(number)
 	}
 	return 0, name
+}
+
+func opcodeByRPCName(name string) (byte, bool) {
+	name = strings.ToUpper(strings.TrimSpace(name))
+	if name == "KECCAK256" {
+		return core.SHA3, true
+	}
+	return core.OpcodeByName(name)
 }
 
 func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, chainID uint64, header *types.Header, prestate map[common.Address]prestateAccount) (differential.ExecutionResult, *core.MemoryStateDB, error) {
@@ -373,7 +411,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.26", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.27", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}
@@ -515,6 +553,13 @@ func compare(echo, geth differential.ExecutionResult) Result {
 			result.TraceMatch = false
 			break
 		}
+		aCost, bCost := traceGasCost(a), traceGasCost(b)
+		if aCost != bCost {
+			step, pc := index, a.PC
+			result.FirstDivergence = &differential.Divergence{Kind: "trace", Step: &step, PC: &pc, Opcode: a.OpcodeName, Field: "gasCost", EchoEVM: aCost, Geth: bCost, Description: "transaction opcode gas cost diverged"}
+			result.TraceMatch = false
+			break
+		}
 	}
 	if result.FirstDivergence == nil && len(echo.Trace) != len(geth.Trace) {
 		step := limit
@@ -532,4 +577,11 @@ func compare(echo, geth differential.ExecutionResult) Result {
 	}
 	result.Match = result.StatusMatch && result.ReturnDataMatch && result.GasMatch && result.TraceMatch
 	return result
+}
+
+func traceGasCost(step differential.NormalizedStep) uint64 {
+	if step.GasAfter >= step.GasBefore {
+		return 0
+	}
+	return step.GasBefore - step.GasAfter
 }

@@ -35,6 +35,11 @@ type Server struct {
 	diffSlots    chan struct{}
 	replay       *replay.Service
 	replaySlots  chan struct{}
+	recentMu     sync.Mutex
+	recentAt     time.Time
+	recent       replay.RecentTransactions
+	recentErr    error
+	recentTTL    time.Duration
 	readinessMu  sync.Mutex
 	readinessAt  time.Time
 	readiness    replay.Readiness
@@ -80,6 +85,7 @@ func NewServer(addr string) *Server {
 		assetsDir:    assets,
 		assetVersion: fingerprintAssets(assets, "diff.css", "diff.js"),
 		control:      make(chan ControlMessage, 16),
+		recentTTL:    12 * time.Second,
 		readinessTTL: 30 * time.Second,
 	}
 }
@@ -117,6 +123,7 @@ func (s *Server) Start() error {
 		mux.Handle("/assets/", cacheVersionedAsset(assets))
 		mux.HandleFunc("/api/diff", s.serveDiff)
 		mux.HandleFunc("/api/replay", s.serveReplay)
+		mux.HandleFunc("/api/recent-transactions", s.serveRecentTransactions)
 		mux.HandleFunc("/healthz", s.serveHealth)
 		mux.HandleFunc("/readyz", s.serveReady)
 	} else {
@@ -130,6 +137,39 @@ func (s *Server) Start() error {
 	}
 	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
+}
+
+func (s *Server) serveRecentTransactions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if s.replay == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "recent transactions are unavailable: configure ECHOEVM_ETHEREUM_RPC")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	result, err := s.loadRecentTransactions(ctx)
+	if err != nil {
+		writeJSONError(w, replayHTTPStatus(err), err.Error())
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) loadRecentTransactions(ctx context.Context) (replay.RecentTransactions, error) {
+	s.recentMu.Lock()
+	defer s.recentMu.Unlock()
+	if !s.recentAt.IsZero() && time.Since(s.recentAt) < s.recentTTL {
+		return s.recent, s.recentErr
+	}
+	s.recent, s.recentErr = s.replay.RecentTransactions(ctx)
+	s.recentAt = time.Now()
+	return s.recent, s.recentErr
 }
 
 func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {

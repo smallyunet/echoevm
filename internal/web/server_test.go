@@ -15,8 +15,9 @@ import (
 )
 
 type readinessRPC struct {
-	calls int
-	err   error
+	calls       int
+	recentCalls int
+	err         error
 }
 
 func (r *readinessRPC) CallContext(_ context.Context, result any, method string, _ ...any) error {
@@ -29,10 +30,38 @@ func (r *readinessRPC) CallContext(_ context.Context, result any, method string,
 		*result.(*hexutil.Uint64) = 1
 	case "debug_traceCall":
 		*result.(*json.RawMessage) = json.RawMessage(`{}`)
+	case "eth_getBlockByNumber":
+		r.recentCalls++
+		return json.Unmarshal([]byte(`{"number":"0x2a","transactions":["0x0000000000000000000000000000000000000000000000000000000000000001","0x0000000000000000000000000000000000000000000000000000000000000002"]}`), result)
 	default:
 		return errors.New("unexpected method " + method)
 	}
 	return nil
+}
+
+func TestRecentTransactionsAPIUsesShortOnDemandCache(t *testing.T) {
+	rpc := &readinessRPC{}
+	server := NewServer(":0")
+	server.replay = replay.NewServiceWithCaller(rpc)
+	for range 2 {
+		recorder := httptest.NewRecorder()
+		server.serveRecentTransactions(recorder, httptest.NewRequest(http.MethodGet, "/api/recent-transactions", nil))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"blockNumber":42`) || !strings.Contains(recorder.Body.String(), `"transactionIndex":1`) {
+			t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+		}
+		if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
+			t.Fatalf("Cache-Control=%q", got)
+		}
+	}
+	if rpc.recentCalls != 1 {
+		t.Fatalf("latest block RPC calls = %d, want 1", rpc.recentCalls)
+	}
+
+	recorder := httptest.NewRecorder()
+	server.serveRecentTransactions(recorder, httptest.NewRequest(http.MethodPost, "/api/recent-transactions", nil))
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST status=%d", recorder.Code)
+	}
 }
 
 func TestDifferentialAPI(t *testing.T) {
