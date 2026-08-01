@@ -195,3 +195,13 @@ func TestCompareReportsFirstOpcodeGasCostDivergence(t *testing.T) {
 		t.Fatalf("first divergence = %+v", result.FirstDivergence)
 	}
 }
+
+func TestCompareSkipsNonComparableNestedCallGasDelta(t *testing.T) {
+	echo := differential.ExecutionResult{Status: differential.StatusSuccess, ReturnData: "0x", GasUsed: 1_000, Trace: []differential.NormalizedStep{{Index: 0, PC: 5, Opcode: "0xf4", OpcodeName: "DELEGATECALL", GasBefore: 100_000, GasAfter: 20_000}}}
+	geth := differential.ExecutionResult{Status: differential.StatusSuccess, ReturnData: "0x", GasUsed: 1_000, Trace: []differential.NormalizedStep{{Index: 0, PC: 5, Opcode: "0xf4", OpcodeName: "DELEGATECALL", GasBefore: 100_000, GasAfter: 50_000}}}
+
+	result := compare(echo, geth)
+	if !result.Match || !result.TraceMatch || result.FirstDivergence != nil {
+		t.Fatalf("comparison = %+v", result)
+	}
+}

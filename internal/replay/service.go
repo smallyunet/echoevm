@@ -411,7 +411,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.29", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.30", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}
@@ -554,7 +554,7 @@ func compare(echo, geth differential.ExecutionResult) Result {
 			break
 		}
 		aCost, bCost := traceGasCost(a), traceGasCost(b)
-		if aCost != bCost {
+		if comparableTraceGasCost(a.OpcodeName) && aCost != bCost {
 			step, pc := index, a.PC
 			result.FirstDivergence = &differential.Divergence{Kind: "trace", Step: &step, PC: &pc, Opcode: a.OpcodeName, Field: "gasCost", EchoEVM: aCost, Geth: bCost, Description: "transaction opcode gas cost diverged"}
 			result.TraceMatch = false
@@ -584,4 +584,13 @@ func traceGasCost(step differential.NormalizedStep) uint64 {
 		return 0
 	}
 	return step.GasBefore - step.GasAfter
+}
+
+func comparableTraceGasCost(opcode string) bool {
+	switch opcode {
+	case "CALL", "CALLCODE", "DELEGATECALL", "STATICCALL", "CREATE", "CREATE2":
+		return false
+	default:
+		return true
+	}
 }

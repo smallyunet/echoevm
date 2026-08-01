@@ -164,7 +164,8 @@ function traceCell(step, index) {
   if (!step) { cell.textContent = `Step ${index}: missing`; return cell; }
   const title = document.createElement('div'); title.className = 'trace-title';
   title.append(textNode('span', `#${step.index} · D${step.depth} · PC ${step.pc}`), textNode('strong', step.opcodeName));
-  const details = document.createElement('pre'); details.textContent = `gas ${step.gasBefore} → ${step.gasAfter} · cost ${traceGasCost(step)}\nstack pre  ${formatStack(step.stackBefore)}\nstack post ${formatStack(step.stackAfter)}${step.address ? `\naddress ${step.address}` : ''}${step.haltClass ? `\nhalt ${step.haltClass}` : ''}`;
+  const cost = comparableTraceGasCost(step) ? traceGasCost(step) : 'not compared';
+  const details = document.createElement('pre'); details.textContent = `gas ${step.gasBefore} → ${step.gasAfter} · cost ${cost}\nstack pre  ${formatStack(step.stackBefore)}\nstack post ${formatStack(step.stackAfter)}${step.address ? `\naddress ${step.address}` : ''}${step.haltClass ? `\nhalt ${step.haltClass}` : ''}`;
   cell.append(title, details); return cell;
 }
 
@@ -172,12 +173,13 @@ function stepsEqual(a, b) {
   if (!a || !b) return false;
   if (resultMode === 'transaction') {
     const identityMatches = ['depth','pc','opcode'].every(key => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
-    return identityMatches && traceGasCost(a) === traceGasCost(b);
+    return identityMatches && (!comparableTraceGasCost(a) || traceGasCost(a) === traceGasCost(b));
   }
   return ['pc','opcode','opcodeName','gasBefore','gasAfter','stackBefore','stackAfter','haltClass']
     .every(key => JSON.stringify(a[key] ?? null) === JSON.stringify(b[key] ?? null));
 }
 function traceGasCost(step) { return Math.max(0, step.gasBefore - step.gasAfter); }
+function comparableTraceGasCost(step) { return !['CALL','CALLCODE','DELEGATECALL','STATICCALL','CREATE','CREATE2'].includes(step.opcodeName); }
 function formatDivergenceField(field) { return field === 'gasCost' ? 'gas cost' : field; }
 function formatStack(stack) { return stack ? `[${stack.join(', ')}]` : 'not compared'; }
 function formatValue(value) { return typeof value === 'string' ? value : JSON.stringify(value, null, 2); }

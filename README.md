@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.29](#-whats-new-in-v0029)
+- [What's New in v0.0.30](#-whats-new-in-v0030)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,11 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.29
+## 🆕 What's New in v0.0.30
+
+- **Comparable Gas Diagnostics**: Transaction traces compare per-opcode gas where EchoEVM and Geth expose the same semantics, while nested calls and creates are labeled as not comparable instead of producing false divergences.
+
+### Previous v0.0.29
 
 - **Verifiable Release Identity**: Production image builds fetch release tags so `echoevm version` reports the published semantic version alongside its full commit hash.
 
