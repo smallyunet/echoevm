@@ -112,7 +112,7 @@ Full compliance and ecosystem integration.
 - [ ] **Performance Optimization** - Interpreter speed improvements
 - [ ] **Library API** - Embeddable Go package for programmatic use
 - [ ] **Plugin System** - Custom opcode handlers
-- [ ] **Documentation Site** - Comprehensive API and usage docs
+- [x] **Unified Hosted Demo** - Use `https://r.dark20.xyz/` as the single public web entry point
 - [ ] **Community Guidelines** - Contributing, code of conduct
 
 ---

@@ -4,8 +4,11 @@
 [![Release](https://img.shields.io/github/v/release/smallyunet/echoevm?style=flat&color=blue)](https://github.com/smallyunet/echoevm/releases)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat)]()
+[![Live Demo](https://img.shields.io/badge/live_demo-r.dark20.xyz-orange)](https://r.dark20.xyz/)
 
 **EchoEVM** is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
+
+Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)**.
 
 ---
 
@@ -391,8 +394,7 @@ echoevm/
 │   ├── config/      # Constants, environment variables
 │   ├── logger/      # Zerolog wrapper
 │   └── errors/      # Error definitions
-├── tests/           # Integration and compliance tests
-└── docs/            # Documentation
+└── tests/           # Integration and compliance tests
 ```
 
 ### Supported Opcode Categories
@@ -402,8 +404,6 @@ Arithmetic, Bitwise, Comparison, Stack, Memory, Storage, Control Flow, Environme
 ---
 
 ## ⚙️ Configuration
-
-See [docs/guides/configuration.md](docs/guides/configuration.md) and [docs/guides/logging.md](docs/guides/logging.md) for details.
 
 **Environment variables:**
 
