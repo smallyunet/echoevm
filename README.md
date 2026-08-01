@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.27](#-whats-new-in-v0027)
+- [What's New in v0.0.28](#-whats-new-in-v0028)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,11 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.27
+## 🆕 What's New in v0.0.28
+
+- **Reliable Edge Readiness**: Deployment now checks Caddy through its local administration endpoint, avoiding false failures caused by probing an HTTPS origin by IP without matching TLS SNI.
+
+### Previous v0.0.27
 
 - **Correct SSTORE Gas**: Warm storage writes no longer receive an extra 100-gas charge on top of the EIP-2200 baseline.
 - **Reliable Opcode Comparison**: Geth's `KECCAK256` trace name is normalized to EVM `SHA3`, and transaction traces now compare per-opcode gas cost explicitly.

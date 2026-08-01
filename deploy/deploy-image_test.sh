@@ -85,6 +85,7 @@ grep -Fqx "ECHOEVM_IMAGE=ghcr.io/smallyunet/echoevm@$digest" "$success_root/.env
 cmp "$script_dir/docker-compose.yml" "$success_root/docker-compose.yml"
 cmp "$script_dir/Caddyfile" "$success_root/Caddyfile"
 cmp "$script_dir/deploy-image.sh" "$success_root/deploy-echoevm"
+grep -Fq 'http://127.0.0.1:2019/config/' "$success_root/docker-compose.yml"
 grep -E 'compose .* up -d --remove-orphans --wait --wait-timeout 60$' "$success_log" >/dev/null
 grep -E 'compose .* exec -T echoevm wget .*readyz$' "$success_log" >/dev/null
 
