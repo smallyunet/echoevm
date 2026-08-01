@@ -185,6 +185,11 @@ commands; the existing operator SSH key is never copied to GitHub.
 Set `ECHOEVM_ETHEREUM_RPC` in the deployment environment to enable replay; the
 endpoint must expose `debug_traceTransaction` and `prestateTracer`.
 
+The production Compose stack includes Caddy as an HTTPS origin on port 8080
+for `r.dark20.xyz`. Proxy that hostname through Cloudflare, use SSL/TLS mode
+`Full`, and configure an Origin Rule that rewrites the destination port to
+8080. EchoEVM itself remains available only inside the Docker network.
+
 ### Run bytecode directly
 
 ```bash

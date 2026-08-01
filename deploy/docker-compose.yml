@@ -3,8 +3,8 @@ services:
     image: ${ECHOEVM_IMAGE}
     pull_policy: always
     restart: unless-stopped
-    ports:
-      - "0.0.0.0:8080:8080"
+    expose:
+      - "8080"
     environment:
       ECHOEVM_ETHEREUM_RPC: ${ECHOEVM_ETHEREUM_RPC:-https://cloudflare-eth.com}
     read_only: true
@@ -23,3 +23,34 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
+
+  edge:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:8080:8080"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      echoevm:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  caddy-data:
+  caddy-config:

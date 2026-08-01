@@ -1,0 +1,10 @@
+{
+	auto_https disable_redirects
+}
+
+https://r.dark20.xyz:8080 {
+	encode zstd gzip
+	tls internal
+
+	reverse_proxy echoevm:8080
+}
