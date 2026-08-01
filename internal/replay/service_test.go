@@ -48,16 +48,31 @@ func (f *replayFixtureRPC) CallContext(_ context.Context, result any, method str
 		} else {
 			*result.(*rpcExecutionTrace) = f.reference
 		}
+	case "debug_traceCall":
+		*result.(*json.RawMessage) = json.RawMessage(`{}`)
 	default:
 		panic("unexpected RPC method " + method)
 	}
 	return nil
 }
 
+func TestProbeRequiresMainnetTraceCapabilities(t *testing.T) {
+	status, err := NewServiceWithCaller(&replayFixtureRPC{}).Probe(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !status.Ready || status.ChainID != ethereumMainnetChainID || !status.RPC || !status.PrestateTracer || !status.OpcodeTrace {
+		t.Fatalf("readiness = %+v", status)
+	}
+}
+
 func TestReplayRejectsNonMainnetRPC(t *testing.T) {
 	_, err := NewServiceWithCaller(&replayFixtureRPC{chainID: 11155111}).Replay(context.Background(), Request{Input: testHash})
 	if err == nil || err.Error() != "configured RPC is chain 11155111; Ethereum Mainnet chain 1 is required" {
 		t.Fatalf("Replay error = %v", err)
+	}
+	if ErrorKindOf(err) != ErrorUnavailable {
+		t.Fatalf("error kind = %q", ErrorKindOf(err))
 	}
 }
 

@@ -45,7 +45,7 @@ services:
     mem_limit: 128m
     cpus: 0.25
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "--no-check-certificate", "--header", "Host: r.dark20.xyz", "https://127.0.0.1:8080/healthz"]
       interval: 10s
       timeout: 3s
       retries: 3

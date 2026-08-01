@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -33,6 +35,11 @@ type Server struct {
 	diffSlots    chan struct{}
 	replay       *replay.Service
 	replaySlots  chan struct{}
+	readinessMu  sync.Mutex
+	readinessAt  time.Time
+	readiness    replay.Readiness
+	readinessErr error
+	readinessTTL time.Duration
 }
 
 func NewDifferentialServer(addr string, engine *differential.Engine) *Server {
@@ -73,6 +80,7 @@ func NewServer(addr string) *Server {
 		assetsDir:    assets,
 		assetVersion: fingerprintAssets(assets, "diff.css", "diff.js"),
 		control:      make(chan ControlMessage, 16),
+		readinessTTL: 30 * time.Second,
 	}
 }
 
@@ -110,6 +118,7 @@ func (s *Server) Start() error {
 		mux.HandleFunc("/api/diff", s.serveDiff)
 		mux.HandleFunc("/api/replay", s.serveReplay)
 		mux.HandleFunc("/healthz", s.serveHealth)
+		mux.HandleFunc("/readyz", s.serveReady)
 	} else {
 		mux.Handle("/", http.FileServer(http.FS(s.assetsDir)))
 		mux.HandleFunc("/ws", s.serveWs)
@@ -156,11 +165,29 @@ func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result, err := s.replay.Replay(ctx, req)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		writeJSONError(w, replayHTTPStatus(err), err.Error())
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(result)
+}
+
+func replayHTTPStatus(err error) int {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return http.StatusGatewayTimeout
+	}
+	switch replay.ErrorKindOf(err) {
+	case replay.ErrorNotFound:
+		return http.StatusNotFound
+	case replay.ErrorConflict:
+		return http.StatusConflict
+	case replay.ErrorUpstream:
+		return http.StatusBadGateway
+	case replay.ErrorUnavailable:
+		return http.StatusServiceUnavailable
+	default:
+		return http.StatusBadRequest
+	}
 }
 
 func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
@@ -171,6 +198,49 @@ func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "echoevm-differential-explorer"})
+}
+
+type readinessResponse struct {
+	Status string `json:"status"`
+	replay.Readiness
+	Error string `json:"error,omitempty"`
+}
+
+func (s *Server) serveReady(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	status, err := s.probeReadiness(ctx)
+	response := readinessResponse{Status: "ready", Readiness: status}
+	code := http.StatusOK
+	if err != nil {
+		response.Status = "not_ready"
+		response.Error = err.Error()
+		code = http.StatusServiceUnavailable
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(response)
+}
+
+func (s *Server) probeReadiness(ctx context.Context) (replay.Readiness, error) {
+	s.readinessMu.Lock()
+	defer s.readinessMu.Unlock()
+	if !s.readinessAt.IsZero() && time.Since(s.readinessAt) < s.readinessTTL {
+		return s.readiness, s.readinessErr
+	}
+	if s.replay == nil {
+		s.readiness = replay.Readiness{}
+		s.readinessErr = replay.NewError(replay.ErrorUnavailable, errors.New("transaction replay service is not configured"))
+	} else {
+		s.readiness, s.readinessErr = s.replay.Probe(ctx)
+	}
+	s.readinessAt = time.Now()
+	return s.readiness, s.readinessErr
 }
 
 func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) {

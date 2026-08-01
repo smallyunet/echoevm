@@ -17,6 +17,11 @@ You can override default configuration values using the following environment va
 ### Network Configuration
 - `ECHOEVM_ETHEREUM_RPC`: Ethereum RPC endpoint (default: `https://cloudflare-eth.com`). Transaction replay requires `debug_traceTransaction` and `prestateTracer`; many public read-only endpoints do not expose them.
 
+The Differential Explorer exposes `/healthz` for process liveness and
+`/readyz` for replay readiness. Readiness succeeds only when the configured RPC
+is Ethereum Mainnet and supports both `prestateTracer` and opcode tracing. The
+result is cached briefly to avoid consuming provider quota on repeated probes.
+
 ### Logging Configuration
 - `ECHOEVM_LOG_LEVEL`: Log level (default: `info`)
 - `ECHOEVM_LOG_FORMAT`: Log format - "json" or "console" (default: `console`)
@@ -108,6 +113,9 @@ The following constants are defined in `internal/config/constants.go`:
 2. **Logging**: Use JSON format for production logging to enable better log aggregation and analysis.
 
 3. **Security**: Keep authenticated RPC URLs in environment configuration. The Explorer accepts only transaction hashes or allowlisted Etherscan URLs and never accepts user-supplied RPC endpoints.
+
+   Production deployment preserves `/opt/echoevm/.env` atomically with mode
+   `0600`; only `ECHOEVM_IMAGE` is replaced during a release.
 
 4. **Performance**: Adjust gas limits and upstream RPC endpoints based on your specific use case and network conditions.
 

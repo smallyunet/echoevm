@@ -11,7 +11,7 @@
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.25](#-whats-new-in-v0025)
+- [What's New in v0.0.26](#-whats-new-in-v0026)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -27,7 +27,14 @@
 
 ---
 
-## 🆕 What's New in v0.0.25
+## 🆕 What's New in v0.0.26
+
+- **Replay Readiness**: `/readyz` verifies Ethereum Mainnet, `prestateTracer`, and opcode-trace support before a deployment is accepted.
+- **Atomic Deployment Bundle**: Immutable images carry Compose, Caddy, and deployment configuration; the server validates and atomically activates the bundle with whole-stack rollback.
+- **Credential Preservation**: Deployments retain all existing environment settings, keep `.env` at mode `0600`, and never replace RPC credentials with image-only configuration.
+- **Actionable HTTP Errors**: Replay distinguishes invalid input, missing or pending transactions, upstream failures, unavailable trace capabilities, and timeouts.
+
+### Previous v0.0.25
 
 - **Mainnet-Only Replay**: Transaction hashes and Etherscan URLs now resolve consistently to Ethereum Mainnet, and non-mainnet RPC endpoints are rejected before transaction lookup.
 
@@ -175,15 +182,31 @@ marked with a compatibility warning.
 Production deployment uses Docker Compose and
 `.github/workflows/deploy-server.yml`. Deployments are manual: starting the
 workflow runs the test suite, publishes an immutable Linux/amd64 image to GHCR,
-then asks a restricted server wrapper to pull and activate that digest. Pushes
+then asks a restricted server wrapper to pull and activate that digest. The
+image carries the matching Compose, Caddy, and deployment files; the wrapper
+validates them, preserves the complete environment file, starts the whole
+stack, and requires `/readyz` to confirm Mainnet trace capability. Pushes
 to `main` and release tags do not deploy automatically. Compose applies a
 non-root user, read-only filesystem, dropped capabilities, resource limits, and
-a `/healthz` check. A failed health check restores the previous image. Its
+a `/healthz` liveness check. A failed stack or readiness check restores the
+previous image, configuration, environment, and deployment wrapper. Its
 dedicated root SSH key is bound to a
 forced command and cannot open a shell, forward ports, or run arbitrary
 commands; the existing operator SSH key is never copied to GitHub.
 Set `ECHOEVM_ETHEREUM_RPC` in the deployment environment to enable replay; the
 endpoint must expose `debug_traceTransaction` and `prestateTracer`.
+
+Upgrading a server from v0.0.25 or earlier requires one bootstrap update of the
+host wrapper before running the first v0.0.26 deployment:
+
+```bash
+sudo install -m 0755 deploy/deploy-image.sh /usr/local/sbin/deploy-echoevm
+sudo chmod 0600 /opt/echoevm/.env
+```
+
+After that bootstrap, each immutable application image updates the deployment
+bundle and wrapper for subsequent releases. Keep `ECHOEVM_ETHEREUM_RPC` in
+`/opt/echoevm/.env`; deployment changes only `ECHOEVM_IMAGE`.
 
 The production Compose stack includes Caddy as an HTTPS origin on port 8080
 for `r.dark20.xyz`. Proxy that hostname through Cloudflare, use SSL/TLS mode
@@ -347,7 +370,7 @@ make test-differential # Compare Cancun behavior with go-ethereum
 make test-conformance # Run both conformance layers with summary output
 ```
 
-The v0.0.25 baseline contains 9 pinned official Cancun cases and 17 geth
+The v0.0.26 baseline contains 9 pinned official Cancun cases and 17 geth
 differential vectors across arithmetic, bitwise, control, crypto, environment,
 fault, memory, and storage. Both suites fail on missing metadata, shrinking
 case counts, missing required categories, or skipped execution.

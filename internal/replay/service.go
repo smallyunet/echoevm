@@ -33,7 +33,7 @@ func NewService(ctx context.Context, rpcURL string) (*Service, error) {
 	}
 	client, err := rpc.DialContext(ctx, rpcURL)
 	if err != nil {
-		return nil, fmt.Errorf("connect to Ethereum RPC: %w", err)
+		return nil, NewError(ErrorUnavailable, fmt.Errorf("connect to Ethereum RPC: %w", err))
 	}
 	return &Service{rpc: client}, nil
 }
@@ -53,7 +53,7 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 		return Result{}, err
 	}
 	if chainID != ethereumMainnetChainID {
-		return Result{}, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID)
+		return Result{}, NewError(ErrorUnavailable, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID))
 	}
 	if ref.ChainID != chainID {
 		return Result{}, fmt.Errorf("input targets chain %d but configured RPC is chain %d", ref.ChainID, chainID)
@@ -64,17 +64,17 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	}
 	var receipt types.Receipt
 	if err := s.rpc.CallContext(ctx, &receipt, "eth_getTransactionReceipt", ref.Hash); err != nil {
-		return Result{}, fmt.Errorf("load transaction receipt: %w", err)
+		return Result{}, NewError(ErrorUpstream, fmt.Errorf("load transaction receipt: %w", err))
 	}
 	if receipt.TxHash == (common.Hash{}) {
-		return Result{}, errors.New("transaction receipt is unavailable; the transaction may still be pending")
+		return Result{}, NewError(ErrorConflict, errors.New("transaction receipt is unavailable; the transaction may still be pending"))
 	}
 	var header types.Header
 	if err := s.rpc.CallContext(ctx, &header, "eth_getBlockByHash", meta.BlockHash, false); err != nil {
-		return Result{}, fmt.Errorf("load transaction block: %w", err)
+		return Result{}, NewError(ErrorUpstream, fmt.Errorf("load transaction block: %w", err))
 	}
 	if header.Number == nil {
-		return Result{}, errors.New("RPC returned an incomplete transaction block")
+		return Result{}, NewError(ErrorUpstream, errors.New("RPC returned an incomplete transaction block"))
 	}
 	prestate, err := s.prestate(ctx, ref.Hash)
 	if err != nil {
@@ -108,22 +108,63 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 func (s *Service) chainID(ctx context.Context) (uint64, error) {
 	var value hexutil.Uint64
 	if err := s.rpc.CallContext(ctx, &value, "eth_chainId"); err != nil {
-		return 0, fmt.Errorf("load RPC chain ID: %w", err)
+		return 0, NewError(ErrorUpstream, fmt.Errorf("load RPC chain ID: %w", err))
 	}
 	return uint64(value), nil
+}
+
+func (s *Service) Probe(ctx context.Context) (Readiness, error) {
+	status := Readiness{}
+	if s == nil || s.rpc == nil {
+		return status, NewError(ErrorUnavailable, errors.New("transaction replay service is not configured"))
+	}
+	chainID, err := s.chainID(ctx)
+	if err != nil {
+		return status, err
+	}
+	status.RPC = true
+	status.ChainID = chainID
+	if chainID != ethereumMainnetChainID {
+		return status, NewError(ErrorUnavailable, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID))
+	}
+	call := map[string]string{
+		"from": "0x0000000000000000000000000000000000000000",
+		"to":   "0x0000000000000000000000000000000000000000",
+		"gas":  "0x5208", "gasPrice": "0x0", "value": "0x0", "data": "0x",
+	}
+	var prestate json.RawMessage
+	prestateConfig := map[string]any{"tracer": "prestateTracer", "tracerConfig": map[string]any{"diffMode": false}}
+	if err := s.rpc.CallContext(ctx, &prestate, "debug_traceCall", call, "latest", prestateConfig); err != nil {
+		return status, NewError(ErrorUnavailable, fmt.Errorf("RPC cannot provide prestateTracer: %w", err))
+	}
+	if len(prestate) == 0 || string(prestate) == "null" || !json.Valid(prestate) {
+		return status, NewError(ErrorUnavailable, errors.New("RPC returned an invalid prestateTracer capability response"))
+	}
+	status.PrestateTracer = true
+	var opcodeTrace json.RawMessage
+	traceConfig := map[string]any{"disableMemory": true, "disableStorage": true, "disableStack": false, "enableReturnData": true}
+	if err := s.rpc.CallContext(ctx, &opcodeTrace, "debug_traceCall", call, "latest", traceConfig); err != nil {
+		return status, NewError(ErrorUnavailable, fmt.Errorf("RPC cannot provide opcode traces: %w", err))
+	}
+	if len(opcodeTrace) == 0 || string(opcodeTrace) == "null" || !json.Valid(opcodeTrace) {
+		return status, NewError(ErrorUnavailable, errors.New("RPC returned an invalid opcode trace capability response"))
+	}
+	status.OpcodeTrace = true
+	status.Ready = true
+	return status, nil
 }
 
 func (s *Service) transaction(ctx context.Context, hash common.Hash) (*types.Transaction, rawTransaction, error) {
 	var raw json.RawMessage
 	if err := s.rpc.CallContext(ctx, &raw, "eth_getTransactionByHash", hash); err != nil {
-		return nil, rawTransaction{}, fmt.Errorf("load transaction: %w", err)
+		return nil, rawTransaction{}, NewError(ErrorUpstream, fmt.Errorf("load transaction: %w", err))
 	}
 	if len(raw) == 0 || string(raw) == "null" {
-		return nil, rawTransaction{}, fmt.Errorf("transaction %s was not found", hash.Hex())
+		return nil, rawTransaction{}, NewError(ErrorNotFound, fmt.Errorf("transaction %s was not found", hash.Hex()))
 	}
 	var tx types.Transaction
 	if err := json.Unmarshal(raw, &tx); err != nil {
-		return nil, rawTransaction{}, fmt.Errorf("decode transaction: %w", err)
+		return nil, rawTransaction{}, NewError(ErrorUpstream, fmt.Errorf("decode transaction: %w", err))
 	}
 	var fields struct {
 		From             common.Address `json:"from"`
@@ -132,10 +173,10 @@ func (s *Service) transaction(ctx context.Context, hash common.Hash) (*types.Tra
 		TransactionIndex hexutil.Uint64 `json:"transactionIndex"`
 	}
 	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, rawTransaction{}, fmt.Errorf("decode transaction metadata: %w", err)
+		return nil, rawTransaction{}, NewError(ErrorUpstream, fmt.Errorf("decode transaction metadata: %w", err))
 	}
 	if fields.BlockHash == (common.Hash{}) {
-		return nil, rawTransaction{}, errors.New("pending transactions cannot be replayed")
+		return nil, rawTransaction{}, NewError(ErrorConflict, errors.New("pending transactions cannot be replayed"))
 	}
 	return &tx, rawTransaction{From: fields.From, BlockHash: fields.BlockHash, BlockNumber: uint64(fields.BlockNumber), Index: uint64(fields.TransactionIndex)}, nil
 }
@@ -163,7 +204,7 @@ func (s *Service) prestate(ctx context.Context, hash common.Hash) (map[common.Ad
 	var raw map[string]prestateAccount
 	config := map[string]any{"tracer": "prestateTracer", "tracerConfig": map[string]any{"diffMode": false, "includeEmpty": true}}
 	if err := s.rpc.CallContext(ctx, &raw, "debug_traceTransaction", hash, config); err != nil {
-		return nil, fmt.Errorf("RPC cannot provide transaction prestate: %w", err)
+		return nil, NewError(ErrorUnavailable, fmt.Errorf("RPC cannot provide transaction prestate: %w", err))
 	}
 	state := make(map[common.Address]prestateAccount, len(raw))
 	for address, account := range raw {
@@ -173,7 +214,7 @@ func (s *Service) prestate(ctx context.Context, hash common.Hash) (map[common.Ad
 		state[common.HexToAddress(address)] = account
 	}
 	if len(state) == 0 {
-		return nil, errors.New("RPC returned an empty transaction prestate")
+		return nil, NewError(ErrorUpstream, errors.New("RPC returned an empty transaction prestate"))
 	}
 	return state, nil
 }
@@ -182,7 +223,7 @@ func (s *Service) stateDiff(ctx context.Context, hash common.Hash) (transactionS
 	var diff transactionStateDiff
 	config := map[string]any{"tracer": "prestateTracer", "tracerConfig": map[string]any{"diffMode": true}}
 	if err := s.rpc.CallContext(ctx, &diff, "debug_traceTransaction", hash, config); err != nil {
-		return transactionStateDiff{}, fmt.Errorf("RPC cannot provide transaction state diff: %w", err)
+		return transactionStateDiff{}, NewError(ErrorUnavailable, fmt.Errorf("RPC cannot provide transaction state diff: %w", err))
 	}
 	if diff.Pre == nil {
 		diff.Pre = map[string]stateDiffAccount{}
@@ -231,7 +272,7 @@ func (s *Service) referenceTrace(ctx context.Context, hash common.Hash, receipt 
 	var raw rpcExecutionTrace
 	config := map[string]any{"disableMemory": true, "disableStorage": true, "disableStack": false, "enableReturnData": true, "limit": MaxTraceSteps + 1}
 	if err := s.rpc.CallContext(ctx, &raw, "debug_traceTransaction", hash, config); err != nil {
-		return differential.ExecutionResult{}, fmt.Errorf("RPC cannot trace transaction opcodes: %w", err)
+		return differential.ExecutionResult{}, NewError(ErrorUnavailable, fmt.Errorf("RPC cannot trace transaction opcodes: %w", err))
 	}
 	if len(raw.StructLogs) > MaxTraceSteps {
 		return differential.ExecutionResult{}, fmt.Errorf("reference trace has %d steps; maximum is %d", len(raw.StructLogs), MaxTraceSteps)
@@ -332,7 +373,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.25", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.26", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}

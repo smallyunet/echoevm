@@ -50,6 +50,14 @@ type Result struct {
 	TraceSemantics  string                       `json:"traceSemantics"`
 }
 
+type Readiness struct {
+	Ready          bool   `json:"ready"`
+	ChainID        uint64 `json:"chainId,omitempty"`
+	RPC            bool   `json:"rpc"`
+	PrestateTracer bool   `json:"prestateTracer"`
+	OpcodeTrace    bool   `json:"opcodeTrace"`
+}
+
 type Caller interface {
 	CallContext(context.Context, any, string, ...any) error
 }

@@ -5,7 +5,13 @@
 ---
 
 
-## 🆕 What's New in v0.0.25
+## 🆕 What's New in v0.0.26
+
+- **Production Replay Readiness**: `/readyz` verifies Mainnet chain identity plus required prestate and opcode trace capabilities.
+- **Atomic Deployment Bundle**: Versioned Compose/Caddy configuration ships with each immutable image and rolls back with the image and environment.
+- **Credential-Safe Deployments**: Environment updates preserve RPC credentials and enforce mode `0600`.
+
+### Previous v0.0.25
 
 - **Mainnet-Only Replay**: Transaction hashes and Etherscan URLs resolve to Ethereum Mainnet, with early rejection for non-mainnet RPC endpoints.
 

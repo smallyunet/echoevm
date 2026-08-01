@@ -3,10 +3,10 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.25
+VERSION    ?= v0.0.26
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build run test test-unit test-integration test-e2e test-compliance test-differential test-conformance coverage clean help
+.PHONY: install build run test test-unit test-integration test-e2e test-compliance test-differential test-conformance test-deploy coverage clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -46,4 +46,8 @@ test-differential: ## Compare Cancun execution results with go-ethereum
 
 test-conformance: test-compliance test-differential ## Run official fixtures and geth differential tests
 
-test: test-unit test-integration test-e2e test-conformance ## Run all tests
+test-deploy: ## Validate the production deployment contract
+	bash -n deploy/deploy-image.sh deploy/deploy-ssh-command.sh deploy/deploy-image_test.sh
+	bash deploy/deploy-image_test.sh
+
+test: test-unit test-integration test-e2e test-conformance test-deploy ## Run all tests

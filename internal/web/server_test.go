@@ -1,14 +1,39 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/replay"
 )
+
+type readinessRPC struct {
+	calls int
+	err   error
+}
+
+func (r *readinessRPC) CallContext(_ context.Context, result any, method string, _ ...any) error {
+	r.calls++
+	if r.err != nil && method == "debug_traceCall" {
+		return r.err
+	}
+	switch method {
+	case "eth_chainId":
+		*result.(*hexutil.Uint64) = 1
+	case "debug_traceCall":
+		*result.(*json.RawMessage) = json.RawMessage(`{}`)
+	default:
+		return errors.New("unexpected method " + method)
+	}
+	return nil
+}
 
 func TestDifferentialAPI(t *testing.T) {
 	server := NewDifferentialServer(":0", differential.DefaultEngine())
@@ -49,6 +74,51 @@ func TestDifferentialHealth(t *testing.T) {
 	server.serveHealth(recorder, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"status":"ok"`) {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestDifferentialReadinessCachesTraceCapability(t *testing.T) {
+	rpc := &readinessRPC{}
+	server := NewServer(":0")
+	server.replay = replay.NewServiceWithCaller(rpc)
+	for range 2 {
+		recorder := httptest.NewRecorder()
+		server.serveReady(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"status":"ready"`) {
+			t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+		}
+	}
+	if rpc.calls != 3 {
+		t.Fatalf("RPC calls = %d, want 3 after cached readiness", rpc.calls)
+	}
+}
+
+func TestDifferentialReadinessReportsTraceUnavailable(t *testing.T) {
+	server := NewServer(":0")
+	server.replay = replay.NewServiceWithCaller(&readinessRPC{err: errors.New("trace method disabled")})
+	recorder := httptest.NewRecorder()
+	server.serveReady(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), `"status":"not_ready"`) {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestReplayHTTPStatusClassification(t *testing.T) {
+	tests := []struct {
+		err  error
+		want int
+	}{
+		{errors.New("bad input"), http.StatusBadRequest},
+		{replay.NewError(replay.ErrorNotFound, errors.New("missing")), http.StatusNotFound},
+		{replay.NewError(replay.ErrorConflict, errors.New("pending")), http.StatusConflict},
+		{replay.NewError(replay.ErrorUpstream, errors.New("RPC failed")), http.StatusBadGateway},
+		{replay.NewError(replay.ErrorUnavailable, errors.New("trace disabled")), http.StatusServiceUnavailable},
+		{context.DeadlineExceeded, http.StatusGatewayTimeout},
+	}
+	for _, test := range tests {
+		if got := replayHTTPStatus(test.err); got != test.want {
+			t.Fatalf("replayHTTPStatus(%v) = %d, want %d", test.err, got, test.want)
+		}
 	}
 }
 

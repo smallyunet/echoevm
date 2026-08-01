@@ -17,6 +17,7 @@ FROM alpine:3.24.1
 
 RUN apk add --no-cache ca-certificates
 COPY --from=build /out/echoevm /usr/local/bin/echoevm
+COPY deploy/docker-compose.yml deploy/Caddyfile deploy/deploy-image.sh /usr/local/share/echoevm/deploy/
 
 USER 65534:65534
 EXPOSE 8080
