@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.28](#-whats-new-in-v0028)
+- [What's New in v0.0.29](#-whats-new-in-v0029)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,11 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.28
+## 🆕 What's New in v0.0.29
+
+- **Verifiable Release Identity**: Production image builds fetch release tags so `echoevm version` reports the published semantic version alongside its full commit hash.
+
+### Previous v0.0.28
 
 - **Reliable Edge Readiness**: Deployment now checks Caddy through its local administration endpoint, avoiding false failures caused by probing an HTTPS origin by IP without matching TLS SNI.
 
