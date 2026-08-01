@@ -97,6 +97,27 @@ func (ch refundChange) revert(db *MemoryStateDB) {
 	db.refund = ch.pre
 }
 
+type transientStorageChange struct {
+	account common.Address
+	key     common.Hash
+	pre     common.Hash
+	hadSlot bool
+}
+
+func (ch transientStorageChange) revert(db *MemoryStateDB) {
+	if !ch.hadSlot {
+		delete(db.transientStorage[ch.account], ch.key)
+		if len(db.transientStorage[ch.account]) == 0 {
+			delete(db.transientStorage, ch.account)
+		}
+		return
+	}
+	if db.transientStorage[ch.account] == nil {
+		db.transientStorage[ch.account] = make(map[common.Hash]common.Hash)
+	}
+	db.transientStorage[ch.account][ch.key] = ch.pre
+}
+
 type MemoryStateDB struct {
 	accounts map[common.Address]*Account
 	journal  []journalEntry
@@ -323,6 +344,13 @@ func (db *MemoryStateDB) GetTransientState(addr common.Address, key common.Hash)
 
 // SetTransientState sets the value in transient storage
 func (db *MemoryStateDB) SetTransientState(addr common.Address, key common.Hash, value common.Hash) {
+	pre, hadSlot := db.transientStorage[addr][key]
+	db.journal = append(db.journal, transientStorageChange{
+		account: addr,
+		key:     key,
+		pre:     pre,
+		hadSlot: hadSlot,
+	})
 	if db.transientStorage[addr] == nil {
 		db.transientStorage[addr] = make(map[common.Hash]common.Hash)
 	}

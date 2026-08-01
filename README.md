@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.30](#-whats-new-in-v0030)
+- [What's New in v0.0.31](#-whats-new-in-v0031)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,14 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.30
+## 🆕 What's New in v0.0.31
+
+- **Real STATICCALL Protection**: Read-only mode now propagates through nested frames and rejects storage, transient-storage, log, contract-creation, value-transfer, and self-destruct mutations.
+- **Correct Contract-Creation Rollback**: Failed `CREATE` and `CREATE2` executions restore accounts, balances, persistent storage, and transient storage while preserving the creator nonce required by Ethereum semantics.
+- **Geth-Matched Creation Gas**: Initcode word charges, EIP-150 forwarding, REVERT refunds, exceptional-halt burns, runtime code-deposit cost, size limits, and invalid code prefixes now match Cancun Geth behavior.
+- **Nested Differential Matrix**: CALL, STATICCALL, CREATE, and CREATE2 success, REVERT, exceptional halt, gas, and state outcomes are checked against embedded Geth v1.17.4.
+
+### Previous v0.0.30
 
 - **Comparable Gas Diagnostics**: Transaction traces compare per-opcode gas where EchoEVM and Geth expose the same semantics, while nested calls and creates are labeled as not comparable instead of producing false divergences.
 

@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.30
+**Current Version**: v0.0.31
 
 ---
 
@@ -60,6 +60,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.28 | Reliable Caddy container readiness using its local administration endpoint |
 | v0.0.29 | Reproducible production version metadata from the release tag |
 | v0.0.30 | Comparable per-op gas diagnostics without nested-call false positives |
+| v0.0.31 | STATICCALL write protection and Geth-matched nested call/create rollback and gas semantics |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -123,15 +124,13 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.30 Priorities:**
-1. Compare transaction opcode gas costs without treating Geth's `KECCAK256` name as a missing `SHA3` instruction
-2. Match EIP-2200 and EIP-2929 SSTORE gas accounting for warm storage slots
-3. Offer a bounded, server-cached list of recent Mainnet transactions only when the Explorer is opened
-4. Keep replay explicit: selecting a recent transaction fills the input but does not consume trace RPC quota
-5. Present replay, warnings, divergences, and traces in an accessible light interface
-6. Probe Caddy through its local administration endpoint so TLS SNI cannot reject an otherwise healthy deployment
-7. Fetch release tags during image builds so the running binary reports the published semantic version
-8. Exclude nested call/create opcodes whose post-op gas deltas are not comparable with Geth's pre-op `gasCost`
+**v0.0.31 Priorities:**
+1. Enforce STATICCALL write protection across all nested CALL-family frames
+2. Reject SSTORE, TSTORE, LOG, CREATE, CREATE2, value-bearing CALL, and SELFDESTRUCT in read-only execution
+3. Roll back failed contract creation without rolling back the creator nonce or access-list warming
+4. Match Cancun initcode, EIP-150 forwarding, REVERT refund, exceptional-halt burn, and code-deposit gas rules
+5. Journal transient storage so nested REVERT restores all transaction-scoped state
+6. Differentially verify nested CALL, STATICCALL, CREATE, and CREATE2 outcomes against Geth v1.17.4
 
 The replay engine intentionally requires a trace-capable RPC and does not
 approximate transaction prestate from the parent block. Cancun remains the only

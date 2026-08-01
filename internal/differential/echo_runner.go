@@ -19,6 +19,7 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	code, _ := decodeHexField("bytecode", req.Bytecode)
 	input, _ := decodeHexField("calldata", req.Calldata)
 	state := core.NewMemoryStateDB()
+	state.SetCode(contractAddress, code)
 	for key, value := range req.InitialStorage {
 		state.InitState(contractAddress, common.HexToHash(key), common.HexToHash(value))
 	}
@@ -35,6 +36,12 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 		if err := ctx.Err(); err != nil {
 			runErr = err
 			return false
+		}
+		// The isolated differential contract intentionally compares top-level
+		// trace semantics. Nested behavior is still reflected in the parent
+		// call/create result, gas, return data, and committed state.
+		if raw.Depth != 0 {
+			return true
 		}
 		if !raw.IsPost {
 			if len(trace) >= MaxTraceSteps {

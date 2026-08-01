@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,92 +10,62 @@ import (
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
+const (
+	maxRuntimeCodeSize = 24_576
+	maxInitCodeSize    = 2 * maxRuntimeCodeSize
+	createDataGas      = 200
+	initCodeWordGas    = 2
+	keccak256WordGas   = 6
+)
+
 // opCreate implements the CREATE opcode.
 func opCreate(i *Interpreter, _ byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	// Stack: value, offset, length
 	value := i.stack.PopSafe()
 	offset := i.stack.PopSafe().Uint64()
 	length := i.stack.PopSafe().Uint64()
 
-	// 1. Check balance
-	if i.statedb.GetBalance(i.address).Cmp(value) < 0 {
-		i.stack.PushSafe(big.NewInt(0))
-		return
-	}
-
-	// 2. Calculate new address
-	nonce := i.statedb.GetNonce(i.address)
-	i.statedb.SetNonce(i.address, nonce+1)
-	addr := crypto.CreateAddress(i.address, nonce)
-
-	// 3. Create account and transfer value
-	// If account already exists (collision), it should fail (return 0).
-	if i.statedb.Exist(addr) {
-		if i.statedb.GetNonce(addr) != 0 || i.statedb.GetCodeSize(addr) != 0 {
-			i.stack.PushSafe(big.NewInt(0))
-			return
-		}
-	}
-	i.statedb.CreateAccount(addr)
-	i.statedb.SetNonce(addr, 1) // EIP-161: New accounts have nonce 1
-	i.statedb.SubBalance(i.address, value)
-	i.statedb.AddBalance(addr, value)
-
 	if !i.consumeMemoryExpansion(offset, length) {
 		return
 	}
-
-	// 4. Get init code
-	initCode := i.memory.Read(offset, length)
-
-	// 5. Execute init code
-	contract := New(initCode, i.statedb, addr)
-	contract.inheritExecutionContext(i)
-	contract.SetBlockNumber(i.blockNumber)
-	contract.SetTimestamp(i.timestamp)
-	contract.SetCoinbase(i.coinbase)
-	contract.SetBlockGasLimit(i.gasLimit)
-
-	// EIP-150: 63/64 rule
-	available := i.gas
-	gasLimit := available - available/64
-	i.gas -= gasLimit
-	contract.SetGas(gasLimit)
-
-	contract.SetCaller(i.address)
-	contract.SetOrigin(i.origin)
-	contract.SetCallValue(value)
-
-	contract.Run()
-
-	if contract.IsReverted() || contract.Err() != nil {
+	if !i.chargeCreateWordGas(length, initCodeWordGas) {
+		return
+	}
+	if i.statedb.GetBalance(i.address).Cmp(value) < 0 {
 		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
 		return
 	}
 
-	// 6. Set code
-	ret := contract.ReturnedCode()
-	i.statedb.SetCode(addr, ret)
-
-	// 7. Push address
-	i.stack.PushSafe(addr.Big())
+	initCode := i.memory.Read(offset, length)
+	nonce := i.statedb.GetNonce(i.address)
+	addr := crypto.CreateAddress(i.address, nonce)
+	i.createContract(addr, value, initCode, nonce)
 }
 
 // opCreate2 implements the CREATE2 opcode (EIP-1014)
 func opCreate2(i *Interpreter, _ byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	// Stack: value, offset, length, salt
 	value := i.stack.PopSafe()
 	offset := i.stack.PopSafe().Uint64()
 	length := i.stack.PopSafe().Uint64()
 	salt := i.stack.PopSafe()
 
-	// 1. Check balance
-	if i.statedb.GetBalance(i.address).Cmp(value) < 0 {
-		i.stack.PushSafe(big.NewInt(0))
+	if !i.consumeMemoryExpansion(offset, length) {
 		return
 	}
-
-	if !i.consumeMemoryExpansion(offset, length) {
+	if !i.chargeCreateWordGas(length, initCodeWordGas+keccak256WordGas) {
+		return
+	}
+	if i.statedb.GetBalance(i.address).Cmp(value) < 0 {
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
 		return
 	}
 
@@ -115,51 +86,92 @@ func opCreate2(i *Interpreter, _ byte) {
 
 	addr := common.BytesToAddress(crypto.Keccak256(data)[12:])
 
-	// 4. Check for collision
-	if i.statedb.Exist(addr) {
-		if i.statedb.GetNonce(addr) != 0 || i.statedb.GetCodeSize(addr) != 0 {
-			i.stack.PushSafe(big.NewInt(0))
-			return
-		}
+	nonce := i.statedb.GetNonce(i.address)
+	i.createContract(addr, value, initCode, nonce)
+}
+
+func (i *Interpreter) chargeCreateWordGas(length, perWord uint64) bool {
+	if length > maxInitCodeSize {
+		i.err = fmt.Errorf("max initcode size exceeded: code size %d limit %d", length, maxInitCodeSize)
+		i.reverted = true
+		return false
+	}
+	words := (length + 31) / 32
+	cost := words * perWord
+	if i.gas < cost {
+		i.err = fmt.Errorf("out of gas: initcode word cost")
+		i.reverted = true
+		return false
+	}
+	i.gas -= cost
+	return true
+}
+
+func (i *Interpreter) createContract(addr common.Address, value *big.Int, initCode []byte, creatorNonce uint64) {
+	if creatorNonce == math.MaxUint64 {
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
+		return
+	}
+	i.statedb.SetNonce(i.address, creatorNonce+1)
+	i.statedb.AddAddressToAccessList(addr)
+
+	available := i.gas
+	forwarded := available - available/64
+	i.gas -= forwarded
+
+	if i.statedb.GetNonce(addr) != 0 || i.statedb.GetCodeSize(addr) != 0 {
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
+		return
 	}
 
-	// 5. Increment nonce and create account
-	nonce := i.statedb.GetNonce(i.address)
-	i.statedb.SetNonce(i.address, nonce+1)
+	snapshot := i.statedb.Snapshot()
 	i.statedb.CreateAccount(addr)
 	i.statedb.SetNonce(addr, 1)
 	i.statedb.SubBalance(i.address, value)
 	i.statedb.AddBalance(addr, value)
 
-	// 6. Execute init code
 	contract := New(initCode, i.statedb, addr)
 	contract.inheritExecutionContext(i)
-	contract.SetBlockNumber(i.blockNumber)
-	contract.SetTimestamp(i.timestamp)
-	contract.SetCoinbase(i.coinbase)
-	contract.SetBlockGasLimit(i.gasLimit)
-
-	// EIP-150: 63/64 rule
-	available := i.gas
-	gasLimit := available - available/64
-	i.gas -= gasLimit
-	contract.SetGas(gasLimit)
-
+	contract.SetGas(forwarded)
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
 	contract.SetCallValue(value)
-
 	contract.Run()
 
-	if contract.IsReverted() || contract.Err() != nil {
+	ret := contract.ReturnedCode()
+	if contract.Err() != nil {
+		i.statedb.RevertToSnapshot(snapshot)
 		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
 		return
 	}
-
-	// 7. Set code and push address
-	ret := contract.ReturnedCode()
+	if contract.IsReverted() {
+		i.statedb.RevertToSnapshot(snapshot)
+		i.gas += contract.Gas()
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = ret
+		return
+	}
+	if len(ret) > maxRuntimeCodeSize || (len(ret) > 0 && ret[0] == 0xef) {
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
+		return
+	}
+	depositCost := uint64(len(ret)) * createDataGas
+	if contract.Gas() < depositCost {
+		i.statedb.RevertToSnapshot(snapshot)
+		i.stack.PushSafe(big.NewInt(0))
+		i.returnData = nil
+		return
+	}
+	contract.gas -= depositCost
 	i.statedb.SetCode(addr, ret)
+	i.gas += contract.Gas()
 	i.stack.PushSafe(addr.Big())
+	i.returnData = nil
 }
 
 // opCall implements the CALL opcode.
@@ -173,6 +185,11 @@ func opCall(i *Interpreter, _ byte) {
 	argsLength := i.stack.PopSafe().Uint64()
 	retOffset := i.stack.PopSafe().Uint64()
 	retLength := i.stack.PopSafe().Uint64()
+	if i.readOnly && value.Sign() != 0 {
+		i.err = ErrWriteProtection
+		i.reverted = true
+		return
+	}
 
 	// Dynamic gas
 	var callCost uint64
@@ -697,6 +714,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 	// Execute regular contract (read-only)
 	contract := NewWithCallData(code, args, i.statedb, addr)
 	contract.inheritExecutionContext(i)
+	contract.readOnly = true
 	contract.SetBlockNumber(i.blockNumber)
 	contract.SetTimestamp(i.timestamp)
 	contract.SetCoinbase(i.coinbase)
@@ -757,6 +775,9 @@ func opStaticCall(i *Interpreter, _ byte) {
 // opSelfDestruct implements the SELFDESTRUCT opcode.
 // Transfers all balance to the target and marks the contract for destruction.
 func opSelfDestruct(i *Interpreter, _ byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	addrBig := i.stack.PopSafe()
 	addr := common.BigToAddress(addrBig)
 

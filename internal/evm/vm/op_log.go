@@ -19,6 +19,9 @@ type LogEntry struct {
 // opLog handles LOG0..LOG4. The opcode minus 0xa0 gives the number of topics.
 // Stack pops (offset, size, topic0, topic1, ...).
 func opLog(i *Interpreter, op byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	topicCount := int(op - 0xa0)
 	// EVM LOGn pops: offset, size, topic1, ..., topicN
 	offset := i.stack.PopSafe().Uint64()

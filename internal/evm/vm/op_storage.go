@@ -32,6 +32,9 @@ func opSload(i *Interpreter, _ byte) {
 }
 
 func opSstore(i *Interpreter, _ byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	keyBig := i.stack.PopSafe()
 	valBig := i.stack.PopSafe()
 	key := common.BigToHash(keyBig)

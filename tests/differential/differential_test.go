@@ -2,7 +2,9 @@ package differential
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -17,6 +19,172 @@ type vector struct {
 	category string
 	code     string
 	input    string
+}
+
+func TestNestedCreateOutcomeMatrixAgainstGeth(t *testing.T) {
+	tests := []struct {
+		name     string
+		create2  bool
+		initCode []byte
+	}{
+		{
+			name:     "create success",
+			initCode: []byte{0x60, 0x00, 0x60, 0x00, 0x53, 0x60, 0x01, 0x60, 0x00, 0xf3},
+		},
+		{
+			name:     "create revert restores state and gas",
+			initCode: []byte{0x60, 0x01, 0x5f, 0x55, 0x5f, 0x5f, 0xfd},
+		},
+		{
+			name:     "create exceptional halt restores state and burns gas",
+			initCode: []byte{0x60, 0x01, 0x5f, 0x55, 0xfe},
+		},
+		{
+			name:     "create2 success",
+			create2:  true,
+			initCode: []byte{0x60, 0x00, 0x60, 0x00, 0x53, 0x60, 0x01, 0x60, 0x00, 0xf3},
+		},
+		{
+			name:     "create2 revert restores state and gas",
+			create2:  true,
+			initCode: []byte{0x60, 0x01, 0x5f, 0x55, 0x5f, 0x5f, 0xfd},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := differential.Request{
+				Fork:     differential.ForkCancun,
+				Bytecode: createHarnessBytecode(t, tt.initCode, tt.create2),
+				GasLimit: differentialGasLimit,
+			}
+			echo, err := (differential.EchoRunner{}).Run(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			geth, err := (differential.GethRunner{}).Run(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if echo.Status != geth.Status || echo.ReturnData != geth.ReturnData || echo.GasUsed != geth.GasUsed || !reflect.DeepEqual(echo.Storage, geth.Storage) {
+				t.Fatalf("nested create outcome differs:\nEchoEVM status=%s return=%s gas=%d storage=%v\nGeth status=%s return=%s gas=%d storage=%v",
+					echo.Status, echo.ReturnData, echo.GasUsed, echo.Storage,
+					geth.Status, geth.ReturnData, geth.GasUsed, geth.Storage)
+			}
+		})
+	}
+}
+
+func TestNestedCallOutcomeMatrixAgainstGeth(t *testing.T) {
+	tests := []struct {
+		name       string
+		static     bool
+		childCode  []byte
+		wantResult byte
+		wantState  string
+	}{
+		{
+			name:       "call success commits state",
+			childCode:  []byte{0x60, 0x01, 0x5f, 0x55, 0x00},
+			wantResult: 1,
+			wantState:  "0x01",
+		},
+		{
+			name:      "call revert restores state and gas",
+			childCode: []byte{0x60, 0x01, 0x5f, 0x55, 0x5f, 0x5f, 0xfd},
+			wantState: "0x00",
+		},
+		{
+			name:      "call exceptional halt restores state and burns gas",
+			childCode: []byte{0x60, 0x01, 0x5f, 0x55, 0xfe},
+			wantState: "0x00",
+		},
+		{
+			name:      "staticcall rejects state write",
+			static:    true,
+			childCode: []byte{0x60, 0x01, 0x5f, 0x55, 0x00},
+			wantState: "0x00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := differential.Request{
+				Fork:     differential.ForkCancun,
+				Bytecode: callHarnessBytecode(t, tt.childCode, tt.static),
+				GasLimit: differentialGasLimit,
+				InitialStorage: map[string]string{
+					"0x00": "0x00",
+				},
+			}
+			echo, err := (differential.EchoRunner{}).Run(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			geth, err := (differential.GethRunner{}).Run(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if echo.Status != geth.Status || echo.ReturnData != geth.ReturnData || echo.GasUsed != geth.GasUsed || !reflect.DeepEqual(echo.Storage, geth.Storage) {
+				t.Fatalf("nested call outcome differs:\nEchoEVM status=%s return=%s gas=%d storage=%v\nGeth status=%s return=%s gas=%d storage=%v",
+					echo.Status, echo.ReturnData, echo.GasUsed, echo.Storage,
+					geth.Status, geth.ReturnData, geth.GasUsed, geth.Storage)
+			}
+			if !strings.HasSuffix(echo.ReturnData, fmt.Sprintf("%02x", tt.wantResult)) {
+				t.Fatalf("call result = %s, want final byte %02x", echo.ReturnData, tt.wantResult)
+			}
+			key := "0x0000000000000000000000000000000000000000000000000000000000000000"
+			if !strings.HasSuffix(echo.Storage[key], strings.TrimPrefix(tt.wantState, "0x")) {
+				t.Fatalf("storage[0] = %s, want %s", echo.Storage[key], tt.wantState)
+			}
+		})
+	}
+}
+
+func createHarnessBytecode(t *testing.T, initCode []byte, create2 bool) string {
+	t.Helper()
+	if len(initCode) > 255 {
+		t.Fatalf("test initcode is too large: %d", len(initCode))
+	}
+	prefixLength := byte(17)
+	if create2 {
+		prefixLength = 19
+	}
+	code := []byte{
+		0x60, byte(len(initCode)), 0x60, prefixLength, 0x5f, 0x39, // CODECOPY initcode to memory[0:]
+	}
+	if create2 {
+		code = append(code, 0x60, 0x07) // salt
+	}
+	code = append(code, 0x60, byte(len(initCode)), 0x5f, 0x5f)
+	if create2 {
+		code = append(code, 0xf5)
+	} else {
+		code = append(code, 0xf0)
+	}
+	code = append(code, 0x5f, 0x52, 0x60, 0x20, 0x5f, 0xf3) // return created address or zero
+	code = append(code, initCode...)
+	return hex.EncodeToString(code)
+}
+
+func callHarnessBytecode(t *testing.T, childCode []byte, static bool) string {
+	t.Helper()
+	parentLabel := 5 + len(childCode)
+	if parentLabel > 255 {
+		t.Fatalf("test child code is too large: %d", len(childCode))
+	}
+	code := []byte{0x36, 0x15, 0x60, byte(parentLabel), 0x57} // calldata empty selects parent
+	code = append(code, childCode...)
+	code = append(code, 0x5b, 0x60, 0x01, 0x5f, 0x53) // parent: memory[0] = 1
+	if static {
+		// retLength, retOffset, argsLength, argsOffset, address, gas, STATICCALL
+		code = append(code, 0x5f, 0x5f, 0x60, 0x01, 0x5f, 0x30, 0x61, 0xff, 0xff, 0xfa)
+	} else {
+		// retLength, retOffset, argsLength, argsOffset, value, address, gas, CALL
+		code = append(code, 0x5f, 0x5f, 0x60, 0x01, 0x5f, 0x5f, 0x30, 0x61, 0xff, 0xff, 0xf1)
+	}
+	code = append(code, 0x5f, 0x52, 0x60, 0x20, 0x5f, 0xf3) // return call success flag
+	return hex.EncodeToString(code)
 }
 
 // These vectors intentionally exercise small, independently diagnosable pieces

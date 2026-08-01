@@ -48,6 +48,25 @@ func TestMemoryStateDB(t *testing.T) {
 	}
 }
 
+func TestTransientStorageRevertsWithSnapshot(t *testing.T) {
+	db := NewMemoryStateDB()
+	addr := common.HexToAddress("0x1000")
+	key := common.HexToHash("0x01")
+	initial := common.HexToHash("0x02")
+	db.SetTransientState(addr, key, initial)
+	snapshot := db.Snapshot()
+	db.SetTransientState(addr, key, common.HexToHash("0x03"))
+	db.SetTransientState(addr, common.HexToHash("0x04"), common.HexToHash("0x05"))
+	db.RevertToSnapshot(snapshot)
+
+	if got := db.GetTransientState(addr, key); got != initial {
+		t.Fatalf("transient value = %s, want %s", got, initial)
+	}
+	if got := db.GetTransientState(addr, common.HexToHash("0x04")); got != (common.Hash{}) {
+		t.Fatalf("new transient slot survived revert: %s", got)
+	}
+}
+
 func TestPrepareTransactionResetsTransactionScopedState(t *testing.T) {
 	db := NewMemoryStateDB()
 	addr := common.HexToAddress("0x1234")

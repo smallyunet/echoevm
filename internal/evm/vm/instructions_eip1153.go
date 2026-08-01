@@ -7,6 +7,9 @@ import (
 )
 
 func opTstore(i *Interpreter, op byte) {
+	if i.rejectWriteProtection() {
+		return
+	}
 	key, err := i.stack.Pop()
 	if err != nil {
 		i.err = err
@@ -28,7 +31,7 @@ func opTload(i *Interpreter, op byte) {
 		return
 	}
 	val := i.statedb.GetTransientState(i.address, common.BytesToHash(key.Bytes()))
-	
+
 	// Convert [32]byte to big.Int and push
 	i.stack.PushSafe(new(big.Int).SetBytes(val.Bytes()))
 }

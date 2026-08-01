@@ -48,6 +48,7 @@ type Interpreter struct {
 	blobBaseFee   *big.Int      // EIP-4844: blob base fee for the block
 	traceHook     func(TraceStep) bool
 	traceDepth    int
+	readOnly      bool
 }
 
 // TraceStep captures a single execution step for external tracing.
@@ -118,6 +119,21 @@ func (i *Interpreter) SetBlockGasLimit(limit uint64) {
 
 func (i *Interpreter) SetGas(gas uint64) {
 	i.gas = gas
+}
+
+// SetReadOnly marks the current call frame as static. Child frames inherit the
+// flag so CALL, CALLCODE, and DELEGATECALL cannot escape STATICCALL protection.
+func (i *Interpreter) SetReadOnly(readOnly bool) {
+	i.readOnly = readOnly
+}
+
+func (i *Interpreter) rejectWriteProtection() bool {
+	if !i.readOnly {
+		return false
+	}
+	i.err = ErrWriteProtection
+	i.reverted = true
+	return true
 }
 
 // Gas returns the remaining gas.
@@ -366,6 +382,7 @@ func (i *Interpreter) inheritExecutionContext(parent *Interpreter) {
 	}
 	i.traceHook = parent.traceHook
 	i.traceDepth = parent.traceDepth + 1
+	i.readOnly = parent.readOnly
 }
 
 func (i *Interpreter) run(hook func(step TraceStep) bool) {
