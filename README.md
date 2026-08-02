@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.32](#-whats-new-in-v0032)
+- [What's New in v0.0.33](#-whats-new-in-v0033)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,11 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.32
+## 🆕 What's New in v0.0.33
+
+- **Correct Marketplace Identity**: The VS Code extension now publishes as `smallyu.echoevm` under the project's established `smallyu` publisher.
+
+### Previous v0.0.32
 
 - **Solidity Source Runner**: Compile a local Solidity source, deploy constructor state, call one ABI function, and optionally compare execution and traces with embedded Geth.
 - **Versioned Editor Protocol**: Inspect contracts and ABI functions through compact schema-v1 JSON with structured errors and cancellable execution.

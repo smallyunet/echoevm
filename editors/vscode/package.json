@@ -3,7 +3,7 @@
   "displayName": "EchoEVM",
   "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
   "version": "0.0.1",
-  "publisher": "smallyunet",
+  "publisher": "smallyu",
   "license": "MIT",
   "repository": {
     "type": "git",
