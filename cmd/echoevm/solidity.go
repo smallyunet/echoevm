@@ -306,7 +306,7 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		return nil, fmt.Errorf("read Solidity source: %w", err)
 	}
 	if info.IsDir() {
-		return nil, fmt.Errorf("Solidity source is a directory: %s", source)
+		return nil, fmt.Errorf("solidity source is a directory: %s", source)
 	}
 
 	basePath := flags.basePath

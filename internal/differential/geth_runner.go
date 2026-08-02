@@ -41,7 +41,6 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 			return ExecutionResult{}, errors.New("constructor returned empty runtime bytecode")
 		}
 		executionAddress = createdAddress
-		code = deployedCode
 	} else {
 		state.CreateAccount(executionAddress)
 		state.SetCode(executionAddress, code, tracing.CodeChangeUnspecified)
