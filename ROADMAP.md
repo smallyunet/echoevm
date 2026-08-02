@@ -97,6 +97,7 @@ Tools and integrations for enhanced developer productivity.
 **Planned Features:**
 
 - [x] Web Debugger UI - Browser-based EVM execution visualizer
+- [x] **Solidity Source Runner** - Compile, deploy, call, trace, and differentially compare one contract function
 - [ ] **VS Code Extension** - Inline bytecode visualization
 - [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis

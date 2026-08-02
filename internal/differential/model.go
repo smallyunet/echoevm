@@ -10,6 +10,7 @@ const (
 	DefaultGasLimit  = uint64(1_000_000)
 	MaxGasLimit      = uint64(30_000_000)
 	MaxBytecodeBytes = 24_576
+	MaxInitcodeBytes = 49_152
 	MaxCalldataBytes = 128 * 1024
 	MaxTraceSteps    = 2_000
 )
@@ -17,6 +18,7 @@ const (
 type Request struct {
 	Fork           string            `json:"fork"`
 	Bytecode       string            `json:"bytecode"`
+	InitCode       string            `json:"initCode,omitempty"`
 	Calldata       string            `json:"calldata"`
 	GasLimit       uint64            `json:"gasLimit"`
 	InitialStorage map[string]string `json:"initialStorage,omitempty"`

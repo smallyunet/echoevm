@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,16 +24,31 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 		return ExecutionResult{}, err
 	}
 	code, _ := decodeHexField("bytecode", req.Bytecode)
+	initcode, _ := decodeHexField("initcode", req.InitCode)
 	input, _ := decodeHexField("calldata", req.Calldata)
 	state, err := gethstate.New(types.EmptyRootHash, gethstate.NewDatabaseForTesting())
 	if err != nil {
 		return ExecutionResult{}, err
 	}
-	state.CreateAccount(contractAddress)
-	for key, value := range req.InitialStorage {
-		state.SetState(contractAddress, common.HexToHash(key), common.HexToHash(value))
+	executionAddress := contractAddress
+	if len(initcode) > 0 {
+		constructorConfig := gethRuntimeConfig(req.GasLimit, state, nil)
+		deployedCode, createdAddress, _, createErr := runtime.Create(initcode, constructorConfig)
+		if createErr != nil {
+			return ExecutionResult{}, fmt.Errorf("constructor execution failed: %w", createErr)
+		}
+		if len(deployedCode) == 0 {
+			return ExecutionResult{}, errors.New("constructor returned empty runtime bytecode")
+		}
+		executionAddress = createdAddress
+		code = deployedCode
+	} else {
+		state.CreateAccount(executionAddress)
+		state.SetCode(executionAddress, code, tracing.CodeChangeUnspecified)
 	}
-	state.SetCode(contractAddress, code, tracing.CodeChangeUnspecified)
+	for key, value := range req.InitialStorage {
+		state.SetState(executionAddress, common.HexToHash(key), common.HexToHash(value))
+	}
 
 	trace := make([]NormalizedStep, 0, 128)
 	topDepth := -1
@@ -73,10 +89,10 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 
 	cfg := gethRuntimeConfig(req.GasLimit, state, hooks)
 	rules := cfg.ChainConfig.Rules(cfg.BlockNumber, cfg.Random != nil, cfg.Time)
-	state.Prepare(rules, cfg.Origin, cfg.Coinbase, &contractAddress, gethvm.ActivePrecompiles(rules), nil)
+	state.Prepare(rules, cfg.Origin, cfg.Coinbase, &executionAddress, gethvm.ActivePrecompiles(rules), nil)
 	env := runtime.NewEnv(cfg)
 	initialGas := gethvm.NewGasBudget(req.GasLimit, 0)
-	ret, left, callErr := env.Call(cfg.Origin, contractAddress, input, initialGas, uint256.NewInt(0))
+	ret, left, callErr := env.Call(cfg.Origin, executionAddress, input, initialGas, uint256.NewInt(0))
 	if output == nil {
 		output = ret
 	}
@@ -107,7 +123,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	}
 	storage := make(map[string]string)
 	for _, key := range storageKeys(req, trace) {
-		storage[key.Hex()] = state.GetState(contractAddress, key).Hex()
+		storage[key.Hex()] = state.GetState(executionAddress, key).Hex()
 	}
 	result := ExecutionResult{
 		Engine: "Geth", EngineVersion: moduleVersion("github.com/ethereum/go-ethereum"), Status: status,

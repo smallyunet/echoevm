@@ -53,6 +53,7 @@ func addSubCommands() {
 	rootCmd.AddCommand(newReplCmd())
 	rootCmd.AddCommand(newReplayCmd())
 	rootCmd.AddCommand(newRunCmd())
+	rootCmd.AddCommand(newSolidityCmd())
 	rootCmd.AddCommand(newWebCmd())
 }
 

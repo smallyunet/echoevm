@@ -43,6 +43,16 @@ func normalizeRequest(req Request) (Request, error) {
 		return Request{}, fmt.Errorf("calldata is %d bytes; maximum is %d", len(input), MaxCalldataBytes)
 	}
 	req.Bytecode = "0x" + hex.EncodeToString(code)
+	if req.InitCode != "" {
+		initcode, err := decodeHexField("initcode", req.InitCode)
+		if err != nil {
+			return Request{}, err
+		}
+		if len(initcode) > MaxInitcodeBytes {
+			return Request{}, fmt.Errorf("initcode is %d bytes; maximum is %d", len(initcode), MaxInitcodeBytes)
+		}
+		req.InitCode = "0x" + hex.EncodeToString(initcode)
+	}
 	req.Calldata = "0x" + hex.EncodeToString(input)
 	storage := make(map[string]string, len(req.InitialStorage))
 	for rawKey, rawValue := range req.InitialStorage {

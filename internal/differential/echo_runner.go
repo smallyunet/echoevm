@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethvm "github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 )
@@ -17,15 +18,42 @@ type EchoRunner struct{}
 
 func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error) {
 	code, _ := decodeHexField("bytecode", req.Bytecode)
+	initcode, _ := decodeHexField("initcode", req.InitCode)
 	input, _ := decodeHexField("calldata", req.Calldata)
 	state := core.NewMemoryStateDB()
-	state.SetCode(contractAddress, code)
+	executionAddress := contractAddress
+	if len(initcode) > 0 {
+		executionAddress = crypto.CreateAddress(common.Address{}, 0)
+		state.CreateAccount(executionAddress)
+		state.SetNonce(executionAddress, 1)
+		state.PrepareTransaction()
+		state.AddAddressToAccessList(common.Address{})
+		state.AddAddressToAccessList(executionAddress)
+		for address := 1; address <= 10; address++ {
+			state.AddAddressToAccessList(common.BytesToAddress([]byte{byte(address)}))
+		}
+		constructor := vm.New(initcode, state, executionAddress)
+		constructor.SetGas(req.GasLimit)
+		constructor.SetBlockGasLimit(req.GasLimit)
+		constructor.Run()
+		if constructor.Err() != nil {
+			return ExecutionResult{}, fmt.Errorf("constructor execution failed: %w", constructor.Err())
+		}
+		if constructor.IsReverted() {
+			return ExecutionResult{}, fmt.Errorf("constructor execution reverted")
+		}
+		code = constructor.ReturnedCode()
+		if len(code) == 0 {
+			return ExecutionResult{}, fmt.Errorf("constructor returned empty runtime bytecode")
+		}
+	}
+	state.SetCode(executionAddress, code)
 	for key, value := range req.InitialStorage {
-		state.InitState(contractAddress, common.HexToHash(key), common.HexToHash(value))
+		state.InitState(executionAddress, common.HexToHash(key), common.HexToHash(value))
 	}
 	state.PrepareTransaction()
-	state.AddAddressToAccessList(contractAddress)
-	intr := vm.NewWithCallData(code, input, state, contractAddress)
+	state.AddAddressToAccessList(executionAddress)
+	intr := vm.NewWithCallData(code, input, state, executionAddress)
 	intr.SetGas(req.GasLimit)
 	intr.SetBlockGasLimit(req.GasLimit)
 
@@ -81,7 +109,7 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	}
 	storage := make(map[string]string)
 	for _, key := range storageKeys(req, trace) {
-		storage[key.Hex()] = state.GetState(contractAddress, key).Hex()
+		storage[key.Hex()] = state.GetState(executionAddress, key).Hex()
 	}
 	result := ExecutionResult{
 		Engine: "EchoEVM", EngineVersion: moduleVersion("github.com/smallyunet/echoevm"), Status: status,

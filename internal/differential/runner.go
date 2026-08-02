@@ -16,6 +16,23 @@ func NewEngine(echo, geth Runner) *Engine { return &Engine{echo: echo, geth: get
 
 func DefaultEngine() *Engine { return NewEngine(EchoRunner{}, GethRunner{}) }
 
+// RunEcho executes a request with EchoEVM only while preserving the same
+// validation and normalization contract used by Compare.
+func (e *Engine) RunEcho(ctx context.Context, req Request) (ExecutionResult, error) {
+	if e == nil || e.echo == nil {
+		return ExecutionResult{}, fmt.Errorf("differential engine requires an EchoEVM runner")
+	}
+	normalized, err := normalizeRequest(req)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	result, err := e.echo.Run(ctx, normalized)
+	if err != nil {
+		return ExecutionResult{}, fmt.Errorf("EchoEVM runner: %w", err)
+	}
+	return result, nil
+}
+
 func (e *Engine) Compare(ctx context.Context, req Request) (ComparisonResult, error) {
 	if e == nil || e.echo == nil || e.geth == nil {
 		return ComparisonResult{}, fmt.Errorf("differential engine requires both runners")

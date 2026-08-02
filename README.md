@@ -169,6 +169,35 @@ echoevm --help
 
 ## 🚀 Quick Start
 
+### Compile and run a Solidity function
+
+The Solidity runner invokes a local `solc`, deploys the selected contract in an
+isolated Cancun state, and then calls one ABI function. Constructor state and
+immutable values are preserved for the call.
+
+```bash
+echoevm solidity run ./Calculator.sol \
+  --contract Calculator \
+  --constructor-args 7 \
+  --function 'add(uint256,uint256)' \
+  --args 2,40
+
+# Compare the deployed call with embedded Geth and include opcode traces
+echoevm solidity run ./Calculator.sol \
+  --contract Calculator \
+  --constructor-args 7 \
+  --function 'read()' \
+  --diff --trace
+
+# Stable machine-readable output for editor and npm integrations
+echoevm solidity run ./Calculator.sol --constructor-args 7 -f 'read()' --format json
+```
+
+The base path defaults to the source directory. Use `--base-path` and repeated
+`--include-path` flags for imports. Compilation is pinned to the Cancun EVM
+target; the MVP does not implement Foundry cheatcodes, RPC forking, payable
+calls, source maps, or test discovery.
+
 ### Compare EchoEVM with embedded Geth
 
 ```bash
@@ -288,6 +317,7 @@ echoevm web --code "6003600401"
 
 | Command | Description |
 |---------|-------------|
+| `solidity run` | Compile, deploy, and call a Solidity contract with optional trace/diff |
 | `run` | Execute raw bytecode with optional debug tracing |
 | `diff` | Compare results and normalized traces with embedded Geth |
 | `replay` | Replay a confirmed transaction from RPC prestate |
