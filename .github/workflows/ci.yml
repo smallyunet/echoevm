@@ -37,6 +37,8 @@ jobs:
         run: make test-deploy
       - name: Conformance report (official + geth differential)
         run: make test-conformance
+      - name: Validate portable Agent Skills
+        run: make test-skills
 
   build:
     runs-on: ubuntu-latest

@@ -1,0 +1,4 @@
+interface:
+  display_name: "EchoEVM Conformance"
+  short_description: "Validate EVM semantics against fixtures and Geth"
+  default_prompt: "Use $echoevm-conformance to validate this EchoEVM semantics change against the conformance baselines."

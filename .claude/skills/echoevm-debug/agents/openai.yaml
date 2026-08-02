@@ -1,0 +1,4 @@
+interface:
+  display_name: "EchoEVM Debug"
+  short_description: "Debug Solidity, bytecode, and Mainnet transactions"
+  default_prompt: "Use $echoevm-debug to investigate this Solidity execution or transaction with verifiable EVM evidence."

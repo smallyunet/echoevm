@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.34
+**Current Version**: v0.0.35
 
 ---
 
@@ -64,6 +64,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.32 | Solidity source runner and VS Code extension MVP |
 | v0.0.33 | Correct VS Code Marketplace publisher identity |
 | v0.0.34 | Verified CLI release assets and zero-terminal VS Code onboarding |
+| v0.0.35 | Portable Codex, Gemini CLI, and Claude Code Skills with bounded trace evidence |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -102,6 +103,7 @@ Tools and integrations for enhanced developer productivity.
 - [x] Web Debugger UI - Browser-based EVM execution visualizer
 - [x] **Solidity Source Runner** - Compile, deploy, call, trace, and differentially compare one contract function
 - [x] **VS Code Extension MVP** - Inspect, run, compare, and display opcode traces from `.sol` files
+- [x] **Agent Skills** - Debug contracts and transactions or validate conformance from Codex, Gemini CLI, and Claude Code
 - [ ] **Source-Mapped Editor Actions** - CodeLens and trace-to-Solidity navigation
 - [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis

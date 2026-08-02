@@ -78,6 +78,10 @@ jobs:
           npm ci
           npm run package:vsix
           cp echoevm-*.vsix ../../dist/
+      - name: Package Agent Skills
+        run: |
+          make test-skills
+          python3 tools/package_agent_skills.py
       - name: Generate checksums
         working-directory: dist
         run: sha256sum echoevm-* > SHA256SUMS

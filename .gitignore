@@ -201,6 +201,9 @@ fabric.properties
 .idea/
 build/
 bin/
+dist/
+__pycache__/
+*.pyc
 
 # Tests
 tests/fixtures/

@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.34](#-whats-new-in-v0034)
+- [What's New in v0.0.35](#-whats-new-in-v0035)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.34
+## 🆕 What's New in v0.0.35
+
+- **Portable Agent Skills**: `echoevm-debug` and `echoevm-conformance` work from Codex, Gemini CLI, and Claude Code with one canonical skill source.
+- **Bounded AI Evidence**: A deterministic compactor keeps large opcode traces out of model context while preserving the first divergence and a focused trace window.
+- **Installable Skill Assets**: Tagged releases publish validated `.skill` archives alongside the CLI binaries, VSIX, and SHA-256 manifest.
+
+### Previous v0.0.34
 
 - **Verified CLI Downloads**: Tagged releases build platform-specific CLI assets and publish a SHA-256 manifest for editor-managed installation.
 - **Zero-Terminal VS Code Onboarding**: Toolchain health, verified CLI installation, bundled `solc-js 0.8.30`, and a ready-to-run Solidity example reduce setup friction.
@@ -147,6 +153,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
 | **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
 | **Testing** | Unit, integration, E2E, pinned official fixtures, geth differential conformance |
+| **AI Agents** | Portable debugging and conformance Skills for Codex, Gemini CLI, and Claude Code |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
@@ -224,12 +231,47 @@ show an on-demand opcode trace without starting a JSON-RPC node.
 cd editors/vscode
 npm ci
 npm run package:vsix
-code --install-extension echoevm-0.0.1.vsix
+code --install-extension echoevm-0.0.2.vsix
 ```
 
 The extension expects `echoevm` and `solc` on `PATH`. Override them with
 `echoevm.executablePath` and `echoevm.solcPath`. In Remote SSH, Dev Containers,
 or WSL, those executables must be installed in the remote workspace runtime.
+
+### AI coding agent Skills
+
+EchoEVM includes two read-only Agent Skills:
+
+- `echoevm-debug` compiles and executes Solidity, compares bytecode with embedded Geth, and replays confirmed Ethereum Mainnet transactions.
+- `echoevm-conformance` routes interpreter changes through focused tests, pinned official fixtures, and differential vectors.
+
+Codex and Gemini CLI discover the canonical project Skills under
+`.agents/skills`. Claude Code uses the synchronized copies under
+`.claude/skills`. Ask the agent to use `echoevm-debug`, or invoke it explicitly
+as `$echoevm-debug` in Codex and `/echoevm-debug` in Claude Code.
+
+Install the Skills for all projects by copying the appropriate directories:
+
+```bash
+# Codex and Gemini CLI
+mkdir -p ~/.agents/skills
+cp -R .agents/skills/echoevm-debug .agents/skills/echoevm-conformance ~/.agents/skills/
+
+# Claude Code
+mkdir -p ~/.claude/skills
+cp -R .claude/skills/echoevm-debug .claude/skills/echoevm-conformance ~/.claude/skills/
+```
+
+Gemini CLI can also install the `.skill` archives attached to each GitHub
+release with `gemini skills install ./echoevm-debug.skill`. The Skills prefer a
+connected EchoEVM MCP server when one exposes the required operation and
+otherwise fall back to the local `echoevm` CLI. Local Solidity source is never
+sent to the hosted Explorer.
+
+Large JSON results are written to a temporary file and reduced to the first
+divergence plus a bounded trace window before an agent reads them. A matching
+result proves only the tested input and Cancun environment; the Skills do not
+present it as a security audit or complete EVM compatibility.
 
 ### Compare EchoEVM with embedded Geth
 
@@ -474,6 +516,8 @@ case counts, missing required categories, or skipped execution.
 
 ```
 echoevm/
+├── .agents/skills/  # Canonical portable Agent Skills
+├── .claude/skills/  # Generated Claude Code mirrors
 ├── cmd/echoevm/     # CLI commands (deploy, call, trace, etc.)
 ├── editors/vscode/  # VS Code workspace extension and local VSIX packaging
 ├── internal/
