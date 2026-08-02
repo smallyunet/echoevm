@@ -1,17 +1,7 @@
 import { createHash } from "node:crypto";
 import * as https from "node:https";
 
-export const releaseAPI = "https://api.github.com/repos/smallyunet/echoevm/releases/latest";
-
-export interface ReleaseAsset {
-  name: string;
-  browser_download_url: string;
-}
-
-export interface LatestRelease {
-  tag_name: string;
-  assets: ReleaseAsset[];
-}
+export const latestReleaseDownloadBase = "https://github.com/smallyunet/echoevm/releases/latest/download";
 
 export function releaseAssetName(platform: NodeJS.Platform, arch: string): string {
   const goos = platform === "win32" ? "windows" : platform;
@@ -23,6 +13,10 @@ export function releaseAssetName(platform: NodeJS.Platform, arch: string): strin
     throw new Error("EchoEVM does not yet publish a Windows ARM64 CLI.");
   }
   return `echoevm-${goos}-${goarch}${goos === "windows" ? ".exe" : ""}`;
+}
+
+export function latestReleaseAssetURL(assetName: string): string {
+  return `${latestReleaseDownloadBase}/${encodeURIComponent(assetName)}`;
 }
 
 export function checksumForAsset(manifest: string, assetName: string): string {
@@ -39,17 +33,13 @@ export function sha256(contents: Uint8Array): string {
   return createHash("sha256").update(contents).digest("hex");
 }
 
-export async function fetchLatestRelease(): Promise<LatestRelease> {
-  return JSON.parse((await download(releaseAPI)).toString("utf8")) as LatestRelease;
-}
-
 export async function download(url: string, redirects = 5): Promise<Buffer> {
   if (redirects < 0) {
     throw new Error("Too many redirects while downloading EchoEVM.");
   }
   return new Promise((resolve, reject) => {
     const request = https.get(url, {
-      headers: { Accept: "application/vnd.github+json", "User-Agent": "smallyu.echoevm-vscode" },
+      headers: { Accept: "application/octet-stream", "User-Agent": "smallyu.echoevm-vscode" },
     }, (response) => {
       const location = response.headers.location;
       if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && location) {

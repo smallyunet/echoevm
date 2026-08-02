@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.3
+
+- Download CLI binaries and checksums through GitHub's API-free latest-release URLs.
+- Avoid anonymous GitHub API rate limits during first-run setup.
+
 ## 0.0.2
 
 - Add toolchain health status and guided setup.

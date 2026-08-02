@@ -3,7 +3,7 @@ import { access, chmod, mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import * as vscode from "vscode";
-import { checksumForAsset, download, fetchLatestRelease, releaseAssetName, sha256 } from "./release";
+import { checksumForAsset, download, latestReleaseAssetURL, releaseAssetName, sha256 } from "./release";
 
 export interface ResolvedToolchain {
   echoevm: string;
@@ -90,15 +90,9 @@ export class ToolchainManager {
 
   public async installEchoEVM(): Promise<string> {
     const assetName = releaseAssetName(process.platform, process.arch);
-    const release = await fetchLatestRelease();
-    const binaryAsset = release.assets.find((asset) => asset.name === assetName);
-    const sumsAsset = release.assets.find((asset) => asset.name === "SHA256SUMS");
-    if (!binaryAsset || !sumsAsset) {
-      throw new Error(`${release.tag_name} does not contain the verified ${assetName} release assets.`);
-    }
     const [binary, manifest] = await Promise.all([
-      download(binaryAsset.browser_download_url),
-      download(sumsAsset.browser_download_url),
+      download(latestReleaseAssetURL(assetName)),
+      download(latestReleaseAssetURL("SHA256SUMS")),
     ]);
     const expected = checksumForAsset(manifest.toString("utf8"), assetName);
     const actual = sha256(binary);
@@ -114,7 +108,7 @@ export class ToolchainManager {
       await chmod(destination, 0o755);
     }
     await vscode.workspace.getConfiguration("echoevm").update("executablePath", undefined, vscode.ConfigurationTarget.Global);
-    this.output.info(`Installed ${release.tag_name} to ${destination} after SHA-256 verification.`);
+    this.output.info(`Installed the latest EchoEVM CLI to ${destination} after SHA-256 verification.`);
     return destination;
   }
 
