@@ -98,7 +98,8 @@ Tools and integrations for enhanced developer productivity.
 
 - [x] Web Debugger UI - Browser-based EVM execution visualizer
 - [x] **Solidity Source Runner** - Compile, deploy, call, trace, and differentially compare one contract function
-- [ ] **VS Code Extension** - Inline bytecode visualization
+- [x] **VS Code Extension MVP** - Inspect, run, compare, and display opcode traces from `.sol` files
+- [ ] **Source-Mapped Editor Actions** - CodeLens and trace-to-Solidity navigation
 - [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
 - [ ] **Gas Profiler** - Per-opcode gas consumption analysis
 - [ ] **Contract Analyzer** - Security pattern detection

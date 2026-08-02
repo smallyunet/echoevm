@@ -54,3 +54,25 @@ jobs:
           docker run --rm --entrypoint sh echoevm:ci -c 'test -s /usr/local/share/echoevm/deploy/docker-compose.yml && test -s /usr/local/share/echoevm/deploy/Caddyfile && test -s /usr/local/share/echoevm/deploy/deploy-image.sh'
           ECHOEVM_IMAGE=echoevm:ci docker compose -f deploy/docker-compose.yml config --quiet
           docker run --rm --network none -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile
+
+  vscode:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run check
+      - name: Test protocol client
+        run: npm test
+      - name: Package VSIX
+        run: npm run package:vsix

@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.31](#-whats-new-in-v0031)
+- [What's New in v0.0.32](#-whats-new-in-v0032)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.31
+## 🆕 What's New in v0.0.32
+
+- **Solidity Source Runner**: Compile a local Solidity source, deploy constructor state, call one ABI function, and optionally compare execution and traces with embedded Geth.
+- **Versioned Editor Protocol**: Inspect contracts and ABI functions through compact schema-v1 JSON with structured errors and cancellable execution.
+- **VS Code Extension MVP**: Select, run, and compare Solidity functions directly from `.sol` editors, with configurable compiler paths, execution output, and an on-demand opcode trace panel.
+
+### Previous v0.0.31
 
 - **Real STATICCALL Protection**: Read-only mode now propagates through nested frames and rejects storage, transient-storage, log, contract-creation, value-transfer, and self-destruct mutations.
 - **Correct Contract-Creation Rollback**: Failed `CREATE` and `CREATE2` executions restore accounts, balances, persistent storage, and transient storage while preserving the creator nonce required by Ethereum semantics.
@@ -198,6 +204,23 @@ The base path defaults to the source directory. Use `--base-path` and repeated
 target; the MVP does not implement Foundry cheatcodes, RPC forking, payable
 calls, source maps, or test discovery.
 
+### VS Code extension MVP
+
+The workspace extension in `editors/vscode` uses the versioned Solidity JSON
+protocol to inspect contracts, select an ABI function, run or compare it, and
+show an on-demand opcode trace without starting a JSON-RPC node.
+
+```bash
+cd editors/vscode
+npm ci
+npm run package:vsix
+code --install-extension echoevm-0.0.1.vsix
+```
+
+The extension expects `echoevm` and `solc` on `PATH`. Override them with
+`echoevm.executablePath` and `echoevm.solcPath`. In Remote SSH, Dev Containers,
+or WSL, those executables must be installed in the remote workspace runtime.
+
 ### Compare EchoEVM with embedded Geth
 
 ```bash
@@ -317,6 +340,7 @@ echoevm web --code "6003600401"
 
 | Command | Description |
 |---------|-------------|
+| `solidity inspect` | Compile Solidity and return versioned contract/function metadata |
 | `solidity run` | Compile, deploy, and call a Solidity contract with optional trace/diff |
 | `run` | Execute raw bytecode with optional debug tracing |
 | `diff` | Compare results and normalized traces with embedded Geth |
@@ -441,6 +465,7 @@ case counts, missing required categories, or skipped execution.
 ```
 echoevm/
 ├── cmd/echoevm/     # CLI commands (deploy, call, trace, etc.)
+├── editors/vscode/  # VS Code workspace extension and local VSIX packaging
 ├── internal/
 │   ├── differential/  # Reusable EchoEVM/Geth runners and comparison engine
 │   ├── replay/        # Transaction input parser, RPC prestate, and replay engine

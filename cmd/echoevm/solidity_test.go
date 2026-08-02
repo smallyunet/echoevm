@@ -23,7 +23,7 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if err := os.WriteFile(source, []byte("contract Answer {}"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	compiler := writeFakeSolc(t, tempDir, "printf '%s' '"+fakeSolcOutput+"'\n")
+	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
 	flags := &solidityRunFlags{
 		contract: "Answer", function: "add", args: "2,40", solc: compiler,
 		gas: 100_000, format: "json", diff: true,
@@ -32,7 +32,7 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
 		t.Fatalf("run Solidity: %v", err)
 	}
-	var result solidityRunOutput
+	var result solidityRunJSONOutput
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("decode output: %v\n%s", err, output.String())
 	}
@@ -46,8 +46,14 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if result.Execution.ReturnData != fortyTwo {
 		t.Fatalf("return data = %s, want %s", result.Execution.ReturnData, fortyTwo)
 	}
-	if result.Execution.Trace != nil || result.Comparison.EchoEVM.Trace != nil || result.Comparison.Geth.Trace != nil {
+	if result.SchemaVersion != solidityProtocolVersion {
+		t.Fatalf("schema version = %d", result.SchemaVersion)
+	}
+	if result.Execution.Trace != nil || result.Comparison.Geth.Trace != nil {
 		t.Fatal("JSON output included traces without --trace")
+	}
+	if strings.Contains(output.String(), `"bytecode"`) || strings.Contains(output.String(), `"initCode"`) {
+		t.Fatalf("editor JSON leaked full execution request: %s", output.String())
 	}
 }
 
@@ -61,7 +67,7 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	argsFile := filepath.Join(tempDir, "args.txt")
-	script := "printf '%s\\n' \"$@\" > " + shellSingleQuote(argsFile) + "\nprintf '%s' '" + fakeSolcOutput + "'\n"
+	script := successfulFakeSolcBody("printf '%s\\n' \"$@\" > " + shellSingleQuote(argsFile) + "\n")
 	compiler := writeFakeSolc(t, tempDir, script)
 	flags := &solidityRunFlags{
 		function: "add(uint256,uint256)", args: "2,40", solc: compiler,
@@ -71,7 +77,7 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
 		t.Fatalf("run Solidity: %v", err)
 	}
-	var result solidityRunOutput
+	var result solidityRunJSONOutput
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +96,38 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 	}
 }
 
+func TestSolidityInspectListsContractsAndFunctions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake solc fixture uses a POSIX shell")
+	}
+	tempDir := t.TempDir()
+	source := filepath.Join(tempDir, "Example.sol")
+	if err := os.WriteFile(source, []byte("contract Answer {}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
+	var output bytes.Buffer
+	err := runSolidityInspect(t.Context(), &output, source, &solidityRunFlags{
+		solc: compiler, gas: 100_000, format: "json",
+	})
+	if err != nil {
+		t.Fatalf("inspect Solidity: %v", err)
+	}
+	var result solidityInspectOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SchemaVersion != 1 || result.Compiler.Version != "0.8.30+commit.test" {
+		t.Fatalf("unexpected protocol metadata: %+v", result)
+	}
+	if len(result.Contracts) != 1 || len(result.Contracts[0].Functions) != 1 {
+		t.Fatalf("unexpected inspection result: %+v", result.Contracts)
+	}
+	if result.Contracts[0].Functions[0].Signature != "add(uint256,uint256)" {
+		t.Fatalf("unexpected function: %+v", result.Contracts[0].Functions[0])
+	}
+}
+
 func TestSolidityRunReportsCompilerFailure(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake solc fixture uses a POSIX shell")
@@ -103,6 +141,21 @@ func TestSolidityRunReportsCompilerFailure(t *testing.T) {
 	err := runSolidity(t.Context(), &bytes.Buffer{}, source, &solidityRunFlags{solc: compiler, gas: 100_000, format: "text"})
 	if err == nil || !strings.Contains(err.Error(), "ParserError: expected declaration") {
 		t.Fatalf("unexpected compiler error: %v", err)
+	}
+}
+
+func TestWriteSolidityErrorUsesVersionedEnvelope(t *testing.T) {
+	var output bytes.Buffer
+	err := writeSolidityError(&output, "ARGUMENT_ERROR", os.ErrInvalid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var result solidityErrorOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.SchemaVersion != solidityProtocolVersion || result.Error.Code != "ARGUMENT_ERROR" {
+		t.Fatalf("unexpected error envelope: %+v", result)
 	}
 }
 
@@ -166,6 +219,13 @@ func writeFakeSolc(t *testing.T, dir, body string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func successfulFakeSolcBody(beforeCompile string) string {
+	return "if [ \"$1\" = \"--version\" ]; then\n" +
+		"  printf '%s\\n' 'solc, the solidity compiler' 'Version: 0.8.30+commit.test'\n" +
+		"  exit 0\n" +
+		"fi\n" + beforeCompile + "printf '%s' '" + fakeSolcOutput + "'\n"
 }
 
 func shellSingleQuote(value string) string {

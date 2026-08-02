@@ -11,11 +11,14 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smallyunet/echoevm/internal/differential"
 	"github.com/spf13/cobra"
 )
+
+const solidityProtocolVersion = 1
 
 type solidityRunFlags struct {
 	contract        string
@@ -41,12 +44,83 @@ type compiledSolidityContract struct {
 }
 
 type solidityRunOutput struct {
-	Source     string                         `json:"source"`
-	Contract   string                         `json:"contract"`
-	Function   string                         `json:"function"`
-	Execution  differential.ExecutionResult   `json:"execution"`
-	Comparison *differential.ComparisonResult `json:"comparison,omitempty"`
+	SchemaVersion int                            `json:"schemaVersion"`
+	Source        string                         `json:"source"`
+	Contract      string                         `json:"contract"`
+	Function      string                         `json:"function"`
+	Compiler      solidityCompilerInfo           `json:"compiler"`
+	DurationMS    int64                          `json:"durationMs"`
+	Execution     differential.ExecutionResult   `json:"execution"`
+	Comparison    *differential.ComparisonResult `json:"-"`
 }
+
+type solidityCompilerInfo struct {
+	Executable string `json:"executable"`
+	Version    string `json:"version"`
+}
+
+type solidityComparisonOutput struct {
+	Match           bool                         `json:"match"`
+	StatusMatch     bool                         `json:"statusMatch"`
+	ReturnDataMatch bool                         `json:"returnDataMatch"`
+	GasMatch        bool                         `json:"gasMatch"`
+	StorageMatch    bool                         `json:"storageMatch"`
+	TraceMatch      bool                         `json:"traceMatch"`
+	FirstDivergence *differential.Divergence     `json:"firstDivergence,omitempty"`
+	Geth            differential.ExecutionResult `json:"geth"`
+	TraceSemantics  string                       `json:"traceSemantics"`
+}
+
+type solidityRunJSONOutput struct {
+	SchemaVersion int                          `json:"schemaVersion"`
+	Source        string                       `json:"source"`
+	Contract      string                       `json:"contract"`
+	Function      string                       `json:"function"`
+	Compiler      solidityCompilerInfo         `json:"compiler"`
+	DurationMS    int64                        `json:"durationMs"`
+	Execution     differential.ExecutionResult `json:"execution"`
+	Comparison    *solidityComparisonOutput    `json:"comparison,omitempty"`
+}
+
+type solidityParameterOutput struct {
+	Name string `json:"name,omitempty"`
+	Type string `json:"type"`
+}
+
+type solidityFunctionOutput struct {
+	Name            string                    `json:"name"`
+	Signature       string                    `json:"signature"`
+	Inputs          []solidityParameterOutput `json:"inputs"`
+	Outputs         []solidityParameterOutput `json:"outputs"`
+	StateMutability string                    `json:"stateMutability"`
+}
+
+type solidityContractOutput struct {
+	Key         string                    `json:"key"`
+	Name        string                    `json:"name"`
+	Constructor []solidityParameterOutput `json:"constructorInputs"`
+	Functions   []solidityFunctionOutput  `json:"functions"`
+}
+
+type solidityInspectOutput struct {
+	SchemaVersion int                      `json:"schemaVersion"`
+	Source        string                   `json:"source"`
+	Compiler      solidityCompilerInfo     `json:"compiler"`
+	DurationMS    int64                    `json:"durationMs"`
+	Contracts     []solidityContractOutput `json:"contracts"`
+}
+
+type solidityErrorOutput struct {
+	SchemaVersion int `json:"schemaVersion"`
+	Error         struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+type reportedSolidityError struct{ message string }
+
+func (e reportedSolidityError) Error() string { return e.message }
 
 func newSolidityCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -54,6 +128,7 @@ func newSolidityCmd() *cobra.Command {
 		Short: "Compile and execute Solidity source in an isolated EVM",
 	}
 	cmd.AddCommand(newSolidityRunCmd())
+	cmd.AddCommand(newSolidityInspectCmd())
 	return cmd
 }
 
@@ -65,7 +140,13 @@ func newSolidityRunCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "echoevm solidity run Counter.sol --contract Counter --function 'add(uint256,uint256)' --args 2,40 --diff",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSolidity(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
+			err := runSolidity(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
+			if err != nil && flags.format == "json" {
+				if _, alreadyReported := err.(reportedSolidityError); !alreadyReported {
+					_ = writeSolidityError(cmd.OutOrStdout(), classifySolidityError(err), err)
+				}
+			}
+			return err
 		},
 	}
 	cmd.Flags().StringVar(&flags.contract, "contract", "", "contract name (required when the source produces multiple deployable contracts)")
@@ -83,7 +164,30 @@ func newSolidityRunCmd() *cobra.Command {
 	return cmd
 }
 
+func newSolidityInspectCmd() *cobra.Command {
+	flags := &solidityRunFlags{}
+	cmd := &cobra.Command{
+		Use:   "inspect <source.sol>",
+		Short: "List deployable contracts and ABI functions as editor-friendly JSON",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			err := runSolidityInspect(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
+			if err != nil && flags.format == "json" {
+				_ = writeSolidityError(cmd.OutOrStdout(), classifySolidityError(err), err)
+			}
+			return err
+		},
+	}
+	cmd.Flags().StringVar(&flags.solc, "solc", "solc", "Solidity compiler executable")
+	cmd.Flags().StringVar(&flags.basePath, "base-path", "", "solc base path (defaults to the source directory)")
+	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
+	cmd.Flags().StringVar(&flags.format, "format", "json", "output format (text|json)")
+	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
+	return cmd
+}
+
 func runSolidity(ctx context.Context, out io.Writer, source string, flags *solidityRunFlags) error {
+	startedAt := time.Now()
 	if flags.format != "text" && flags.format != "json" {
 		return fmt.Errorf("unsupported format %q: use text or json", flags.format)
 	}
@@ -114,7 +218,9 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	}
 	engine := differential.DefaultEngine()
 	result := solidityRunOutput{
-		Source: source, Contract: contract.name, Function: method.Sig,
+		SchemaVersion: solidityProtocolVersion,
+		Source:        source, Contract: contract.name, Function: method.Sig,
+		Compiler: solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc)},
 	}
 	if flags.diff {
 		comparison, compareErr := engine.Compare(ctx, req)
@@ -131,11 +237,61 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 		result.Execution = execution
 	}
 
+	result.DurationMS = time.Since(startedAt).Milliseconds()
 	if err := writeSolidityRunOutput(out, result, flags); err != nil {
 		return err
 	}
 	if result.Execution.Status != differential.StatusSuccess {
-		return fmt.Errorf("execution %s", result.Execution.Status)
+		return reportedSolidityError{message: fmt.Sprintf("execution %s", result.Execution.Status)}
+	}
+	return nil
+}
+
+func runSolidityInspect(ctx context.Context, out io.Writer, source string, flags *solidityRunFlags) error {
+	startedAt := time.Now()
+	if flags.format != "text" && flags.format != "json" {
+		return fmt.Errorf("unsupported format %q: use text or json", flags.format)
+	}
+	compiled, err := compileSolidity(ctx, source, flags)
+	if err != nil {
+		return err
+	}
+	result := solidityInspectOutput{
+		SchemaVersion: solidityProtocolVersion,
+		Source:        source,
+		Compiler:      solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc)},
+		Contracts:     make([]solidityContractOutput, 0, len(compiled)),
+	}
+	for _, contract := range compiled {
+		item := solidityContractOutput{
+			Key: contract.key, Name: contract.name,
+			Constructor: solidityParameters(contract.abi.Constructor.Inputs),
+		}
+		for _, method := range contract.abi.Methods {
+			item.Functions = append(item.Functions, solidityFunctionOutput{
+				Name: method.RawName, Signature: method.Sig,
+				Inputs: solidityParameters(method.Inputs), Outputs: solidityParameters(method.Outputs),
+				StateMutability: method.StateMutability,
+			})
+		}
+		sort.Slice(item.Functions, func(i, j int) bool { return item.Functions[i].Signature < item.Functions[j].Signature })
+		result.Contracts = append(result.Contracts, item)
+	}
+	result.DurationMS = time.Since(startedAt).Milliseconds()
+	if flags.format == "json" {
+		encoder := json.NewEncoder(out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(result)
+	}
+	for _, contract := range result.Contracts {
+		if _, err := fmt.Fprintf(out, "%s (%s)\n", contract.Name, contract.Key); err != nil {
+			return err
+		}
+		for _, method := range contract.Functions {
+			if _, err := fmt.Fprintf(out, "  %s\n", method.Signature); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -332,6 +488,54 @@ func parseABIArguments(arguments gethabi.Arguments, argString string) ([]interfa
 	return values, nil
 }
 
+func solidityParameters(arguments gethabi.Arguments) []solidityParameterOutput {
+	parameters := make([]solidityParameterOutput, len(arguments))
+	for i, argument := range arguments {
+		parameters[i] = solidityParameterOutput{Name: argument.Name, Type: argument.Type.String()}
+	}
+	return parameters
+}
+
+func solidityCompilerVersion(ctx context.Context, executable string) string {
+	command := exec.CommandContext(ctx, executable, "--version")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		return "unknown"
+	}
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "Version:") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "Version:"))
+		}
+	}
+	if len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) != "" {
+		return strings.TrimSpace(lines[len(lines)-1])
+	}
+	return "unknown"
+}
+
+func classifySolidityError(err error) string {
+	message := err.Error()
+	switch {
+	case strings.Contains(message, "solc compilation"), strings.Contains(message, "parse solc output"):
+		return "COMPILATION_FAILED"
+	case strings.Contains(message, "contract "), strings.Contains(message, "function "):
+		return "SELECTION_FAILED"
+	case strings.Contains(message, "argument"):
+		return "ARGUMENT_ERROR"
+	default:
+		return "SOLIDITY_RUN_FAILED"
+	}
+}
+
+func writeSolidityError(out io.Writer, code string, err error) error {
+	result := solidityErrorOutput{SchemaVersion: solidityProtocolVersion}
+	result.Error.Code = code
+	result.Error.Message = err.Error()
+	return json.NewEncoder(out).Encode(result)
+}
+
 func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *solidityRunFlags) error {
 	if flags.format == "json" {
 		if !flags.trace {
@@ -341,9 +545,27 @@ func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *soli
 				result.Comparison.Geth.Trace = nil
 			}
 		}
+		jsonResult := solidityRunJSONOutput{
+			SchemaVersion: result.SchemaVersion,
+			Source:        result.Source, Contract: result.Contract, Function: result.Function,
+			Compiler: result.Compiler, DurationMS: result.DurationMS, Execution: result.Execution,
+		}
+		if result.Comparison != nil {
+			jsonResult.Comparison = &solidityComparisonOutput{
+				Match:           result.Comparison.Match,
+				StatusMatch:     result.Comparison.StatusMatch,
+				ReturnDataMatch: result.Comparison.ReturnDataMatch,
+				GasMatch:        result.Comparison.GasMatch,
+				StorageMatch:    result.Comparison.StorageMatch,
+				TraceMatch:      result.Comparison.TraceMatch,
+				FirstDivergence: result.Comparison.FirstDivergence,
+				Geth:            result.Comparison.Geth,
+				TraceSemantics:  result.Comparison.TraceSemantics,
+			}
+		}
 		encoder := json.NewEncoder(out)
 		encoder.SetIndent("", "  ")
-		return encoder.Encode(result)
+		return encoder.Encode(jsonResult)
 	}
 	if _, err := fmt.Fprintf(out, "EchoEVM Solidity run — %s:%s %s\n", result.Source, result.Contract, result.Function); err != nil {
 		return err

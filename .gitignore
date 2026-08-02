@@ -206,5 +206,11 @@ bin/
 tests/fixtures/
 /echoevm
 
+# VS Code extension build outputs
+editors/vscode/node_modules/
+editors/vscode/dist/
+editors/vscode/out/
+editors/vscode/*.vsix
+
 # Local environment and RPC credentials
 .env
