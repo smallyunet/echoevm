@@ -12,7 +12,7 @@ import (
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-const fakeSolcOutput = `{"contracts":{"Example.sol:Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"bin":"67602a5f5260205ff360005260086018f3","bin-runtime":"602a5f5260205ff3"}}}`
+const fakeSolcOutput = `{"contracts":{"Example.sol":{"Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"evm":{"bytecode":{"object":"67602a5f5260205ff360005260086018f3"},"deployedBytecode":{"object":"602a5f5260205ff3"}}}}}}`
 
 func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if runtime.GOOS == "windows" {
@@ -67,7 +67,8 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	argsFile := filepath.Join(tempDir, "args.txt")
-	script := successfulFakeSolcBody("printf '%s\\n' \"$@\" > " + shellSingleQuote(argsFile) + "\n")
+	inputFile := filepath.Join(tempDir, "input.json")
+	script := successfulFakeSolcBody("printf '%s\\n' \"$@\" > " + shellSingleQuote(argsFile) + "\ncat > " + shellSingleQuote(inputFile) + "\n")
 	compiler := writeFakeSolc(t, tempDir, script)
 	flags := &solidityRunFlags{
 		function: "add(uint256,uint256)", args: "2,40", solc: compiler,
@@ -89,10 +90,17 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	joined := string(compilerArgs)
-	for _, expected := range []string{"--combined-json", "abi,bin,bin-runtime", "--evm-version", "cancun", "--optimize"} {
+	for _, expected := range []string{"--standard-json", "--base-path"} {
 		if !strings.Contains(joined, expected) {
 			t.Errorf("compiler arguments missing %q: %s", expected, joined)
 		}
+	}
+	compilerInput, err := os.ReadFile(inputFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(compilerInput), `"evmVersion":"cancun"`) || !strings.Contains(string(compilerInput), `"enabled":true`) {
+		t.Fatalf("standard JSON input missing Cancun optimizer settings: %s", compilerInput)
 	}
 }
 
@@ -141,6 +149,25 @@ func TestSolidityRunReportsCompilerFailure(t *testing.T) {
 	err := runSolidity(t.Context(), &bytes.Buffer{}, source, &solidityRunFlags{solc: compiler, gas: 100_000, format: "text"})
 	if err == nil || !strings.Contains(err.Error(), "ParserError: expected declaration") {
 		t.Fatalf("unexpected compiler error: %v", err)
+	}
+}
+
+func TestSolidityRunReportsStandardJSONDiagnostic(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake solc fixture uses a POSIX shell")
+	}
+	tempDir := t.TempDir()
+	source := filepath.Join(tempDir, "Broken.sol")
+	if err := os.WriteFile(source, []byte("broken"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	body := "if [ \"$1\" = \"--version\" ]; then echo 'Version: 0.8.30'; exit 0; fi\n" +
+		"cat >/dev/null\n" +
+		"printf '%s' '{\"errors\":[{\"severity\":\"error\",\"formattedMessage\":\"ParserError: expected declaration\"}]}'\n"
+	compiler := writeFakeSolc(t, tempDir, body)
+	err := runSolidity(t.Context(), &bytes.Buffer{}, source, &solidityRunFlags{solc: compiler, gas: 100_000, format: "text"})
+	if err == nil || !strings.Contains(err.Error(), "ParserError: expected declaration") {
+		t.Fatalf("unexpected standard JSON compiler error: %v", err)
 	}
 }
 

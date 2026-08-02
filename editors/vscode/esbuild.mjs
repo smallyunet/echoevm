@@ -12,3 +12,14 @@ await esbuild.build({
   sourcemap: true,
   sourcesContent: false,
 });
+
+await esbuild.build({
+  entryPoints: ["src/solcjs.ts"],
+  bundle: true,
+  format: "cjs",
+  platform: "node",
+  target: "node20",
+  outfile: "dist/solcjs.cjs",
+  minify: true,
+  sourcemap: false,
+});

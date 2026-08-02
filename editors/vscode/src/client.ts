@@ -15,15 +15,18 @@ import {
 const maxOutputBytes = 32 * 1024 * 1024;
 
 export class EchoEVMClient {
-  public constructor(private readonly executable: string) {}
+  public constructor(
+    private readonly executable: string,
+    private readonly environment?: NodeJS.ProcessEnv,
+  ) {}
 
   public async inspect(options: CommonCommandOptions, cwd: string, token: CancellationToken): Promise<InspectResult> {
-    const result = await runProcess(this.executable, buildInspectArguments(options), cwd, token);
+    const result = await runProcess(this.executable, buildInspectArguments(options), cwd, token, this.environment);
     return decodeResult<InspectResult>(result);
   }
 
   public async run(options: RunCommandOptions, cwd: string, token: CancellationToken): Promise<RunResult> {
-    const result = await runProcess(this.executable, buildRunArguments(options), cwd, token);
+    const result = await runProcess(this.executable, buildRunArguments(options), cwd, token, this.environment);
     return decodeResult<RunResult>(result, true);
   }
 }
@@ -53,13 +56,13 @@ function commandFailureMessage(result: ProcessResult): string {
   return `EchoEVM command failed: ${detail}`;
 }
 
-function runProcess(executable: string, args: string[], cwd: string, token: CancellationToken): Promise<ProcessResult> {
+function runProcess(executable: string, args: string[], cwd: string, token: CancellationToken, environment?: NodeJS.ProcessEnv): Promise<ProcessResult> {
   return new Promise((resolve, reject) => {
     if (token.isCancellationRequested) {
       reject(new Error("EchoEVM execution canceled"));
       return;
     }
-    const child = spawn(executable, args, { cwd, shell: false, windowsHide: true });
+    const child = spawn(executable, args, { cwd, env: environment, shell: false, windowsHide: true });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let outputBytes = 0;

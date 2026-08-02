@@ -26,6 +26,7 @@ type solidityRunFlags struct {
 	args            string
 	constructorArgs string
 	solc            string
+	solcArgs        []string
 	basePath        string
 	includePaths    []string
 	gas             uint64
@@ -154,6 +155,7 @@ func newSolidityRunCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&flags.args, "args", "A", "", "comma-separated function arguments")
 	cmd.Flags().StringVar(&flags.constructorArgs, "constructor-args", "", "comma-separated constructor arguments")
 	cmd.Flags().StringVar(&flags.solc, "solc", "solc", "Solidity compiler executable")
+	cmd.Flags().StringArrayVar(&flags.solcArgs, "solc-arg", nil, "argument placed before solc compilation options (repeatable)")
 	cmd.Flags().StringVar(&flags.basePath, "base-path", "", "solc base path (defaults to the source directory)")
 	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
@@ -179,6 +181,7 @@ func newSolidityInspectCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flags.solc, "solc", "solc", "Solidity compiler executable")
+	cmd.Flags().StringArrayVar(&flags.solcArgs, "solc-arg", nil, "argument placed before solc compilation options (repeatable)")
 	cmd.Flags().StringVar(&flags.basePath, "base-path", "", "solc base path (defaults to the source directory)")
 	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
 	cmd.Flags().StringVar(&flags.format, "format", "json", "output format (text|json)")
@@ -220,7 +223,7 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	result := solidityRunOutput{
 		SchemaVersion: solidityProtocolVersion,
 		Source:        source, Contract: contract.name, Function: method.Sig,
-		Compiler: solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc)},
+		Compiler: solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
 	}
 	if flags.diff {
 		comparison, compareErr := engine.Compare(ctx, req)
@@ -259,7 +262,7 @@ func runSolidityInspect(ctx context.Context, out io.Writer, source string, flags
 	result := solidityInspectOutput{
 		SchemaVersion: solidityProtocolVersion,
 		Source:        source,
-		Compiler:      solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc)},
+		Compiler:      solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
 		Contracts:     make([]solidityContractOutput, 0, len(compiled)),
 	}
 	for _, contract := range compiled {
@@ -317,7 +320,45 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 	if err != nil {
 		return nil, fmt.Errorf("resolve solc base path: %w", err)
 	}
-	args := []string{"--combined-json", "abi,bin,bin-runtime", "--evm-version", "cancun", "--base-path", absBasePath}
+	sourceKey, err := filepath.Rel(absBasePath, absSource)
+	if err != nil || strings.HasPrefix(sourceKey, ".."+string(filepath.Separator)) || sourceKey == ".." {
+		sourceKey = absSource
+	}
+	sourceKey = filepath.ToSlash(sourceKey)
+	sourceContents, err := os.ReadFile(absSource)
+	if err != nil {
+		return nil, fmt.Errorf("read Solidity source: %w", err)
+	}
+	compilerInput := struct {
+		Language string `json:"language"`
+		Sources  map[string]struct {
+			Content string `json:"content"`
+		} `json:"sources"`
+		Settings struct {
+			Optimizer struct {
+				Enabled bool `json:"enabled"`
+			} `json:"optimizer"`
+			EVMVersion      string                         `json:"evmVersion"`
+			OutputSelection map[string]map[string][]string `json:"outputSelection"`
+		} `json:"settings"`
+	}{Language: "Solidity", Sources: make(map[string]struct {
+		Content string `json:"content"`
+	})}
+	compilerInput.Sources[sourceKey] = struct {
+		Content string `json:"content"`
+	}{Content: string(sourceContents)}
+	compilerInput.Settings.Optimizer.Enabled = flags.optimize
+	compilerInput.Settings.EVMVersion = "cancun"
+	compilerInput.Settings.OutputSelection = map[string]map[string][]string{
+		"*": {"*": {"abi", "evm.bytecode.object", "evm.deployedBytecode.object"}},
+	}
+	standardJSON, err := json.Marshal(compilerInput)
+	if err != nil {
+		return nil, fmt.Errorf("encode solc input: %w", err)
+	}
+
+	args := append([]string{}, flags.solcArgs...)
+	args = append(args, "--standard-json", "--base-path", absBasePath)
 	for _, includePath := range flags.includePaths {
 		absolute, pathErr := filepath.Abs(includePath)
 		if pathErr != nil {
@@ -325,13 +366,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		}
 		args = append(args, "--include-path", absolute)
 	}
-	if flags.optimize {
-		args = append(args, "--optimize")
-	}
-	args = append(args, absSource)
 
 	command := exec.CommandContext(ctx, flags.solc, args...)
 	var stdout, stderr bytes.Buffer
+	command.Stdin = bytes.NewReader(standardJSON)
 	command.Stdout = &stdout
 	command.Stderr = &stderr
 	if err := command.Run(); err != nil {
@@ -345,33 +383,56 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		return nil, fmt.Errorf("solc compilation failed: %s", detail)
 	}
 
-	var combined struct {
-		Contracts map[string]struct {
-			ABI        json.RawMessage `json:"abi"`
-			Bin        string          `json:"bin"`
-			BinRuntime string          `json:"bin-runtime"`
+	var compiledOutput struct {
+		Contracts map[string]map[string]struct {
+			ABI json.RawMessage `json:"abi"`
+			EVM struct {
+				Bytecode struct {
+					Object string `json:"object"`
+				} `json:"bytecode"`
+				DeployedBytecode struct {
+					Object string `json:"object"`
+				} `json:"deployedBytecode"`
+			} `json:"evm"`
 		} `json:"contracts"`
+		Errors []struct {
+			Severity         string `json:"severity"`
+			Message          string `json:"message"`
+			FormattedMessage string `json:"formattedMessage"`
+		} `json:"errors"`
 	}
-	if err := json.Unmarshal(stdout.Bytes(), &combined); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &compiledOutput); err != nil {
 		return nil, fmt.Errorf("parse solc output: %w", err)
 	}
-	contracts := make([]compiledSolidityContract, 0, len(combined.Contracts))
-	for key, artifact := range combined.Contracts {
-		if artifact.BinRuntime == "" {
-			continue
+	var compilerErrors []string
+	for _, diagnostic := range compiledOutput.Errors {
+		if diagnostic.Severity == "error" {
+			message := strings.TrimSpace(diagnostic.FormattedMessage)
+			if message == "" {
+				message = strings.TrimSpace(diagnostic.Message)
+			}
+			compilerErrors = append(compilerErrors, message)
 		}
-		parsedABI, err := parseCombinedJSONABI(artifact.ABI)
-		if err != nil {
-			return nil, fmt.Errorf("parse ABI for %s: %w", key, err)
+	}
+	if len(compilerErrors) > 0 {
+		return nil, fmt.Errorf("solc compilation failed: %s", strings.Join(compilerErrors, "\n"))
+	}
+	contracts := make([]compiledSolidityContract, 0)
+	for sourceName, sourceContracts := range compiledOutput.Contracts {
+		for contractName, artifact := range sourceContracts {
+			if artifact.EVM.DeployedBytecode.Object == "" {
+				continue
+			}
+			key := sourceName + ":" + contractName
+			parsedABI, err := parseCombinedJSONABI(artifact.ABI)
+			if err != nil {
+				return nil, fmt.Errorf("parse ABI for %s: %w", key, err)
+			}
+			contracts = append(contracts, compiledSolidityContract{
+				key: key, name: contractName, constructorBytecode: "0x" + artifact.EVM.Bytecode.Object,
+				runtimeBytecode: "0x" + artifact.EVM.DeployedBytecode.Object, abi: parsedABI,
+			})
 		}
-		name := key
-		if colon := strings.LastIndex(key, ":"); colon >= 0 {
-			name = key[colon+1:]
-		}
-		contracts = append(contracts, compiledSolidityContract{
-			key: key, name: name, constructorBytecode: "0x" + artifact.Bin,
-			runtimeBytecode: "0x" + artifact.BinRuntime, abi: parsedABI,
-		})
 	}
 	sort.Slice(contracts, func(i, j int) bool { return contracts[i].key < contracts[j].key })
 	if len(contracts) == 0 {
@@ -496,8 +557,10 @@ func solidityParameters(arguments gethabi.Arguments) []solidityParameterOutput {
 	return parameters
 }
 
-func solidityCompilerVersion(ctx context.Context, executable string) string {
-	command := exec.CommandContext(ctx, executable, "--version")
+func solidityCompilerVersion(ctx context.Context, executable string, prefixArgs []string) string {
+	args := append([]string{}, prefixArgs...)
+	args = append(args, "--version")
+	command := exec.CommandContext(ctx, executable, args...)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return "unknown"

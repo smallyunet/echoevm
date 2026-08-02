@@ -2,16 +2,49 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { EchoEVMClient } from "./client";
 import type { CommonCommandOptions, RunResult, SolidityContract, SolidityFunction } from "./protocol";
+import { ToolchainManager } from "./toolchain";
 import { showTracePanel } from "./tracePanel";
 
 let lastResult: RunResult | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("EchoEVM", { log: true });
+  const toolchain = new ToolchainManager(context, output);
+  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 30);
+  status.command = "echoevm.setup";
+  status.show();
+  const refreshStatus = async (): Promise<void> => {
+    const resource = vscode.window.activeTextEditor?.document.uri;
+    const result = await toolchain.diagnose(resource);
+    const ready = Boolean(result.echoevm && result.solc);
+    status.text = ready ? "$(check) EchoEVM" : "$(warning) EchoEVM Setup";
+    status.tooltip = ready
+      ? `EchoEVM ${result.echoevm?.version}; solc ${result.solc?.version}`
+      : "Install or configure the EchoEVM CLI and Solidity compiler";
+    status.backgroundColor = ready ? undefined : new vscode.ThemeColor("statusBarItem.warningBackground");
+  };
   context.subscriptions.push(
     output,
-    vscode.commands.registerCommand("echoevm.runFunction", () => executeActiveFunction(output, false)),
-    vscode.commands.registerCommand("echoevm.runAndCompare", () => executeActiveFunction(output, true)),
+    status,
+    vscode.commands.registerCommand("echoevm.setup", async () => {
+      try {
+        await runSetup(toolchain, vscode.window.activeTextEditor?.document.uri);
+        await refreshStatus();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        output.error(message);
+        await vscode.window.showErrorMessage(`EchoEVM setup failed: ${message}`);
+      }
+    }),
+    vscode.commands.registerCommand("echoevm.openExample", () => openExample(context)),
+    vscode.commands.registerCommand("echoevm.runFunction", async () => {
+      await executeActiveFunction(output, toolchain, false);
+      await refreshStatus();
+    }),
+    vscode.commands.registerCommand("echoevm.runAndCompare", async () => {
+      await executeActiveFunction(output, toolchain, true);
+      await refreshStatus();
+    }),
     vscode.commands.registerCommand("echoevm.showLastTrace", () => {
       if (!lastResult) {
         void vscode.window.showInformationMessage("Run a Solidity function with EchoEVM first.");
@@ -19,12 +52,18 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       showTracePanel(lastResult);
     }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("echoevm")) {
+        void refreshStatus();
+      }
+    }),
   );
+  void refreshStatus();
 }
 
 export function deactivate(): void {}
 
-async function executeActiveFunction(output: vscode.LogOutputChannel, diff: boolean): Promise<void> {
+async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain: ToolchainManager, diff: boolean): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || path.extname(editor.document.uri.fsPath).toLowerCase() !== ".sol") {
     await vscode.window.showErrorMessage("Open a Solidity (.sol) file before running EchoEVM.");
@@ -36,16 +75,20 @@ async function executeActiveFunction(output: vscode.LogOutputChannel, diff: bool
   }
 
   const source = editor.document.uri.fsPath;
+  const tools = await toolchain.ensureReady(editor.document.uri);
+  if (!tools) {
+    return;
+  }
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
   const cwd = workspaceFolder?.uri.fsPath ?? path.dirname(source);
   const configuration = vscode.workspace.getConfiguration("echoevm", editor.document.uri);
-  const executable = configuration.get<string>("executablePath", "echoevm");
-  const solcPath = configuration.get<string>("solcPath", "solc");
+  const executable = tools.echoevm;
+  const solcPath = tools.solc;
   const includePaths = configuration.get<string[]>("includePaths", []).map((item) => path.resolve(cwd, item));
   const optimize = configuration.get<boolean>("optimize", false);
   const gasLimit = configuration.get<number>("gasLimit", 1_000_000);
-  const common: CommonCommandOptions = { source, solcPath, basePath: cwd, includePaths, optimize };
-  const client = new EchoEVMClient(executable);
+  const common: CommonCommandOptions = { source, solcPath, solcArgs: tools.solcArgs, basePath: cwd, includePaths, optimize };
+  const client = new EchoEVMClient(executable, tools.environment);
 
   try {
     const inspection = await vscode.window.withProgress(
@@ -119,6 +162,9 @@ async function pickFunction(contract: SolidityContract): Promise<SolidityFunctio
   if (contract.functions.length === 0) {
     throw new Error(`${contract.name} exposes no ABI functions.`);
   }
+  if (contract.functions.length === 1) {
+    return contract.functions[0];
+  }
   const selected = await vscode.window.showQuickPick(
     contract.functions.map((solidityFunction) => ({
       label: solidityFunction.signature,
@@ -129,6 +175,76 @@ async function pickFunction(contract: SolidityContract): Promise<SolidityFunctio
     { title: `Select a function from ${contract.name}`, placeHolder: "ABI function" },
   );
   return selected?.solidityFunction;
+}
+
+async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Promise<void> {
+  const current = await toolchain.diagnose(resource);
+  const choices: string[] = [
+    "Show detected versions",
+    "Install or update verified EchoEVM CLI",
+    "Choose EchoEVM executable",
+    "Use bundled Solidity compiler",
+    "Choose Solidity compiler",
+  ];
+  choices.push("Open Solidity installation guide");
+  const action = await vscode.window.showQuickPick(choices, {
+    title: "EchoEVM Setup",
+    placeHolder: "Resolve a missing tool",
+  });
+  if (action === "Show detected versions") {
+    await vscode.window.showInformationMessage(
+      `EchoEVM: ${current.echoevm?.version ?? "missing"}; compiler: ${current.solc?.version ?? "missing"}.`,
+    );
+  } else if (action === "Install or update verified EchoEVM CLI") {
+    await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "Installing verified EchoEVM CLI" },
+      () => toolchain.installEchoEVM(),
+    );
+    await vscode.window.showInformationMessage("EchoEVM CLI installed and verified.");
+  } else if (action === "Choose EchoEVM executable") {
+    await toolchain.chooseExecutable("executablePath", "Select the EchoEVM executable");
+  } else if (action === "Use bundled Solidity compiler") {
+    await toolchain.useBundledCompiler();
+    await vscode.window.showInformationMessage("EchoEVM will use the bundled solc-js compiler.");
+  } else if (action === "Choose Solidity compiler") {
+    await toolchain.chooseExecutable("solcPath", "Select solc or solcjs");
+  } else if (action === "Open Solidity installation guide") {
+    await vscode.env.openExternal(vscode.Uri.parse("https://docs.soliditylang.org/en/latest/installing-solidity.html"));
+  }
+}
+
+async function openExample(context: vscode.ExtensionContext): Promise<void> {
+  let folder = vscode.workspace.workspaceFolders?.[0]?.uri;
+  if (!folder) {
+    const selected = await vscode.window.showOpenDialog({
+      title: "Choose a folder for the EchoEVM example",
+      canSelectFolders: true,
+      canSelectFiles: false,
+      canSelectMany: false,
+    });
+    folder = selected?.[0];
+  }
+  if (!folder) {
+    return;
+  }
+  const exampleDirectory = vscode.Uri.joinPath(folder, ".echoevm");
+  const destination = vscode.Uri.joinPath(exampleDirectory, "Counter.sol");
+  try {
+    await vscode.workspace.fs.stat(destination);
+  } catch {
+    const source = vscode.Uri.joinPath(context.extensionUri, "examples", "Counter.sol");
+    await vscode.workspace.fs.createDirectory(exampleDirectory);
+    await vscode.workspace.fs.writeFile(destination, await vscode.workspace.fs.readFile(source));
+  }
+  const document = await vscode.workspace.openTextDocument(destination);
+  await vscode.window.showTextDocument(document);
+  const action = await vscode.window.showInformationMessage(
+    "EchoEVM example is ready. Run increment() and inspect its opcode trace.",
+    "Run Example",
+  );
+  if (action === "Run Example") {
+    await vscode.commands.executeCommand("echoevm.runFunction");
+  }
 }
 
 async function collectArguments(title: string, parameters: Array<{ name?: string; type: string }>): Promise<string | undefined> {

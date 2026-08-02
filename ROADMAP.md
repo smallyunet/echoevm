@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.31
+**Current Version**: v0.0.34
 
 ---
 
@@ -61,6 +61,9 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.29 | Reproducible production version metadata from the release tag |
 | v0.0.30 | Comparable per-op gas diagnostics without nested-call false positives |
 | v0.0.31 | STATICCALL write protection and Geth-matched nested call/create rollback and gas semantics |
+| v0.0.32 | Solidity source runner and VS Code extension MVP |
+| v0.0.33 | Correct VS Code Marketplace publisher identity |
+| v0.0.34 | Verified CLI release assets and zero-terminal VS Code onboarding |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -126,13 +129,17 @@ Full compliance and ecosystem integration.
 
 ## 🎯 Current Focus
 
-**v0.0.31 Priorities:**
-1. Enforce STATICCALL write protection across all nested CALL-family frames
-2. Reject SSTORE, TSTORE, LOG, CREATE, CREATE2, value-bearing CALL, and SELFDESTRUCT in read-only execution
-3. Roll back failed contract creation without rolling back the creator nonce or access-list warming
-4. Match Cancun initcode, EIP-150 forwarding, REVERT refund, exceptional-halt burn, and code-deposit gas rules
-5. Journal transient storage so nested REVERT restores all transaction-scoped state
-6. Differentially verify nested CALL, STATICCALL, CREATE, and CREATE2 outcomes against Geth v1.17.4
+**Next Release Priorities:**
+1. Publish checksum-verified CLI binaries for supported desktop platforms
+2. Diagnose and repair the VS Code toolchain from inside the editor
+3. Auto-discover workspace-local Solidity compilers
+4. Provide a no-terminal example that reaches the first opcode trace in two minutes
+5. Run a 5–10 person onboarding pilot before expanding the debugger feature set
+
+After the onboarding gate is met, source-mapped CodeLens actions are the next
+developer-experience milestone. Full GeneralStateTests, plugins, gas profiling,
+and source-level breakpoints remain deferred until the extension has real-user
+setup evidence.
 
 The replay engine intentionally requires a trace-capable RPC and does not
 approximate transaction prestate from the parent block. Cancun remains the only

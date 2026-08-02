@@ -2,9 +2,13 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "smallyu",
   "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#f7f8fa",
+    "theme": "light"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -40,6 +44,8 @@
     "onCommand:echoevm.runFunction",
     "onCommand:echoevm.runAndCompare",
     "onCommand:echoevm.showLastTrace",
+    "onCommand:echoevm.setup",
+    "onCommand:echoevm.openExample",
     "onLanguage:solidity"
   ],
   "contributes": {
@@ -57,6 +63,16 @@
       {
         "command": "echoevm.showLastTrace",
         "title": "EchoEVM: Show Last Trace"
+      },
+      {
+        "command": "echoevm.setup",
+        "title": "EchoEVM: Setup and Diagnose Toolchain",
+        "icon": "$(tools)"
+      },
+      {
+        "command": "echoevm.openExample",
+        "title": "EchoEVM: Open Getting Started Example",
+        "icon": "$(beaker)"
       }
     ],
     "menus": {
@@ -91,12 +107,12 @@
         "echoevm.executablePath": {
           "type": "string",
           "default": "echoevm",
-          "description": "Path to the EchoEVM executable. In remote workspaces this path is resolved on the remote host."
+          "description": "Path to the EchoEVM executable. The default uses a verified extension-managed CLI when available, then PATH."
         },
         "echoevm.solcPath": {
           "type": "string",
           "default": "solc",
-          "description": "Path to the Solidity compiler executable."
+          "description": "Path to solc or solcjs. The default checks workspace node_modules, then uses bundled solc-js."
         },
         "echoevm.gasLimit": {
           "type": "number",
@@ -125,6 +141,7 @@
     "check": "tsc --noEmit",
     "compile-tests": "tsc --outDir out",
     "test": "npm run compile-tests && node --test out/test/*.test.js",
+    "test:integration": "npm run bundle && node scripts/client-smoke.mjs",
     "bundle": "node esbuild.mjs",
     "vscode:prepublish": "npm run check && npm run test && npm run bundle",
     "package:vsix": "vsce package --no-dependencies"
@@ -134,6 +151,10 @@
     "@types/vscode": "1.96.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",
+    "solc": "0.8.30",
     "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "tmp": "0.2.7"
   }
 }

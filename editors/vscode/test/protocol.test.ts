@@ -11,14 +11,16 @@ import {
 test("buildInspectArguments keeps paths as individual process arguments", () => {
   const args = buildInspectArguments({
     source: "/workspace/My Contract.sol",
-    solcPath: "/tools/solc",
+    solcPath: "/tools/node",
+    solcArgs: ["/extension/dist/solcjs.cjs"],
     basePath: "/workspace",
     includePaths: ["/workspace/node_modules", "/shared/contracts"],
     optimize: true,
   });
   assert.deepEqual(args, [
     "solidity", "inspect", "/workspace/My Contract.sol",
-    "--format", "json", "--solc", "/tools/solc", "--base-path", "/workspace",
+    "--format", "json", "--solc", "/tools/node", "--base-path", "/workspace",
+    "--solc-arg", "/extension/dist/solcjs.cjs",
     "--include-path", "/workspace/node_modules",
     "--include-path", "/shared/contracts",
     "--optimize",

@@ -103,6 +103,7 @@ export interface ErrorResult {
 export interface CommonCommandOptions {
   source: string;
   solcPath: string;
+  solcArgs?: string[];
   basePath: string;
   includePaths: string[];
   optimize: boolean;
@@ -130,6 +131,7 @@ export function buildInspectArguments(options: CommonCommandOptions): string[] {
     "--base-path",
     options.basePath,
   ];
+  appendCompilerPrefix(args, options);
   appendCompilerOptions(args, options);
   return args;
 }
@@ -152,6 +154,7 @@ export function buildRunArguments(options: RunCommandOptions): string[] {
     "--gas",
     String(options.gasLimit),
   ];
+  appendCompilerPrefix(args, options);
   if (options.constructorArgs) {
     args.push("--constructor-args", options.constructorArgs);
   }
@@ -166,6 +169,12 @@ export function buildRunArguments(options: RunCommandOptions): string[] {
   }
   appendCompilerOptions(args, options);
   return args;
+}
+
+function appendCompilerPrefix(args: string[], options: CommonCommandOptions): void {
+  for (const argument of options.solcArgs ?? []) {
+    args.push("--solc-arg", argument);
+  }
 }
 
 function appendCompilerOptions(args: string[], options: CommonCommandOptions): void {

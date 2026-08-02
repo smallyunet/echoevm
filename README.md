@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.33](#-whats-new-in-v0033)
+- [What's New in v0.0.34](#-whats-new-in-v0034)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.33
+## 🆕 What's New in v0.0.34
+
+- **Verified CLI Downloads**: Tagged releases build platform-specific CLI assets and publish a SHA-256 manifest for editor-managed installation.
+- **Zero-Terminal VS Code Onboarding**: Toolchain health, verified CLI installation, bundled `solc-js 0.8.30`, and a ready-to-run Solidity example reduce setup friction.
+- **Portable Solidity Compilation**: The runner uses Standard JSON so native `solc`, `solcjs`, and the bundled compiler share one versioned execution protocol.
+
+### Previous v0.0.33
 
 - **Correct Marketplace Identity**: The VS Code extension now publishes as `smallyu.echoevm` under the project's established `smallyu` publisher.
 
