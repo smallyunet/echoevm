@@ -67,3 +67,20 @@ func TestEngineDeploysInitcodeBeforeComparingCall(t *testing.T) {
 		t.Fatalf("return data = %s, want %s", result.EchoEVM.ReturnData, seven)
 	}
 }
+
+func TestEngineUsesSeparateDeploymentAndCallGasLimits(t *testing.T) {
+	// The constructor's SSTORE needs more gas than the deliberately tight
+	// runtime call. DeployGasLimit must not weaken the call-gas assertion.
+	const runtime = "5f545f5260205ff3"
+	const initcode = "60075f556008600e5f3960085ff3" + runtime
+	result, err := DefaultEngine().Compare(context.Background(), Request{
+		Fork: ForkCancun, Bytecode: runtime, InitCode: initcode,
+		Calldata: "0x", GasLimit: 10_000, DeployGasLimit: 100_000,
+	})
+	if err != nil {
+		t.Fatalf("compare with separate gas limits: %v", err)
+	}
+	if !result.Match || result.Request.GasLimit != 10_000 || result.Request.DeployGasLimit != 100_000 {
+		t.Fatalf("unexpected separate-gas result: %+v", result)
+	}
+}

@@ -11,15 +11,24 @@ Conditions:
 
 - `control`: disables both EchoEVM skills and shadows `echoevm` with an
   unavailable executable.
-- `skill`: enables `echoevm-debug`, disables `echoevm-conformance`, and exposes
-  the pinned benchmark binary as `echoevm`.
+- `skill`: copies the selected `echoevm-debug` source into the isolated project,
+  enables it, disables `echoevm-conformance`, and exposes the pinned benchmark
+  binary as `echoevm`.
 
 Every run receives the same `AGENTS.md`, which requires explicit
 `./.benchmark-bin/...` paths. This prevents login-shell PATH changes from
 silently selecting a different installed EchoEVM, solc, or Forge version.
+The runner reads the expected EchoEVM version from the selected binary instead
+of hard-coding a release number. Override `--skill` to benchmark another skill
+tree.
 
 The runner stores every prompt, JSONL transcript, patch, final response,
 grading log, and aggregate result under the selected output directory.
+
+Published pilot summaries:
+
+- [v0.0.38 optimized skill](RESULTS-v0.0.38-2026-08-03.md)
+- [v0.0.37 baseline](RESULTS-2026-08-03.md)
 
 Generate a per-task analysis and evidence audit after a run:
 

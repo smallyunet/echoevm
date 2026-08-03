@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.37](#-whats-new-in-v0037)
+- [What's New in v0.0.38](#-whats-new-in-v0038)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.37
+## 🆕 What's New in v0.0.38
+
+- **Agent-Summary JSON**: `diff` and `solidity run` expose `--format summary-json`, preserving verdicts, gas, storage, trace counts, and first-divergence evidence without opcode arrays or full bytecode.
+- **Independent Gas Limits**: `solidity run --deploy-gas` separates constructor deployment from the runtime `--gas` budget, so agents can test tight call boundaries without manual bytecode extraction.
+- **Token-Efficient Agent Skills**: EVM-sensitive routing, one-input-first execution, trace-on-divergence, and zero-step matching compaction reduce unnecessary tool output and retry loops.
+
+### Previous v0.0.37
 
 - **Foundry-Aware Compilation**: Automatically load remappings, optimizer settings, optimizer runs, and `via_ir` from `foundry.toml` and `remappings.txt`.
 - **Pinned Foundry Compiler Discovery**: The VS Code extension uses an installed SVM compiler matching the project's semantic solc version before workspace or bundled fallbacks.
@@ -222,12 +228,18 @@ echoevm solidity run ./Calculator.sol \
   --function 'add(uint256,uint256)' \
   --args 2,40
 
-# Compare the deployed call with embedded Geth and include opcode traces
+# Compare the deployed call with embedded Geth using compact agent evidence
 echoevm solidity run ./Calculator.sol \
   --contract Calculator \
   --constructor-args 7 \
   --function 'read()' \
-  --diff --trace
+  --diff --format summary-json
+
+# Keep deployment gas independent while testing a tight runtime gas limit
+echoevm solidity run ./Calculator.sol \
+  --constructor-args 7 -f 'read()' \
+  --deploy-gas 1000000 --gas 20000 \
+  --diff --format summary-json
 
 # Stable machine-readable output for editor and npm integrations
 echoevm solidity run ./Calculator.sol --constructor-args 7 -f 'read()' --format json
@@ -305,6 +317,9 @@ echoevm diff \
 
 # Machine-readable output
 echoevm diff --code 00 --format json
+
+# Compact machine-readable evidence for agents
+echoevm diff --code 00 --format summary-json
 
 # Local Differential Explorer
 echoevm diff --web --addr :8080

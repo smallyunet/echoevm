@@ -32,7 +32,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	}
 	executionAddress := contractAddress
 	if len(initcode) > 0 {
-		constructorConfig := gethRuntimeConfig(req.GasLimit, state, nil)
+		constructorConfig := gethRuntimeConfig(req.DeployGasLimit, state, nil)
 		deployedCode, createdAddress, _, createErr := runtime.Create(initcode, constructorConfig)
 		if createErr != nil {
 			return ExecutionResult{}, fmt.Errorf("constructor execution failed: %w", createErr)

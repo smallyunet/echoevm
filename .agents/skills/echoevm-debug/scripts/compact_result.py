@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-DEFAULT_WINDOW = 12
+DEFAULT_WINDOW = 4
 MAX_WINDOW = 100
 MAX_STRING = 512
 MAX_MAP_ENTRIES = 32
@@ -56,7 +56,13 @@ def compact_map(value: dict[str, Any], divergence_step: int | None, window: int)
 
 
 def compact_trace(trace: list[Any], divergence_step: int | None, window: int) -> dict[str, Any]:
-    center = divergence_step if divergence_step is not None else 0
+    if divergence_step is None:
+        return {
+            "stepCount": len(trace),
+            "steps": [],
+            "truncated": bool(trace),
+        }
+    center = divergence_step
     start = max(0, center - window)
     end = min(len(trace), center + window + 1)
     return {

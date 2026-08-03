@@ -33,8 +33,8 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 			state.AddAddressToAccessList(common.BytesToAddress([]byte{byte(address)}))
 		}
 		constructor := vm.New(initcode, state, executionAddress)
-		constructor.SetGas(req.GasLimit)
-		constructor.SetBlockGasLimit(req.GasLimit)
+		constructor.SetGas(req.DeployGasLimit)
+		constructor.SetBlockGasLimit(req.DeployGasLimit)
 		constructor.Run()
 		if constructor.Err() != nil {
 			return ExecutionResult{}, fmt.Errorf("constructor execution failed: %w", constructor.Err())

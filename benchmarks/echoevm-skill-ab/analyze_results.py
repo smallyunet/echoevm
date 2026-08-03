@@ -33,11 +33,11 @@ def command_audit(jsonl: Path) -> dict[str, int]:
             failed += 1
         command = item.get("command", "")
         output = item.get("aggregated_output", "")
-        if "echoevm" in command:
+        if ".benchmark-bin/echoevm" in command:
             echo_attempts += 1
             if "echoevm unavailable in control condition" not in output and (
                 '"schemaVersion"' in output
-                or '"version": "v0.0.37"' in output
+                or '"version": "v' in output
                 or "status=success" in output
                 or "MATCH" in output
             ):

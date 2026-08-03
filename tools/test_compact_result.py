@@ -7,6 +7,24 @@ from pathlib import Path
 
 
 class CompactResultTest(unittest.TestCase):
+    def test_matching_result_omits_trace_steps(self) -> None:
+        root = Path(__file__).resolve().parents[1]
+        script = root / ".agents" / "skills" / "echoevm-debug" / "scripts" / "compact_result.py"
+        value = {
+            "match": True,
+            "echoevm": {"trace": [{"index": index, "stackBefore": ["0x1"]} for index in range(25)]},
+            "geth": {"trace": [{"index": index, "stackBefore": ["0x1"]} for index in range(25)]},
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "result.json"
+            source.write_text(json.dumps(value), encoding="utf-8")
+            completed = subprocess.run(
+                [sys.executable, str(script), str(source)], check=True, capture_output=True, text=True
+            )
+        result = json.loads(completed.stdout)
+        self.assertEqual(result["echoevm"]["trace"], {"stepCount": 25, "steps": [], "truncated": True})
+        self.assertNotIn("stackBefore", completed.stdout)
+
     def test_compacts_trace_around_first_divergence(self) -> None:
         root = Path(__file__).resolve().parents[1]
         script = root / ".agents" / "skills" / "echoevm-debug" / "scripts" / "compact_result.py"

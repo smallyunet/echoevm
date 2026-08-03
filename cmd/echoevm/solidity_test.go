@@ -57,6 +57,39 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	}
 }
 
+func TestSolidityRunSummaryUsesSeparateDeploymentGas(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake solc fixture uses a POSIX shell")
+	}
+	tempDir := t.TempDir()
+	source := filepath.Join(tempDir, "Example.sol")
+	if err := os.WriteFile(source, []byte("contract Answer {}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
+	flags := &solidityRunFlags{
+		contract: "Answer", function: "add", args: "2,40", solc: compiler,
+		gas: 10_000, deployGas: 100_000, format: "summary-json", diff: true,
+	}
+	var output bytes.Buffer
+	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
+		t.Fatalf("run Solidity summary: %v", err)
+	}
+	var result solidityRunSummaryJSONOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatalf("decode summary: %v\n%s", err, output.String())
+	}
+	if result.SchemaVersion != agentSummarySchemaVersion || result.Comparison == nil || !result.Comparison.Match {
+		t.Fatalf("unexpected summary: %+v", result)
+	}
+	if result.Comparison.Request.GasLimit != 10_000 || result.Comparison.Request.DeployGasLimit != 100_000 {
+		t.Fatalf("gas limits not preserved: %+v", result.Comparison.Request)
+	}
+	if result.Execution != nil || result.Comparison.EchoEVM.TraceSteps == 0 || strings.Contains(output.String(), "stackBefore") || strings.Contains(output.String(), `"bytecode":`) {
+		t.Fatalf("summary leaked verbose execution fields: %s", output.String())
+	}
+}
+
 func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake solc fixture uses a POSIX shell")

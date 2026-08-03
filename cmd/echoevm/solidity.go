@@ -30,6 +30,7 @@ type solidityRunFlags struct {
 	basePath        string
 	includePaths    []string
 	gas             uint64
+	deployGas       uint64
 	format          string
 	trace           bool
 	diff            bool
@@ -84,6 +85,17 @@ type solidityRunJSONOutput struct {
 	DurationMS    int64                        `json:"durationMs"`
 	Execution     differential.ExecutionResult `json:"execution"`
 	Comparison    *solidityComparisonOutput    `json:"comparison,omitempty"`
+}
+
+type solidityRunSummaryJSONOutput struct {
+	SchemaVersion int                  `json:"schemaVersion"`
+	Source        string               `json:"source"`
+	Contract      string               `json:"contract"`
+	Function      string               `json:"function"`
+	Compiler      solidityCompilerInfo `json:"compiler"`
+	DurationMS    int64                `json:"durationMs"`
+	Execution     *executionSummary    `json:"execution,omitempty"`
+	Comparison    *comparisonSummary   `json:"comparison,omitempty"`
 }
 
 type solidityParameterOutput struct {
@@ -145,7 +157,7 @@ func newSolidityRunCmd() *cobra.Command {
 		Example: "echoevm solidity run Counter.sol --contract Counter --function 'add(uint256,uint256)' --args 2,40 --diff",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := runSolidity(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
-			if err != nil && flags.format == "json" {
+			if err != nil && (flags.format == "json" || flags.format == "summary-json") {
 				if _, alreadyReported := err.(reportedSolidityError); !alreadyReported {
 					_ = writeSolidityError(cmd.OutOrStdout(), classifySolidityError(err), err)
 				}
@@ -162,7 +174,8 @@ func newSolidityRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.basePath, "base-path", "", "solc base path (defaults to the source directory)")
 	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
-	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json)")
+	cmd.Flags().Uint64Var(&flags.deployGas, "deploy-gas", 0, "constructor deployment gas limit (defaults to --gas)")
+	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json)")
 	cmd.Flags().BoolVar(&flags.trace, "trace", false, "include the EchoEVM opcode trace")
 	cmd.Flags().BoolVar(&flags.diff, "diff", false, "compare EchoEVM execution with embedded Geth")
 	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
@@ -200,8 +213,8 @@ func newSolidityInspectCmd() *cobra.Command {
 
 func runSolidity(ctx context.Context, out io.Writer, source string, flags *solidityRunFlags) error {
 	startedAt := time.Now()
-	if flags.format != "text" && flags.format != "json" {
-		return fmt.Errorf("unsupported format %q: use text or json", flags.format)
+	if flags.format != "text" && flags.format != "json" && flags.format != "summary-json" {
+		return fmt.Errorf("unsupported format %q: use text, json, or summary-json", flags.format)
 	}
 	compiled, err := compileSolidity(ctx, source, flags)
 	if err != nil {
@@ -227,6 +240,7 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	req := differential.Request{
 		Fork: differential.ForkCancun, Bytecode: contract.runtimeBytecode,
 		InitCode: initcode, Calldata: fmt.Sprintf("0x%x", calldata), GasLimit: flags.gas,
+		DeployGasLimit: flags.deployGas,
 	}
 	engine := differential.DefaultEngine()
 	result := solidityRunOutput{
@@ -619,6 +633,23 @@ func writeSolidityError(out io.Writer, code string, err error) error {
 }
 
 func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *solidityRunFlags) error {
+	if flags.format == "summary-json" {
+		jsonResult := solidityRunSummaryJSONOutput{
+			SchemaVersion: agentSummarySchemaVersion,
+			Source:        result.Source, Contract: result.Contract, Function: result.Function,
+			Compiler: result.Compiler, DurationMS: result.DurationMS,
+		}
+		if result.Comparison != nil {
+			comparison := summarizeComparison(*result.Comparison)
+			jsonResult.Comparison = &comparison
+		} else {
+			execution := summarizeExecution(result.Execution)
+			jsonResult.Execution = &execution
+		}
+		encoder := json.NewEncoder(out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(jsonResult)
+	}
 	if flags.format == "json" {
 		if !flags.trace {
 			result.Execution.Trace = nil

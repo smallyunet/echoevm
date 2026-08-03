@@ -11,7 +11,7 @@ import (
 )
 
 func TestRunDiffTextAndJSON(t *testing.T) {
-	for _, format := range []string{"text", "json"} {
+	for _, format := range []string{"text", "json", "summary-json"} {
 		var out bytes.Buffer
 		err := runDiff(context.Background(), &out, &diffFlags{code: "60026003015f5260205ff3", input: "0x", gas: 1_000_000, fork: "Cancun", format: format})
 		if err != nil {
@@ -27,6 +27,18 @@ func TestRunDiffTextAndJSON(t *testing.T) {
 			}
 			if !result.Match {
 				t.Fatalf("unexpected divergence: %+v", result.FirstDivergence)
+			}
+		}
+		if format == "summary-json" {
+			var result diffSummaryOutput
+			if err := json.Unmarshal(out.Bytes(), &result); err != nil {
+				t.Fatal(err)
+			}
+			if result.SchemaVersion != agentSummarySchemaVersion || !result.Comparison.Match {
+				t.Fatalf("unexpected summary: %+v", result)
+			}
+			if result.Comparison.EchoEVM.TraceSteps == 0 || strings.Contains(out.String(), "stackBefore") {
+				t.Fatalf("summary did not compact trace: %s", out.String())
 			}
 		}
 	}

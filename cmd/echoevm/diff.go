@@ -30,7 +30,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().StringVar(&flags.input, "input", "0x", "calldata as hex")
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
 	cmd.Flags().StringVar(&flags.fork, "fork", differential.ForkCancun, "EVM fork (Cancun only)")
-	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json)")
+	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json)")
 	cmd.Flags().BoolVar(&flags.web, "web", false, "start the local Differential Explorer")
 	cmd.Flags().StringVar(&flags.addr, "addr", ":8080", "HTTP listen address for --web")
 	return cmd
@@ -44,8 +44,8 @@ func runDiff(ctx context.Context, out io.Writer, flags *diffFlags) error {
 	if strings.TrimSpace(flags.code) == "" {
 		return fmt.Errorf("--code is required unless --web is used")
 	}
-	if flags.format != "text" && flags.format != "json" {
-		return fmt.Errorf("unsupported format %q: use text or json", flags.format)
+	if flags.format != "text" && flags.format != "json" && flags.format != "summary-json" {
+		return fmt.Errorf("unsupported format %q: use text, json, or summary-json", flags.format)
 	}
 	result, err := engine.Compare(ctx, differential.Request{
 		Fork: flags.fork, Bytecode: flags.code, Calldata: flags.input, GasLimit: flags.gas,
@@ -57,6 +57,11 @@ func runDiff(ctx context.Context, out io.Writer, flags *diffFlags) error {
 		encoder := json.NewEncoder(out)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(result)
+	}
+	if flags.format == "summary-json" {
+		encoder := json.NewEncoder(out)
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(diffSummaryOutput{SchemaVersion: agentSummarySchemaVersion, Comparison: summarizeComparison(result)})
 	}
 	return writeDiffText(out, result)
 }

@@ -28,4 +28,4 @@ Report when available:
 
 ## Context control
 
-Use the compact-result script by default. If more context is required, rerun it with `--window <steps>` up to a reasonable bound. Load the full raw trace only when the user explicitly asks for it or a compact window cannot answer the question.
+Use `summary-json` by default. On divergence, write full JSON to a temporary file and use the compact-result script; matching traces retain counts but no opcode steps. If more context is required, rerun the compactor with `--window <steps>` up to a reasonable bound. Load the full raw trace only when the user explicitly asks for it or a compact window cannot answer the question.

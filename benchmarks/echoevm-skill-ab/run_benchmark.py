@@ -38,10 +38,12 @@ def command(args: list[str], cwd: Path, env: dict[str, str] | None = None, timeo
     return subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=timeout)
 
 
-def prepare_run(run_dir: Path, task: str) -> None:
+def prepare_run(run_dir: Path, task: str, skill_dir: Path | None) -> None:
     shutil.copytree(ROOT / "tasks" / task, run_dir)
     (run_dir / "AGENTS.md").write_text(AGENT_RULES)
     (run_dir / ".gitignore").write_text(".benchmark-bin/\ncodex.jsonl\ncodex.stderr\ncache/\nout/\n")
+    if skill_dir is not None:
+        shutil.copytree(skill_dir, run_dir / ".agents" / "skills" / "echoevm-debug")
     command(["git", "init", "-q"], run_dir)
     command(["git", "add", "."], run_dir)
     command(["git", "-c", "user.name=EchoEVM Benchmark", "-c", "user.email=benchmark@example.invalid", "commit", "-qm", "fixture"], run_dir)
@@ -81,7 +83,7 @@ def run_one(spec: dict[str, object], args: argparse.Namespace, output: Path) -> 
     repetition = int(spec["repetition"])
     run_id = f"{task}-{condition}-{repetition}"
     run_dir = output / "runs" / run_id
-    prepare_run(run_dir, task)
+    prepare_run(run_dir, task, args.skill if condition == "skill" else None)
 
     tools_dir = run_dir / ".benchmark-bin"
     tools_dir.mkdir()
@@ -127,7 +129,7 @@ def run_one(spec: dict[str, object], args: argparse.Namespace, output: Path) -> 
     pinned_version_verified = (
         ".benchmark-bin/echoevm version --json" in transcript
         and "version" in transcript
-        and "v0.0.37" in transcript
+        and args.expected_echoevm_version in transcript
     )
     result: dict[str, object] = {
         "run_id": run_id,
@@ -138,16 +140,21 @@ def run_one(spec: dict[str, object], args: argparse.Namespace, output: Path) -> 
         "passed": grade.returncode == 0,
         "grade_exit": grade.returncode,
         "duration_seconds": round(duration, 3),
-        "echoevm_attempted": "echoevm " in transcript or "echoevm\"" in transcript,
+        "echoevm_attempted": result_uses_echoevm(transcript),
         "skill_read": "echoevm-debug/SKILL.md" in transcript,
         "pinned_echoevm_version_verified": pinned_version_verified,
         "treatment_compliant": condition == "control" or (
-            "echoevm-debug/SKILL.md" in transcript and pinned_version_verified
+            ("echoevm-debug/SKILL.md" in transcript and pinned_version_verified)
+            or ("echoevm-debug/SKILL.md" not in transcript and not result_uses_echoevm(transcript))
         ),
         "usage": usage_from_jsonl(jsonl),
     }
     (run_dir / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     return result
+
+
+def result_uses_echoevm(transcript: str) -> bool:
+    return ".benchmark-bin/echoevm version --json" in transcript
 
 
 def summarize(results: list[dict[str, object]]) -> dict[str, object]:
@@ -174,6 +181,7 @@ def summarize(results: list[dict[str, object]]) -> dict[str, object]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--echoevm", type=Path, required=True)
+    parser.add_argument("--skill", type=Path, default=ROOT.parents[1] / ".agents" / "skills" / "echoevm-debug")
     parser.add_argument("--solc", type=Path, required=True)
     parser.add_argument("--forge", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=Path("/private/tmp/echoevm-skill-ab-results"))
@@ -187,8 +195,18 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=1200)
     args = parser.parse_args()
     args.echoevm = args.echoevm.resolve()
+    args.skill = args.skill.resolve()
     args.solc = args.solc.expanduser().resolve()
     args.forge = args.forge.expanduser().resolve()
+    version = command([str(args.echoevm), "version", "--json"], ROOT)
+    if version.returncode != 0:
+        raise SystemExit(f"cannot read EchoEVM version: {version.stderr.strip()}")
+    try:
+        args.expected_echoevm_version = str(json.loads(version.stdout)["version"])
+    except (json.JSONDecodeError, KeyError) as error:
+        raise SystemExit(f"cannot parse EchoEVM version: {error}") from error
+    if not args.skill.joinpath("SKILL.md").is_file():
+        raise SystemExit(f"skill not found: {args.skill}")
     output = args.output.resolve()
     if output.exists():
         raise SystemExit(f"output already exists: {output}")

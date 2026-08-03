@@ -25,6 +25,9 @@ func normalizeRequest(req Request) (Request, error) {
 	if req.GasLimit > MaxGasLimit {
 		return Request{}, fmt.Errorf("gas limit %d exceeds maximum %d", req.GasLimit, MaxGasLimit)
 	}
+	if req.DeployGasLimit > MaxGasLimit {
+		return Request{}, fmt.Errorf("deployment gas limit %d exceeds maximum %d", req.DeployGasLimit, MaxGasLimit)
+	}
 	code, err := decodeHexField("bytecode", req.Bytecode)
 	if err != nil {
 		return Request{}, err
@@ -44,6 +47,9 @@ func normalizeRequest(req Request) (Request, error) {
 	}
 	req.Bytecode = "0x" + hex.EncodeToString(code)
 	if req.InitCode != "" {
+		if req.DeployGasLimit == 0 {
+			req.DeployGasLimit = req.GasLimit
+		}
 		initcode, err := decodeHexField("initcode", req.InitCode)
 		if err != nil {
 			return Request{}, err

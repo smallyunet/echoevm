@@ -100,7 +100,7 @@ func TestTraceDivergencePrecedesFinalResultDifference(t *testing.T) {
 func TestEngineValidationAndRunnerErrors(t *testing.T) {
 	valid := Request{Fork: ForkCancun, Bytecode: "00", Calldata: "0x", GasLimit: 1}
 	engine := NewEngine(fakeRunner{result: baseResult("EchoEVM")}, fakeRunner{result: baseResult("Geth")})
-	for _, req := range []Request{{Bytecode: ""}, {Bytecode: "0x0"}, {Bytecode: "zz"}, {Bytecode: "00", GasLimit: MaxGasLimit + 1}} {
+	for _, req := range []Request{{Bytecode: ""}, {Bytecode: "0x0"}, {Bytecode: "zz"}, {Bytecode: "00", GasLimit: MaxGasLimit + 1}, {Bytecode: "00", GasLimit: 1, DeployGasLimit: MaxGasLimit + 1}} {
 		if _, err := engine.Compare(context.Background(), req); err == nil {
 			t.Fatalf("expected validation error for %+v", req)
 		}

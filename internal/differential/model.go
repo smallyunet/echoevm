@@ -21,6 +21,7 @@ type Request struct {
 	InitCode       string            `json:"initCode,omitempty"`
 	Calldata       string            `json:"calldata"`
 	GasLimit       uint64            `json:"gasLimit"`
+	DeployGasLimit uint64            `json:"deployGasLimit,omitempty"`
 	InitialStorage map[string]string `json:"initialStorage,omitempty"`
 }
 
