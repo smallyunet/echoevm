@@ -59,7 +59,7 @@ func loadFoundrySettings(basePath string) (solidityCompilerSettings, error) {
 	if profileName != "" && profileName != "default" {
 		profile, ok := config.Profiles[profileName]
 		if !ok {
-			return settings, fmt.Errorf("Foundry profile %q is not defined in %s", profileName, configPath)
+			return settings, fmt.Errorf("foundry profile %q is not defined in %s", profileName, configPath)
 		}
 		applyFoundryProfile(&settings, profile)
 	}
