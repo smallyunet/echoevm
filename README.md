@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.35](#-whats-new-in-v0035)
+- [What's New in v0.0.36](#-whats-new-in-v0036)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,12 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.35
+## 🆕 What's New in v0.0.36
+
+- **Reliable VS Code Compilation**: Bundled `solc-js` now consumes Standard JSON asynchronously, avoiding Electron `EAGAIN` failures on non-blocking stdin pipes.
+- **Delayed-Input Regression Coverage**: The editor test suite verifies that the compiler wrapper waits for multi-chunk stdin through EOF.
+
+### Previous v0.0.35
 
 - **Portable Agent Skills**: `echoevm-debug` and `echoevm-conformance` work from Codex, Gemini CLI, and Claude Code with one canonical skill source.
 - **Bounded AI Evidence**: A deterministic compactor keeps large opcode traces out of model context while preserving the first divergence and a focused trace window.

@@ -2,7 +2,7 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {

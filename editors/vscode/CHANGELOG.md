@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5
+
+- Read Standard JSON from stdin asynchronously so VS Code's Electron runtime cannot fail with `EAGAIN` on a temporarily empty non-blocking pipe.
+- Add regression coverage for delayed, multi-chunk compiler input.
+
 ## 0.0.4
 
 - Install or update EchoEVM through `smallyunet/tap/echoevm` on macOS.

@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.35
+**Current Version**: v0.0.36
 
 ---
 
@@ -65,6 +65,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.33 | Correct VS Code Marketplace publisher identity |
 | v0.0.34 | Verified CLI release assets and zero-terminal VS Code onboarding |
 | v0.0.35 | Portable Codex, Gemini CLI, and Claude Code Skills with bounded trace evidence |
+| v0.0.36 | Reliable bundled solc-js stdin handling in VS Code's Electron runtime |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
