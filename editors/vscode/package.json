@@ -2,7 +2,7 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -107,7 +107,7 @@
         "echoevm.executablePath": {
           "type": "string",
           "default": "echoevm",
-          "description": "Path to the EchoEVM executable. The default uses a verified extension-managed CLI when available, then PATH."
+          "description": "Path to the EchoEVM executable. Setup installs from Homebrew on macOS; other supported platforms use a verified extension-managed CLI."
         },
         "echoevm.solcPath": {
           "type": "string",

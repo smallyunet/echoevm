@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.4
+
+- Install or update EchoEVM through `smallyunet/tap/echoevm` on macOS.
+- Resolve the Homebrew-installed executable by absolute path so VS Code does not depend on its GUI launch environment's `PATH`.
+- Keep verified GitHub Release downloads for Linux and Windows extension runtimes.
+
 ## 0.0.3
 
 - Download CLI binaries and checksums through GitHub's API-free latest-release URLs.

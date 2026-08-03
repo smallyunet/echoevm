@@ -3,7 +3,16 @@ import { access, chmod, mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import * as vscode from "vscode";
-import { checksumForAsset, download, latestReleaseAssetURL, releaseAssetName, sha256 } from "./release";
+import {
+  checksumForAsset,
+  download,
+  homebrewEchoEVMPath,
+  homebrewExecutableCandidates,
+  homebrewFormula,
+  latestReleaseAssetURL,
+  releaseAssetName,
+  sha256,
+} from "./release";
 
 export interface ResolvedToolchain {
   echoevm: string;
@@ -47,7 +56,7 @@ export class ToolchainManager {
       if (action === "Install EchoEVM") {
         try {
           await vscode.window.withProgress(
-            { location: vscode.ProgressLocation.Notification, title: "Installing verified EchoEVM CLI" },
+            { location: vscode.ProgressLocation.Notification, title: "Installing EchoEVM CLI" },
             () => this.installEchoEVM(),
           );
         } catch (error) {
@@ -89,6 +98,10 @@ export class ToolchainManager {
   }
 
   public async installEchoEVM(): Promise<string> {
+    if (process.platform === "darwin") {
+      return this.installEchoEVMWithHomebrew();
+    }
+
     const assetName = releaseAssetName(process.platform, process.arch);
     const [binary, manifest] = await Promise.all([
       download(latestReleaseAssetURL(assetName)),
@@ -110,6 +123,31 @@ export class ToolchainManager {
     await vscode.workspace.getConfiguration("echoevm").update("executablePath", undefined, vscode.ConfigurationTarget.Global);
     this.output.info(`Installed the latest EchoEVM CLI to ${destination} after SHA-256 verification.`);
     return destination;
+  }
+
+  private async installEchoEVMWithHomebrew(): Promise<string> {
+    const brew = await this.findHomebrew();
+    const installOutput = await runCommand(brew, ["install", homebrewFormula], 5 * 60_000);
+    if (installOutput.trim()) {
+      this.output.info(installOutput.trim());
+    }
+    const prefix = (await runCommand(brew, ["--prefix", homebrewFormula], 30_000)).trim();
+    const destination = homebrewEchoEVMPath(prefix);
+    if (!await isExecutable(destination)) {
+      throw new Error(`Homebrew completed without an executable at ${destination}.`);
+    }
+    await vscode.workspace.getConfiguration("echoevm").update("executablePath", destination, vscode.ConfigurationTarget.Global);
+    this.output.info(`Installed EchoEVM with Homebrew at ${destination}.`);
+    return destination;
+  }
+
+  private async findHomebrew(): Promise<string> {
+    for (const candidate of homebrewExecutableCandidates(process.platform)) {
+      if (await probe(candidate, ["--version"])) {
+        return candidate;
+      }
+    }
+    throw new Error("Homebrew is required to install EchoEVM on macOS. Install it from https://brew.sh and retry.");
   }
 
   public async chooseExecutable(setting: "executablePath" | "solcPath", title: string): Promise<void> {
@@ -184,6 +222,31 @@ async function probe(executable: string, args: string[], environment?: NodeJS.Pr
     child.on("close", (code) => {
       clearTimeout(timer);
       resolve(code === 0 ? Buffer.concat(chunks).toString("utf8") : undefined);
+    });
+  });
+}
+
+async function runCommand(executable: string, args: string[], timeout: number): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(executable, args, { shell: false, windowsHide: true });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    const timer = setTimeout(() => child.kill(), timeout);
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
+    child.on("close", (code, signal) => {
+      clearTimeout(timer);
+      const output = Buffer.concat([...stdout, ...stderr]).toString("utf8");
+      if (code === 0) {
+        resolve(output);
+        return;
+      }
+      const reason = signal ? `signal ${signal}` : `exit code ${code ?? "unknown"}`;
+      reject(new Error(`${executable} ${args.join(" ")} failed with ${reason}: ${output.trim()}`));
     });
   });
 }

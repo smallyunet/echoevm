@@ -1,6 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { checksumForAsset, latestReleaseAssetURL, releaseAssetName, sha256 } from "../src/release";
+import {
+  checksumForAsset,
+  homebrewEchoEVMPath,
+  homebrewExecutableCandidates,
+  homebrewFormula,
+  latestReleaseAssetURL,
+  releaseAssetName,
+  sha256,
+} from "../src/release";
+
+test("Homebrew installation metadata targets the public EchoEVM tap on macOS", () => {
+  assert.equal(homebrewFormula, "smallyunet/tap/echoevm");
+  assert.deepEqual(homebrewExecutableCandidates("darwin"), ["/opt/homebrew/bin/brew", "/usr/local/bin/brew", "brew"]);
+  assert.deepEqual(homebrewExecutableCandidates("linux"), []);
+  assert.equal(homebrewEchoEVMPath("/opt/homebrew/opt/echoevm/"), "/opt/homebrew/opt/echoevm/bin/echoevm");
+});
 
 test("releaseAssetName maps VS Code runtime platforms to release binaries", () => {
   assert.equal(releaseAssetName("darwin", "arm64"), "echoevm-darwin-arm64");

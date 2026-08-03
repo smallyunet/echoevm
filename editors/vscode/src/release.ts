@@ -2,6 +2,15 @@ import { createHash } from "node:crypto";
 import * as https from "node:https";
 
 export const latestReleaseDownloadBase = "https://github.com/smallyunet/echoevm/releases/latest/download";
+export const homebrewFormula = "smallyunet/tap/echoevm";
+
+export function homebrewExecutableCandidates(platform: NodeJS.Platform): string[] {
+  return platform === "darwin" ? ["/opt/homebrew/bin/brew", "/usr/local/bin/brew", "brew"] : [];
+}
+
+export function homebrewEchoEVMPath(prefix: string): string {
+  return `${prefix.replace(/\/+$/u, "")}/bin/echoevm`;
+}
 
 export function releaseAssetName(platform: NodeJS.Platform, arch: string): string {
   const goos = platform === "win32" ? "windows" : platform;

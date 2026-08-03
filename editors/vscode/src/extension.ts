@@ -181,7 +181,7 @@ async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Pro
   const current = await toolchain.diagnose(resource);
   const choices: string[] = [
     "Show detected versions",
-    "Install or update verified EchoEVM CLI",
+    "Install or update EchoEVM CLI",
     "Choose EchoEVM executable",
     "Use bundled Solidity compiler",
     "Choose Solidity compiler",
@@ -195,12 +195,12 @@ async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Pro
     await vscode.window.showInformationMessage(
       `EchoEVM: ${current.echoevm?.version ?? "missing"}; compiler: ${current.solc?.version ?? "missing"}.`,
     );
-  } else if (action === "Install or update verified EchoEVM CLI") {
+  } else if (action === "Install or update EchoEVM CLI") {
     await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "Installing verified EchoEVM CLI" },
+      { location: vscode.ProgressLocation.Notification, title: "Installing EchoEVM CLI" },
       () => toolchain.installEchoEVM(),
     );
-    await vscode.window.showInformationMessage("EchoEVM CLI installed and verified.");
+    await vscode.window.showInformationMessage("EchoEVM CLI installed successfully.");
   } else if (action === "Choose EchoEVM executable") {
     await toolchain.chooseExecutable("executablePath", "Select the EchoEVM executable");
   } else if (action === "Use bundled Solidity compiler") {

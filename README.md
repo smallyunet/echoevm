@@ -167,6 +167,12 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 
 ## 🔧 Installation
 
+**Homebrew (macOS):**
+
+```bash
+brew install smallyunet/tap/echoevm
+```
+
 **From source:**
 
 ```bash
