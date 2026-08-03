@@ -1,0 +1,5 @@
+[profile.default]
+src = "src"
+test = "test"
+solc = "/Users/smallyu/.svm/0.8.33/solc-0.8.33"
+evm_version = "cancun"
