@@ -2,7 +2,7 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -125,6 +125,25 @@
           "type": "boolean",
           "default": false,
           "description": "Enable the Solidity optimizer."
+        },
+        "echoevm.optimizerRuns": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Solidity optimizer runs. Zero uses the Foundry project value when available."
+        },
+        "echoevm.viaIR": {
+          "type": "boolean",
+          "default": false,
+          "description": "Compile through the Solidity IR pipeline. Foundry via_ir is detected automatically."
+        },
+        "echoevm.remappings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional Solidity import remappings. foundry.toml and remappings.txt are detected automatically."
         },
         "echoevm.includePaths": {
           "type": "array",

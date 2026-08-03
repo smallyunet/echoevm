@@ -86,8 +86,14 @@ async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain:
   const solcPath = tools.solc;
   const includePaths = configuration.get<string[]>("includePaths", []).map((item) => path.resolve(cwd, item));
   const optimize = configuration.get<boolean>("optimize", false);
+  const optimizerRuns = configuration.get<number>("optimizerRuns", 0);
+  const viaIR = configuration.get<boolean>("viaIR", false);
+  const remappings = configuration.get<string[]>("remappings", []);
   const gasLimit = configuration.get<number>("gasLimit", 1_000_000);
-  const common: CommonCommandOptions = { source, solcPath, solcArgs: tools.solcArgs, basePath: cwd, includePaths, optimize };
+  const common: CommonCommandOptions = {
+    source, solcPath, solcArgs: tools.solcArgs, basePath: cwd, includePaths,
+    optimize, optimizerRuns, viaIR, remappings,
+  };
   const client = new EchoEVMClient(executable, tools.environment);
 
   try {

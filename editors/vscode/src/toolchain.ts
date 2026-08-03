@@ -3,13 +3,16 @@ import { access, chmod, mkdir, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import * as vscode from "vscode";
+import { resolveFoundrySolc } from "./foundry";
 import {
   checksumForAsset,
   download,
   homebrewEchoEVMPath,
   homebrewExecutableCandidates,
   homebrewFormula,
+  isVersionAtLeast,
   latestReleaseAssetURL,
+  minimumEchoEVMVersion,
   releaseAssetName,
   sha256,
 } from "./release";
@@ -72,6 +75,37 @@ export class ToolchainManager {
       }
       status = await this.diagnose(resource);
     }
+    if (status.echoevm && !isVersionAtLeast(status.echoevm.version, minimumEchoEVMVersion)) {
+      const action = await vscode.window.showWarningMessage(
+        `EchoEVM CLI v${minimumEchoEVMVersion} or newer is required by this extension (found ${status.echoevm.version}).`,
+        "Update EchoEVM",
+        "Choose Executable",
+      );
+      if (action === "Update EchoEVM") {
+        try {
+          await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: "Updating EchoEVM CLI" },
+            () => this.installEchoEVM(),
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.output.error(message);
+          await vscode.window.showErrorMessage(`EchoEVM update failed: ${message}`);
+          return undefined;
+        }
+      } else if (action === "Choose Executable") {
+        await this.chooseExecutable("executablePath", "Select EchoEVM v0.0.37 or newer");
+      } else {
+        return undefined;
+      }
+      status = await this.diagnose(resource);
+    }
+    if (status.echoevm && !isVersionAtLeast(status.echoevm.version, minimumEchoEVMVersion)) {
+      await vscode.window.showErrorMessage(
+        `EchoEVM CLI remains at ${status.echoevm.version}; install v${minimumEchoEVMVersion} or newer and retry.`,
+      );
+      return undefined;
+    }
     if (!status.solc) {
       const action = await vscode.window.showWarningMessage(
         "The bundled Solidity compiler is unavailable. Choose a native compiler or review the installation guide.",
@@ -127,7 +161,13 @@ export class ToolchainManager {
 
   private async installEchoEVMWithHomebrew(): Promise<string> {
     const brew = await this.findHomebrew();
-    const installOutput = await runCommand(brew, ["install", homebrewFormula], 5 * 60_000);
+    let installed = false;
+    try {
+      installed = Boolean((await runCommand(brew, ["list", "--versions", homebrewFormula], 30_000)).trim());
+    } catch {
+      // A missing formula is expected on first install.
+    }
+    const installOutput = await runCommand(brew, [installed ? "upgrade" : "install", homebrewFormula], 5 * 60_000);
     if (installOutput.trim()) {
       this.output.info(installOutput.trim());
     }
@@ -177,6 +217,10 @@ export class ToolchainManager {
       return { path: configured, args: [] };
     }
     const folder = resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined;
+    const foundryCompiler = folder ? await resolveFoundrySolc(folder.uri.fsPath) : undefined;
+    if (foundryCompiler) {
+      return { path: foundryCompiler, args: [] };
+    }
     const candidates = folder && process.platform !== "win32" ? [
       path.join(folder.uri.fsPath, "node_modules", ".bin", "solc"),
       path.join(folder.uri.fsPath, "node_modules", ".bin", "solcjs"),

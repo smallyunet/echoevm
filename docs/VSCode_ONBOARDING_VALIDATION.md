@@ -14,6 +14,9 @@ command.
 - Workspace-local `node_modules/.bin/solc` or `solcjs` is detected on macOS and
   Linux; otherwise bundled `solc-js 0.8.30` compiles without modifying the user
   environment.
+- A Foundry workspace loads remappings, optimizer settings, optimizer runs, and
+  `via_ir`, and uses its installed SVM compiler when the project pins one.
+- An older EchoEVM CLI triggers a guided verified update before compilation.
 - Setup still allows an explicit native compiler and links to the official
   Solidity installation guide.
 - **Open Getting Started Example** creates `.echoevm/Counter.sol` without

@@ -16,6 +16,9 @@ test("buildInspectArguments keeps paths as individual process arguments", () => 
     basePath: "/workspace",
     includePaths: ["/workspace/node_modules", "/shared/contracts"],
     optimize: true,
+    optimizerRuns: 100,
+    viaIR: true,
+    remappings: ["@openzeppelin/=lib/openzeppelin/"],
   });
   assert.deepEqual(args, [
     "solidity", "inspect", "/workspace/My Contract.sol",
@@ -23,7 +26,10 @@ test("buildInspectArguments keeps paths as individual process arguments", () => 
     "--solc-arg", "/extension/dist/solcjs.cjs",
     "--include-path", "/workspace/node_modules",
     "--include-path", "/shared/contracts",
+    "--remapping", "@openzeppelin/=lib/openzeppelin/",
     "--optimize",
+    "--optimizer-runs", "100",
+    "--via-ir",
   ]);
 });
 
@@ -34,6 +40,9 @@ test("buildRunArguments includes selected ABI call and optional comparison flags
     basePath: "/workspace",
     includePaths: [],
     optimize: false,
+    optimizerRuns: 0,
+    viaIR: false,
+    remappings: [],
     contract: "Counter.sol:Counter",
     functionSignature: "add(uint256,uint256)",
     constructorArgs: "7",

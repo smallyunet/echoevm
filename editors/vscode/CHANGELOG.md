@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.6
+
+- Auto-detect Foundry remappings, optimizer settings, optimizer runs, and `via_ir` through the EchoEVM CLI.
+- Use a Foundry project's installed SVM compiler when `solc_version` or `solc` pins an available semantic version.
+- Add explicit remapping, optimizer-runs, and via-IR settings for non-Foundry workspaces.
+- Require EchoEVM CLI v0.0.37 and offer a guided verified update when an older CLI is detected.
+
 ## 0.0.5
 
 - Read Standard JSON from stdin asynchronously so VS Code's Electron runtime cannot fail with `EAGAIN` on a temporarily empty non-blocking pipe.

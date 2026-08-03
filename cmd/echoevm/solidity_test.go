@@ -73,6 +73,7 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 	flags := &solidityRunFlags{
 		function: "add(uint256,uint256)", args: "2,40", solc: compiler,
 		gas: 100_000, format: "json", trace: true, optimize: true,
+		optimizerRuns: 100, viaIR: true, remappings: []string{"@example/=lib/example/"},
 	}
 	var output bytes.Buffer
 	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
@@ -99,8 +100,14 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(compilerInput), `"evmVersion":"cancun"`) || !strings.Contains(string(compilerInput), `"enabled":true`) {
-		t.Fatalf("standard JSON input missing Cancun optimizer settings: %s", compilerInput)
+	input := string(compilerInput)
+	for _, expected := range []string{
+		`"evmVersion":"cancun"`, `"enabled":true`, `"runs":100`, `"viaIR":true`,
+		`"remappings":["@example/=lib/example/"]`,
+	} {
+		if !strings.Contains(input, expected) {
+			t.Fatalf("standard JSON input missing %s: %s", expected, input)
+		}
 	}
 }
 

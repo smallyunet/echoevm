@@ -5,6 +5,7 @@ import {
   homebrewEchoEVMPath,
   homebrewExecutableCandidates,
   homebrewFormula,
+  isVersionAtLeast,
   latestReleaseAssetURL,
   releaseAssetName,
   sha256,
@@ -15,6 +16,13 @@ test("Homebrew installation metadata targets the public EchoEVM tap on macOS", (
   assert.deepEqual(homebrewExecutableCandidates("darwin"), ["/opt/homebrew/bin/brew", "/usr/local/bin/brew", "brew"]);
   assert.deepEqual(homebrewExecutableCandidates("linux"), []);
   assert.equal(homebrewEchoEVMPath("/opt/homebrew/opt/echoevm/"), "/opt/homebrew/opt/echoevm/bin/echoevm");
+});
+
+test("isVersionAtLeast compares EchoEVM semantic versions", () => {
+  assert.equal(isVersionAtLeast("v0.0.37", "0.0.37"), true);
+  assert.equal(isVersionAtLeast("v0.1.0", "0.0.37"), true);
+  assert.equal(isVersionAtLeast("v0.0.36", "0.0.37"), false);
+  assert.equal(isVersionAtLeast("dev", "0.0.37"), false);
 });
 
 test("releaseAssetName maps VS Code runtime platforms to release binaries", () => {

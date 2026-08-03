@@ -14,7 +14,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.36](#-whats-new-in-v0036)
+- [What's New in v0.0.37](#-whats-new-in-v0037)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -30,7 +30,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.36
+## 🆕 What's New in v0.0.37
+
+- **Foundry-Aware Compilation**: Automatically load remappings, optimizer settings, optimizer runs, and `via_ir` from `foundry.toml` and `remappings.txt`.
+- **Pinned Foundry Compiler Discovery**: The VS Code extension uses an installed SVM compiler matching the project's semantic solc version before workspace or bundled fallbacks.
+- **Portable Compiler Overrides**: CLI and VS Code settings expose remappings, optimizer runs, and via-IR compilation for non-Foundry workspaces.
+
+### Previous v0.0.36
 
 - **Reliable VS Code Compilation**: Bundled `solc-js` now consumes Standard JSON asynchronously, avoiding Electron `EAGAIN` failures on non-blocking stdin pipes.
 - **Delayed-Input Regression Coverage**: The editor test suite verifies that the compiler wrapper waits for multi-chunk stdin through EOF.
@@ -227,10 +233,13 @@ echoevm solidity run ./Calculator.sol \
 echoevm solidity run ./Calculator.sol --constructor-args 7 -f 'read()' --format json
 ```
 
-The base path defaults to the source directory. Use `--base-path` and repeated
-`--include-path` flags for imports. Compilation is pinned to the Cancun EVM
-target; the MVP does not implement Foundry cheatcodes, RPC forking, payable
-calls, source maps, or test discovery.
+The base path defaults to the source directory. EchoEVM automatically reads a
+Foundry workspace's `foundry.toml` and `remappings.txt` for remappings,
+optimizer settings, optimizer runs, and `via_ir`. Use `--base-path`, repeated
+`--include-path`, `--remapping`, `--optimizer-runs`, and `--via-ir` for explicit
+control. Compilation remains pinned to the Cancun EVM target so generated
+bytecode matches EchoEVM's declared execution rules. The MVP does not implement
+Foundry cheatcodes, RPC forking, payable calls, source maps, or test discovery.
 
 ### VS Code extension MVP
 
@@ -242,12 +251,14 @@ show an on-demand opcode trace without starting a JSON-RPC node.
 cd editors/vscode
 npm ci
 npm run package:vsix
-code --install-extension echoevm-0.0.2.vsix
+code --install-extension echoevm-0.0.6.vsix
 ```
 
-The extension expects `echoevm` and `solc` on `PATH`. Override them with
-`echoevm.executablePath` and `echoevm.solcPath`. In Remote SSH, Dev Containers,
-or WSL, those executables must be installed in the remote workspace runtime.
+The extension expects `echoevm` and `solc` on `PATH`. In Foundry workspaces it
+first checks for the semantically pinned compiler under SVM. Override tool paths
+with `echoevm.executablePath` and `echoevm.solcPath`. In Remote SSH, Dev
+Containers, or WSL, those executables must be installed in the remote workspace
+runtime.
 
 ### AI coding agent Skills
 

@@ -24,9 +24,12 @@ executable path so it also works when VS Code is launched outside a shell. On
 Linux and Windows, the extension installs a release-matched EchoEVM CLI into its
 private global storage. It discovers workspace-local `node_modules/.bin/solc`
 and `solcjs` on macOS and Linux, then falls back to its bundled `solc-js 0.8.30`
-compiler. On Windows, npm `.cmd` launchers are skipped and the bundled compiler
-is used. You can select a native compiler through the setup command or configure
-`echoevm.executablePath` and `echoevm.solcPath`.
+compiler. Foundry workspaces use an installed SVM compiler matching
+`solc_version` or a semantic `solc` pin before those fallbacks. The CLI reads
+`foundry.toml` and `remappings.txt` for import remappings, optimizer settings,
+optimizer runs, and `via_ir`. On Windows, npm `.cmd` launchers are skipped and
+the bundled compiler is used. You can select a native compiler through the
+setup command or configure `echoevm.executablePath` and `echoevm.solcPath`.
 
 For Remote SSH, Dev Containers, and WSL, tools are resolved and managed in the
 remote extension runtime rather than on the local desktop.
@@ -46,7 +49,9 @@ qualified `smallyunet/tap/echoevm` formula. On Linux and Windows, it only
 downloads CLI assets from `smallyunet/echoevm` GitHub Releases and rejects a
 binary unless its SHA-256 digest matches that release's checksum manifest. The
 bundled compiler does not modify the workspace or global package manager.
-Projects that pin another compiler can select it explicitly.
+Projects that pin another compiler can select it explicitly. Non-Foundry
+workspaces can configure `echoevm.remappings`, `echoevm.optimizerRuns`, and
+`echoevm.viaIR` directly.
 
 This release targets Cancun and does not provide Foundry cheatcodes, RPC
 forking, payable calls, or source-level breakpoints.

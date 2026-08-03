@@ -34,6 +34,9 @@ type solidityRunFlags struct {
 	trace           bool
 	diff            bool
 	optimize        bool
+	optimizerRuns   uint64
+	viaIR           bool
+	remappings      []string
 }
 
 type compiledSolidityContract struct {
@@ -163,6 +166,9 @@ func newSolidityRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&flags.trace, "trace", false, "include the EchoEVM opcode trace")
 	cmd.Flags().BoolVar(&flags.diff, "diff", false, "compare EchoEVM execution with embedded Geth")
 	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
+	cmd.Flags().Uint64Var(&flags.optimizerRuns, "optimizer-runs", 0, "Solidity optimizer runs (Foundry auto-detected when omitted)")
+	cmd.Flags().BoolVar(&flags.viaIR, "via-ir", false, "compile through the Solidity IR pipeline")
+	cmd.Flags().StringArrayVar(&flags.remappings, "remapping", nil, "Solidity import remapping (repeatable; Foundry auto-detected)")
 	return cmd
 }
 
@@ -186,6 +192,9 @@ func newSolidityInspectCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
 	cmd.Flags().StringVar(&flags.format, "format", "json", "output format (text|json)")
 	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
+	cmd.Flags().Uint64Var(&flags.optimizerRuns, "optimizer-runs", 0, "Solidity optimizer runs (Foundry auto-detected when omitted)")
+	cmd.Flags().BoolVar(&flags.viaIR, "via-ir", false, "compile through the Solidity IR pipeline")
+	cmd.Flags().StringArrayVar(&flags.remappings, "remapping", nil, "Solidity import remapping (repeatable; Foundry auto-detected)")
 	return cmd
 }
 
@@ -320,6 +329,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 	if err != nil {
 		return nil, fmt.Errorf("resolve solc base path: %w", err)
 	}
+	compilerSettings, err := resolveSolidityCompilerSettings(absBasePath, flags)
+	if err != nil {
+		return nil, err
+	}
 	sourceKey, err := filepath.Rel(absBasePath, absSource)
 	if err != nil || strings.HasPrefix(sourceKey, ".."+string(filepath.Separator)) || sourceKey == ".." {
 		sourceKey = absSource
@@ -336,8 +349,11 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		} `json:"sources"`
 		Settings struct {
 			Optimizer struct {
-				Enabled bool `json:"enabled"`
+				Enabled bool   `json:"enabled"`
+				Runs    uint64 `json:"runs,omitempty"`
 			} `json:"optimizer"`
+			ViaIR           bool                           `json:"viaIR,omitempty"`
+			Remappings      []string                       `json:"remappings,omitempty"`
 			EVMVersion      string                         `json:"evmVersion"`
 			OutputSelection map[string]map[string][]string `json:"outputSelection"`
 		} `json:"settings"`
@@ -347,7 +363,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 	compilerInput.Sources[sourceKey] = struct {
 		Content string `json:"content"`
 	}{Content: string(sourceContents)}
-	compilerInput.Settings.Optimizer.Enabled = flags.optimize
+	compilerInput.Settings.Optimizer.Enabled = compilerSettings.Optimize
+	compilerInput.Settings.Optimizer.Runs = compilerSettings.OptimizerRuns
+	compilerInput.Settings.ViaIR = compilerSettings.ViaIR
+	compilerInput.Settings.Remappings = compilerSettings.Remappings
 	compilerInput.Settings.EVMVersion = "cancun"
 	compilerInput.Settings.OutputSelection = map[string]map[string][]string{
 		"*": {"*": {"abi", "evm.bytecode.object", "evm.deployedBytecode.object"}},

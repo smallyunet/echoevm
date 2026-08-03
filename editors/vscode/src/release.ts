@@ -3,6 +3,25 @@ import * as https from "node:https";
 
 export const latestReleaseDownloadBase = "https://github.com/smallyunet/echoevm/releases/latest/download";
 export const homebrewFormula = "smallyunet/tap/echoevm";
+export const minimumEchoEVMVersion = "0.0.37";
+
+export function isVersionAtLeast(actual: string, minimum: string): boolean {
+  const parse = (value: string): number[] | undefined => {
+    const match = /v?(\d+)\.(\d+)\.(\d+)/u.exec(value);
+    return match ? match.slice(1).map(Number) : undefined;
+  };
+  const actualParts = parse(actual);
+  const minimumParts = parse(minimum);
+  if (!actualParts || !minimumParts) {
+    return false;
+  }
+  for (let index = 0; index < 3; index += 1) {
+    if (actualParts[index] !== minimumParts[index]) {
+      return actualParts[index] > minimumParts[index];
+    }
+  }
+  return true;
+}
 
 export function homebrewExecutableCandidates(platform: NodeJS.Platform): string[] {
   return platform === "darwin" ? ["/opt/homebrew/bin/brew", "/usr/local/bin/brew", "brew"] : [];

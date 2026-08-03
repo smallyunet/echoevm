@@ -107,6 +107,9 @@ export interface CommonCommandOptions {
   basePath: string;
   includePaths: string[];
   optimize: boolean;
+  optimizerRuns: number;
+  viaIR: boolean;
+  remappings: string[];
 }
 
 export interface RunCommandOptions extends CommonCommandOptions {
@@ -181,8 +184,17 @@ function appendCompilerOptions(args: string[], options: CommonCommandOptions): v
   for (const includePath of options.includePaths) {
     args.push("--include-path", includePath);
   }
+  for (const remapping of options.remappings) {
+    args.push("--remapping", remapping);
+  }
   if (options.optimize) {
     args.push("--optimize");
+  }
+  if (options.optimizerRuns > 0) {
+    args.push("--optimizer-runs", String(options.optimizerRuns));
+  }
+  if (options.viaIR) {
+    args.push("--via-ir");
   }
 }
 
