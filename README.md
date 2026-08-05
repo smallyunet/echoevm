@@ -6,7 +6,11 @@
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat)]()
 [![Live Demo](https://img.shields.io/badge/live_demo-r.dark20.xyz-orange)](https://r.dark20.xyz/)
 
-**EchoEVM** is a minimal, pedagogical Ethereum Virtual Machine (EVM) implementation written in Go. It focuses on transparent bytecode execution, traceability, and ease of experimentation rather than production consensus or networking features.
+**EchoEVM** is an AI-oriented, explainable Ethereum Virtual Machine (EVM) implementation written in Go. It turns bytecode execution into bounded, customizable opcode events so agents can reason about stack, memory, storage, gas, control flow, and failure causes without loading a raw full-state dump.
+
+Geth differential execution remains a correctness and conformance tool. It is
+not required for EchoEVM's primary workflow: execute one input, select the
+relevant opcode process, and inspect the causal state changes.
 
 Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)**.
 
@@ -165,12 +169,12 @@ See [ROADMAP.md](ROADMAP.md) for the complete version history.
 | **Replay** | Transaction hash/Etherscan input, RPC prestate hydration, nested call-frame comparison |
 | **State Management** | **Merkle Patricia Trie**, lazy trie-backed reads, in-memory journaling |
 | **ABI Support** | Function selector encoding, primitives, arrays, bytes types |
-| **Tracing** | JSON structured per-opcode tracing with pre/post state |
+| **Explainable Tracing** | Stable `echoevm.trace.v1` events with stack deltas, changed memory ranges, storage context, gas breakdown, control flow, and deterministic explanations |
 | **Gas Metering** | EIP-2929 compatible dynamic gas calculations |
 | **EIP Support** | EIP-1153 (Transient Storage), EIP-5656 (MCOPY) |
 | **Precompiles** | ECRECOVER..BLAKE2F (0x01-0x09) |
 | **Testing** | Unit, integration, E2E, pinned official fixtures, geth differential conformance |
-| **AI Agents** | Portable debugging and conformance Skills for Codex, Gemini CLI, and Claude Code |
+| **AI Agents** | Opcode/depth/range/field filters, bounded trace windows, and portable Skills for Codex, Gemini CLI, and Claude Code |
 | **Logging** | Zerolog-based structured logging (plain/JSON output) |
 
 ---
@@ -402,8 +406,12 @@ echoevm deploy -a ./artifacts/Add.json --print
 # Call a function with ABI encoding
 echoevm call -a ./artifacts/Add.json -f add(uint256,uint256) -A 2,40
 
-# Generate execution trace
-echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --full | jq .
+# Generate a readable explainable trace
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 --format text
+
+# Emit only storage events for an agent
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 7,9 \
+  --opcodes SLOAD,SSTORE --fields gas,storage,explanation --format json
 ```
 
 ### Interactive REPL
@@ -436,7 +444,7 @@ echoevm web --code "6003600401"
 | `replay` | Replay a confirmed transaction from RPC prestate |
 | `deploy` | Run constructor and extract runtime bytecode |
 | `call` | Execute runtime bytecode with ABI encoding |
-| `trace` | JSON line trace of opcode execution |
+| `trace` | Explainable and filterable opcode events (`jsonl`, `json`, or `text`) |
 | `disasm` | Disassemble bytecode to human-readable opcodes |
 | `repl` | Interactive EVM shell |
 | `web` | Browser-based visual debugger |
@@ -497,12 +505,21 @@ echoevm call -r ./runtime.bin -d 771602f70000...
 <summary><b>trace</b> - Execution trace</summary>
 
 ```bash
-# First 40 steps
-echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 --limit 40 | jq .
+# Compact state-changing view; the EVM execution still completes
+echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 \
+  --changes-only --limit 40 --format json | jq .
 
-# Full pre/post state
-echoevm trace -a ./artifacts/Loops.json -f forLoop(uint256) -A 5 --full | jq .
+# Focus on a deterministic window around global opcode step 42
+echoevm trace -a ./artifacts/Loops.json -f forLoop(uint256) -A 5 \
+  --around-step 42 --window 5 --format json | jq .
+
+# Select fields and opcodes for a storage diagnosis
+echoevm trace -r ./runtime.bin -d 0x1234 --opcodes SLOAD,SSTORE \
+  --fields gas,stack,storage,explanation --format jsonl
 ```
+
+See [docs/TRACE_PROTOCOL.md](docs/TRACE_PROTOCOL.md) for schema semantics,
+filter behavior, and the recommended agent workflow.
 </details>
 
 ---
@@ -602,10 +619,10 @@ export ECHOEVM_ETHEREUM_RPC="https://mainnet.infura.io/v3/<key>"
 See **[ROADMAP.md](ROADMAP.md)** for the complete development roadmap.
 
 **Upcoming:**
-- Tuple and nested array ABI support
-- Fork-specific opcode behavior (Cancun)
-- Improved compliance test coverage
-- [x] Web-based debugger UI
+- Bring `echoevm.trace.v1` to Solidity source execution and transaction replay
+- Add richer account, call-frame, log, and return-data events
+- Add semantic gas reasons for dynamic-cost opcodes
+- Benchmark whether agents locate execution causes with fewer calls and tokens
 
 ---
 

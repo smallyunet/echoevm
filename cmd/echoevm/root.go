@@ -12,8 +12,8 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "echoevm",
-		Short: "EchoEVM - lightweight EVM execution & experimentation toolkit",
-		Long:  "EchoEVM is a lightweight EVM execution and inspection tool supporting contract deployment, calls, and tracing.",
+		Short: "EchoEVM - explainable EVM execution for AI agents",
+		Long:  "EchoEVM executes EVM bytecode and emits bounded, customizable opcode evidence for AI agents, with optional differential conformance against Geth.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Setup global logger level etc. (can be extended later)
 			lvl, err := zerolog.ParseLevel(globalFlags.logLevel)

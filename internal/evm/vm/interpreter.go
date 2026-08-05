@@ -48,22 +48,40 @@ type Interpreter struct {
 	blobBaseFee   *big.Int      // EIP-4844: blob base fee for the block
 	traceHook     func(TraceStep) bool
 	traceDepth    int
+	traceDetails  bool
 	readOnly      bool
 }
 
 // TraceStep captures a single execution step for external tracing.
 type TraceStep struct {
-	PC         uint64   `json:"pc"`
-	Opcode     byte     `json:"opcode"`
-	OpcodeName string   `json:"opcode_name"`
-	Stack      []string `json:"stack"`
-	StackSize  int      `json:"stack_size"`
-	Gas        uint64   `json:"gas"`
-	Reverted   bool     `json:"reverted"`
-	Halt       bool     `json:"halt"`
-	IsPost     bool     `json:"is_post"`
-	Depth      int      `json:"depth"`
-	Address    string   `json:"address"`
+	PC         uint64               `json:"pc"`
+	Opcode     byte                 `json:"opcode"`
+	OpcodeName string               `json:"opcode_name"`
+	Stack      []string             `json:"stack"`
+	StackSize  int                  `json:"stack_size"`
+	Gas        uint64               `json:"gas"`
+	Reverted   bool                 `json:"reverted"`
+	Halt       bool                 `json:"halt"`
+	IsPost     bool                 `json:"is_post"`
+	Depth      int                  `json:"depth"`
+	Address    string               `json:"address"`
+	Error      string               `json:"error,omitempty"`
+	Memory     []byte               `json:"-"`
+	Storage    []TraceStorageAccess `json:"-"`
+}
+
+// TraceStorageAccess captures the storage context visible before an opcode.
+// It is intentionally part of the internal trace hook rather than StateDB so
+// normal execution does not pay for a separate state-observer abstraction.
+type TraceStorageAccess struct {
+	Kind      string
+	Address   string
+	Slot      string
+	Before    string
+	After     string
+	Original  string
+	Warm      bool
+	Transient bool
 }
 
 func New(code []byte, statedb core.StateDB, address common.Address) *Interpreter {
@@ -354,6 +372,12 @@ func (i *Interpreter) SetTraceContext(hook func(step TraceStep) bool, depth int)
 	i.traceDepth = depth
 }
 
+// SetTraceDetails enables memory snapshots and storage access context for
+// explainable traces. Lightweight conformance hooks can leave it disabled.
+func (i *Interpreter) SetTraceDetails(enabled bool) {
+	i.traceDetails = enabled
+}
+
 func (i *Interpreter) inheritExecutionContext(parent *Interpreter) {
 	i.blockNumber = parent.blockNumber
 	i.timestamp = parent.timestamp
@@ -382,6 +406,7 @@ func (i *Interpreter) inheritExecutionContext(parent *Interpreter) {
 	}
 	i.traceHook = parent.traceHook
 	i.traceDepth = parent.traceDepth + 1
+	i.traceDetails = parent.traceDetails
 	i.readOnly = parent.readOnly
 }
 
@@ -479,7 +504,11 @@ func (i *Interpreter) run(hook func(step TraceStep) bool) {
 }
 
 func (i *Interpreter) traceStep(pc uint64, op byte, isPost, halt bool) TraceStep {
-	return TraceStep{
+	errText := ""
+	if i.err != nil {
+		errText = i.err.Error()
+	}
+	step := TraceStep{
 		PC:         pc,
 		Opcode:     op,
 		OpcodeName: core.OpcodeName(op),
@@ -491,7 +520,67 @@ func (i *Interpreter) traceStep(pc uint64, op byte, isPost, halt bool) TraceStep
 		IsPost:     isPost,
 		Depth:      i.traceDepth,
 		Address:    i.address.Hex(),
+		Error:      errText,
 	}
+	if i.traceDetails {
+		step.Memory = append([]byte(nil), i.memory.Data()...)
+		step.Storage = i.traceStorageAccesses(op, isPost)
+	}
+	return step
+}
+
+func (i *Interpreter) traceStorageAccesses(op byte, isPost bool) []TraceStorageAccess {
+	if isPost {
+		return nil
+	}
+	peekHash := func(index int) (common.Hash, bool) {
+		value, err := i.stack.Peek(index)
+		if err != nil {
+			return common.Hash{}, false
+		}
+		return common.BigToHash(value), true
+	}
+	key, ok := peekHash(0)
+	if !ok {
+		return nil
+	}
+	access := TraceStorageAccess{
+		Address: i.address.Hex(),
+		Slot:    key.Hex(),
+		Warm:    i.statedb.SlotInAccessList(i.address, key),
+	}
+	switch op {
+	case core.SLOAD:
+		access.Kind = "read"
+		access.Before = i.statedb.GetState(i.address, key).Hex()
+		access.After = access.Before
+	case core.SSTORE:
+		value, valueOK := peekHash(1)
+		if !valueOK {
+			return nil
+		}
+		access.Kind = "write"
+		access.Before = i.statedb.GetState(i.address, key).Hex()
+		access.After = value.Hex()
+		access.Original = i.statedb.GetOriginalState(i.address, key).Hex()
+	case core.TLOAD:
+		access.Kind = "read"
+		access.Transient = true
+		access.Before = i.statedb.GetTransientState(i.address, key).Hex()
+		access.After = access.Before
+	case core.TSTORE:
+		value, valueOK := peekHash(1)
+		if !valueOK {
+			return nil
+		}
+		access.Kind = "write"
+		access.Transient = true
+		access.Before = i.statedb.GetTransientState(i.address, key).Hex()
+		access.After = value.Hex()
+	default:
+		return nil
+	}
+	return []TraceStorageAccess{access}
 }
 
 func (i *Interpreter) emitPostStep(hook func(step TraceStep) bool, op byte, halt bool) bool {

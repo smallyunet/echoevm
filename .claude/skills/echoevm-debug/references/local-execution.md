@@ -10,7 +10,8 @@ Inspect contracts and ABI functions only when the contract or canonical function
 echoevm solidity inspect <source.sol> --format json
 ```
 
-Run one function with a bounded gas limit:
+Run one function with a bounded gas limit. Do not add `--diff` unless comparison
+is part of the question:
 
 ```bash
 echoevm solidity run <source.sol> \
@@ -19,7 +20,7 @@ echoevm solidity run <source.sol> \
   --function '<canonical-signature>' \
   --args <comma-separated-values> \
   --gas 1000000 \
-  --diff --format summary-json
+  --format summary-json
 ```
 
 When testing a tight runtime gas boundary, keep constructor gas independent:
@@ -31,16 +32,42 @@ echoevm solidity run <source.sol> \
   --args <comma-separated-values> \
   --deploy-gas 1000000 \
   --gas <runtime-limit> \
-  --diff --format summary-json
+  --format summary-json
 ```
 
-Do not enable `--trace` for an initial matching comparison. If the summary reports a divergence, rerun the same input with `--trace --format json`, redirect it to a temporary file, and compact it before reading.
+Use Solidity summary output to establish the result. The standalone explainable
+trace protocol currently accepts runtime bytecode or an artifact; do not claim
+source-run integration until the CLI exposes it.
 
 Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM does not currently provide Foundry cheatcodes, RPC forking, payable calls, source maps, or test discovery.
 
-## Bytecode
+## Explain bytecode or an artifact
 
-Compare bytecode with embedded Geth:
+Start with state-changing events and only the fields relevant to the question:
+
+```bash
+echoevm trace \
+  --bin-runtime <runtime.bin> \
+  --calldata <hex-calldata> \
+  --changes-only \
+  --fields gas,stack,memory,storage,control,explanation \
+  --limit 200 \
+  --format json
+```
+
+Check the result record's `totalSteps`, `matchedSteps`, `emittedSteps`, and
+`truncated`. If more context is needed, rerun the identical input with
+`--around-step <step> --window <size>`. Prefer `--opcodes` or `--depth` when the
+question already identifies a state access or call frame.
+
+The trace's stack `popped` values are top-first. Storage writes marked
+`appliedInFrame` can still be rolled back by a later REVERT; include the final
+execution status in the interpretation.
+
+## Optional conformance comparison
+
+Compare bytecode with embedded Geth only when compatibility, a suspected
+EchoEVM bug, or a differential result is part of the task:
 
 ```bash
 echoevm diff \
@@ -53,7 +80,7 @@ echoevm diff \
 
 Use `initialStorage` only through an MCP tool or a prepared JSON-capable interface; the current CLI flags do not expose that map directly. Do not silently drop requested initial state.
 
-## Large results
+## Large comparison results
 
 Only after a summary reports a divergence, redirect full JSON to a temporary file and compact it before reading:
 

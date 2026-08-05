@@ -107,10 +107,10 @@ Tools and integrations for enhanced developer productivity.
 - [x] **Solidity Source Runner** - Compile, deploy, call, trace, and differentially compare one contract function
 - [x] **VS Code Extension MVP** - Inspect, run, compare, and display opcode traces from `.sol` files
 - [x] **Agent Skills** - Debug contracts and transactions or validate conformance from Codex, Gemini CLI, and Claude Code
-- [ ] **Source-Mapped Editor Actions** - CodeLens and trace-to-Solidity navigation
-- [ ] **Step-by-Step Debugging** - Breakpoints and watch expressions
-- [ ] **Gas Profiler** - Per-opcode gas consumption analysis
-- [ ] **Contract Analyzer** - Security pattern detection
+- [ ] **Source-Mapped Editor Actions** - Deferred unless needed by agent source attribution
+- [ ] **Step-by-Step Human Debugging** - Deferred; bounded agent trace windows take priority
+- [ ] **Gas Profiler** - Deferred in favor of per-opcode semantic gas explanations
+- [ ] **Contract Analyzer** - Deferred; EchoEVM provides execution evidence, not scanner claims
 - [x] **Differential Explorer** - Reusable Cancun EchoEVM/Geth engine, CLI, JSON API, and local trace UI
 - [x] **Transaction Replay** - Hash/Etherscan input, RPC prestate hydration, and full call-frame trace comparison
 - [ ] **Export Formats** - Trace export to JSON, CSV, CallGraph
@@ -135,16 +135,20 @@ Full compliance and ecosystem integration.
 ## 🎯 Current Focus
 
 **Next Release Priorities:**
-1. Publish checksum-verified CLI binaries for supported desktop platforms
-2. Diagnose and repair the VS Code toolchain from inside the editor
-3. Auto-discover workspace-local Solidity compilers
-4. Provide a no-terminal example that reaches the first opcode trace in two minutes
-5. Run a 5–10 person onboarding pilot before expanding the debugger feature set
+1. Establish `echoevm.trace.v1` as a stable explainable opcode-event contract
+2. Emit stack deltas, changed memory ranges, storage context, gas usage,
+   control flow, halt causes, and bounded deterministic explanations
+3. Make trace selection customizable by field, opcode, call depth, step range,
+   change relevance, and deterministic windows
+4. Extend the protocol from runtime bytecode to Solidity execution and Mainnet replay
+5. Benchmark EVM-sensitive agent tasks for correctness, tool calls, fresh tokens,
+   and the ability to skip EchoEVM when execution evidence is unnecessary
 
-After the onboarding gate is met, source-mapped CodeLens actions are the next
-developer-experience milestone. Full GeneralStateTests, plugins, gas profiling,
-and source-level breakpoints remain deferred until the extension has real-user
-setup evidence.
+The product is AI-first. The VS Code extension and hosted Explorer remain useful
+demonstration and inspection surfaces, but human onboarding, CodeLens, source-level
+breakpoints, and broad debugger UI expansion no longer gate the roadmap.
+Embedded Geth stays in conformance tests and optional comparison commands; the
+primary product path explains EchoEVM execution without requiring a comparison.
 
 The replay engine intentionally requires a trace-capable RPC and does not
 approximate transaction prestate from the parent block. Cancun remains the only
