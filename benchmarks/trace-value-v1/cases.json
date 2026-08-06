@@ -4,55 +4,75 @@
     "question": "The calldata is a four-byte selector followed by uint256(42). The runtime should ABI-return 42, but the observed return data does not decode to 42. Identify the cause, instruction, and correction.",
     "bytecode": "5f355f5260205ff3",
     "calldata": "0x12345678000000000000000000000000000000000000000000000000000000000000002a",
-    "oracle": {"rootCause": "CALLDATA_OFFSET", "primaryPC": 1, "primaryOpcode": "CALLDATALOAD", "secondaryPC": null, "secondaryOpcode": null, "fix": "LOAD_AT_OFFSET_4"}
+    "oracle": {"rootCause": "CALLDATA_OFFSET", "primaryPC": 1, "primaryOpcode": "CALLDATALOAD", "acceptedPrimary": [{"pc": 1, "opcode": "CALLDATALOAD"}, {"pc": 0, "opcode": "PUSH0"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "LOAD_AT_OFFSET_4"}
   },
   {
     "id": "division_operand_order",
     "question": "The runtime is intended to compute 8 / 2 and ABI-return 4, but it returns 0. Identify the cause, instruction, and correction.",
     "bytecode": "60086002045f5260205ff3",
     "calldata": "0x",
-    "oracle": {"rootCause": "OPERAND_ORDER", "primaryPC": 4, "primaryOpcode": "DIV", "secondaryPC": null, "secondaryOpcode": null, "fix": "SWAP_OPERANDS"}
+    "oracle": {"rootCause": "OPERAND_ORDER", "primaryPC": 4, "primaryOpcode": "DIV", "acceptedPrimary": [{"pc": 4, "opcode": "DIV"}, {"pc": 0, "opcode": "PUSH1"}, {"pc": 2, "opcode": "PUSH1"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "SWAP_OPERANDS"}
   },
   {
     "id": "mstore8_word_alignment",
     "question": "The runtime should ABI-return uint256(42), but its 32-byte return value does not decode to 42. Identify the cause, instruction, and correction.",
     "bytecode": "602a5f5360205ff3",
     "calldata": "0x",
-    "oracle": {"rootCause": "MEMORY_WORD_ALIGNMENT", "primaryPC": 3, "primaryOpcode": "MSTORE8", "secondaryPC": null, "secondaryOpcode": null, "fix": "USE_MSTORE"}
+    "oracle": {"rootCause": "MEMORY_WORD_ALIGNMENT", "primaryPC": 3, "primaryOpcode": "MSTORE8", "acceptedPrimary": [{"pc": 3, "opcode": "MSTORE8"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "USE_MSTORE"}
   },
   {
     "id": "return_offset_shift",
     "question": "The runtime should ABI-return uint256(42), but the returned 32-byte word is not 42 even though the value was placed in memory. Identify the cause, instruction, and correction.",
     "bytecode": "602a5f5260206001f3",
     "calldata": "0x",
-    "oracle": {"rootCause": "RETURN_OFFSET", "primaryPC": 8, "primaryOpcode": "RETURN", "secondaryPC": null, "secondaryOpcode": null, "fix": "RETURN_FROM_OFFSET_0"}
+    "oracle": {"rootCause": "RETURN_OFFSET", "primaryPC": 8, "primaryOpcode": "RETURN", "acceptedPrimary": [{"pc": 8, "opcode": "RETURN"}, {"pc": 6, "opcode": "PUSH1"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "RETURN_FROM_OFFSET_0"}
   },
   {
     "id": "keccak_length_31",
     "question": "The runtime should return keccak256(abi.encode(uint256(42))), but the returned digest differs from an independent Solidity oracle. Identify the cause, instruction, and correction.",
     "bytecode": "602a5f52601f5f205f5260205ff3",
     "calldata": "0x",
-    "oracle": {"rootCause": "HASH_LENGTH", "primaryPC": 7, "primaryOpcode": "SHA3", "secondaryPC": null, "secondaryOpcode": null, "fix": "HASH_32_BYTES"}
+    "oracle": {"rootCause": "HASH_LENGTH", "primaryPC": 7, "primaryOpcode": "SHA3", "acceptedPrimary": [{"pc": 7, "opcode": "SHA3"}, {"pc": 4, "opcode": "PUSH1"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "HASH_32_BYTES"}
   },
   {
     "id": "storage_wrong_slot",
     "question": "The runtime should persist uint256(42) in storage slot 0 and return 42. The call returns 42, but the required slot remains unchanged. Identify the first state-changing instruction, any paired access, and the correction.",
     "bytecode": "602a6001556001545f5260205ff3",
     "calldata": "0x",
-    "oracle": {"rootCause": "STORAGE_SLOT", "primaryPC": 4, "primaryOpcode": "SSTORE", "secondaryPC": 7, "secondaryOpcode": "SLOAD", "fix": "USE_STORAGE_SLOT_0"}
+    "oracle": {"rootCause": "STORAGE_SLOT", "primaryPC": 4, "primaryOpcode": "SSTORE", "acceptedPrimary": [{"pc": 4, "opcode": "SSTORE"}, {"pc": 2, "opcode": "PUSH1"}], "secondaryPC": 7, "secondaryOpcode": "SLOAD", "fix": "USE_STORAGE_SLOT_0"}
   },
   {
     "id": "storage_rolled_back",
     "question": "The runtime is intended to finish successfully with storage slot 0 equal to 1. Instead the call does not succeed and final persistent storage remains 0. Identify the terminal cause, any provisional write, and the correction.",
     "bytecode": "60015f5560006000fd",
     "calldata": "0x",
-    "oracle": {"rootCause": "FRAME_REVERT_ROLLBACK", "primaryPC": 8, "primaryOpcode": "REVERT", "secondaryPC": 3, "secondaryOpcode": "SSTORE", "fix": "REMOVE_REVERT_OR_MOVE_WRITE"}
+    "oracle": {"rootCause": "FRAME_REVERT_ROLLBACK", "primaryPC": 8, "primaryOpcode": "REVERT", "acceptedPrimary": [{"pc": 8, "opcode": "REVERT"}, {"pc": 3, "opcode": "SSTORE"}], "secondaryPC": 3, "secondaryOpcode": "SSTORE", "fix": "REMOVE_REVERT_OR_MOVE_WRITE"}
   },
   {
     "id": "invalid_jump_destination",
     "question": "The runtime is intended to branch to a valid continuation and stop successfully, but execution faults. Identify the cause, instruction, and correction.",
     "bytecode": "60055600",
     "calldata": "0x",
-    "oracle": {"rootCause": "INVALID_JUMP_DESTINATION", "primaryPC": 2, "primaryOpcode": "JUMP", "secondaryPC": null, "secondaryOpcode": null, "fix": "TARGET_A_JUMPDEST"}
+    "oracle": {"rootCause": "INVALID_JUMP_DESTINATION", "primaryPC": 2, "primaryOpcode": "JUMP", "acceptedPrimary": [{"pc": 2, "opcode": "JUMP"}, {"pc": 0, "opcode": "PUSH1"}], "secondaryPC": null, "secondaryOpcode": null, "fix": "TARGET_A_JUMPDEST"}
+  },
+  {
+    "id": "calldata_selector_offset_noise96",
+    "baseCase": "calldata_selector_offset",
+    "noisePairs": 96
+  },
+  {
+    "id": "division_operand_order_noise96",
+    "baseCase": "division_operand_order",
+    "noisePairs": 96
+  },
+  {
+    "id": "storage_wrong_slot_noise96",
+    "baseCase": "storage_wrong_slot",
+    "noisePairs": 96
+  },
+  {
+    "id": "storage_rolled_back_noise96",
+    "baseCase": "storage_rolled_back",
+    "noisePairs": 96
   }
 ]

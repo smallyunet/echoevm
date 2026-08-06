@@ -76,3 +76,33 @@ func TestTraceJSONSupportsOpcodeAndFieldFilters(t *testing.T) {
 		t.Fatalf("filtered event = %+v", event)
 	}
 }
+
+func TestTraceEvidenceJSONUsesCompactProfile(t *testing.T) {
+	runtimePath := filepath.Join(t.TempDir(), "runtime.bin")
+	if err := os.WriteFile(runtimePath, []byte("60086002045f5260205ff3"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newTraceCmd()
+	var output bytes.Buffer
+	cmd.SetOut(&output)
+	cmd.SetArgs([]string{
+		"--bin-runtime", runtimePath, "--calldata", "0x", "--format", "evidence-json",
+		"--profile", "auto", "--limit", "3",
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var document explaintrace.EvidenceDocument
+	if err := json.Unmarshal(output.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.Schema != explaintrace.EvidenceSchemaVersion || document.Profile != explaintrace.ProfileAuto {
+		t.Fatalf("document = %+v", document)
+	}
+	if len(document.Events) != 3 || document.Events[0].Op != "DIV" || document.Events[1].Op != "MSTORE" || document.Events[2].Op != "RETURN" {
+		t.Fatalf("events = %+v", document.Events)
+	}
+	if document.Selection.Candidates < 3 || document.Selection.Selected != 3 {
+		t.Fatalf("selection = %+v", document.Selection)
+	}
+}

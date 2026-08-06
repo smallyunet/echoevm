@@ -43,22 +43,22 @@ Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requi
 
 ## Explain bytecode or an artifact
 
-Start with state-changing events and only the fields relevant to the question:
+Start with compact causal evidence and a question-specific profile when known:
 
 ```bash
 echoevm trace \
   --bin-runtime <runtime.bin> \
   --calldata <hex-calldata> \
-  --changes-only \
-  --fields gas,stack,memory,storage,control,explanation \
-  --limit 200 \
-  --format json
+  --profile auto \
+  --limit 40 \
+  --format evidence-json
 ```
 
-Check the result record's `totalSteps`, `matchedSteps`, `emittedSteps`, and
-`truncated`. If more context is needed, rerun the identical input with
-`--around-step <step> --window <size>`. Prefer `--opcodes` or `--depth` when the
-question already identifies a state access or call frame.
+Check `execution.totalSteps` and `selection.candidates`, `selected`, `omitted`,
+and `truncated`. If more context is needed, rerun the identical input as a full
+`--format json` trace with `--around-step <step> --window <size>`. Prefer
+`--opcodes` or `--depth` when the question already identifies a state access or
+call frame.
 
 The trace's stack `popped` values are top-first. Storage writes marked
 `appliedInFrame` can still be rolled back by a later REVERT; include the final

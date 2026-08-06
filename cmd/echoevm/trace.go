@@ -23,6 +23,7 @@ var traceFlags struct {
 	function       string
 	args           string
 	format         string
+	profile        string
 	fields         string
 	opcodes        string
 	limit          int
@@ -53,7 +54,8 @@ func newTraceCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&traceFlags.function, "function", "f", "", "Function signature")
 	cmd.Flags().StringVarP(&traceFlags.args, "args", "A", "", "Comma separated function arguments")
 	cmd.Flags().StringVarP(&traceFlags.calldata, "calldata", "d", "", "Full calldata hex")
-	cmd.Flags().StringVar(&traceFlags.format, "format", "jsonl", "Trace format (jsonl|json|text)")
+	cmd.Flags().StringVar(&traceFlags.format, "format", "jsonl", "Trace format (jsonl|json|text|evidence-json)")
+	cmd.Flags().StringVar(&traceFlags.profile, "profile", explaintrace.ProfileAuto, "Evidence profile for evidence-json (auto|revert|storage|call|abi|gas|full)")
 	cmd.Flags().StringVar(&traceFlags.fields, "fields", "gas,stack,memory,storage,control,explanation", "Event fields to include")
 	cmd.Flags().StringVar(&traceFlags.opcodes, "opcodes", "", "Comma-separated opcode names or hex bytes")
 	cmd.Flags().IntVar(&traceFlags.limit, "limit", 0, "Maximum emitted opcode events; execution still completes (0 = no limit)")
@@ -89,11 +91,15 @@ func runTrace(cmd *cobra.Command) error {
 	collector := explaintrace.NewCollector(traceFlags.maxMemoryBytes)
 	intr.RunWithHook(collector.Consume)
 	allEvents := collector.Events()
-	filtered, matchedSteps := filterTraceEvents(allEvents)
 	fields, err := parseTraceFields(traceFlags.fields)
 	if err != nil {
 		return err
 	}
+	filterLimit := traceFlags.limit
+	if traceFlags.format == "evidence-json" {
+		filterLimit = 0
+	}
+	filtered, matchedSteps := filterTraceEvents(allEvents, filterLimit)
 	for index := range filtered {
 		applyTraceFields(&filtered[index], fields)
 	}
@@ -113,9 +119,19 @@ func runTrace(cmd *cobra.Command) error {
 	if intr.Err() != nil {
 		execution.ExecutionError = intr.Err().Error()
 	}
-	document := explaintrace.Document{Schema: explaintrace.SchemaVersion, Execution: execution, Events: filtered}
-	if err := writeTrace(cmd, document); err != nil {
-		return err
+	if traceFlags.format == "evidence-json" {
+		document, evidenceErr := explaintrace.BuildEvidence(execution, filtered, traceFlags.profile, traceFlags.limit)
+		if evidenceErr != nil {
+			return evidenceErr
+		}
+		if err := writeEvidence(cmd, document); err != nil {
+			return err
+		}
+	} else {
+		document := explaintrace.Document{Schema: explaintrace.SchemaVersion, Execution: execution, Events: filtered}
+		if err := writeTrace(cmd, document); err != nil {
+			return err
+		}
 	}
 	if intr.Err() != nil {
 		return fmt.Errorf("execution failed: %w", intr.Err())
@@ -125,9 +141,14 @@ func runTrace(cmd *cobra.Command) error {
 
 func validateTraceFlags() error {
 	switch traceFlags.format {
-	case "jsonl", "json", "text":
+	case "jsonl", "json", "text", "evidence-json":
 	default:
-		return fmt.Errorf("unsupported trace format %q (want jsonl, json, or text)", traceFlags.format)
+		return fmt.Errorf("unsupported trace format %q (want jsonl, json, text, or evidence-json)", traceFlags.format)
+	}
+	if traceFlags.format == "evidence-json" {
+		if err := explaintrace.ValidateEvidenceProfile(traceFlags.profile); err != nil {
+			return err
+		}
 	}
 	if traceFlags.depth < -1 || traceFlags.fromStep < 0 || traceFlags.toStep < -1 || traceFlags.aroundStep < -1 || traceFlags.window < 0 || traceFlags.limit < 0 || traceFlags.maxMemoryBytes < 0 {
 		return fmt.Errorf("trace numeric filters must be non-negative, except -1 sentinel values")
@@ -194,7 +215,7 @@ func traceCalldata() ([]byte, error) {
 	return nil, fmt.Errorf("provide --calldata or --function + --args")
 }
 
-func filterTraceEvents(events []explaintrace.OpcodeEvent) ([]explaintrace.OpcodeEvent, int) {
+func filterTraceEvents(events []explaintrace.OpcodeEvent, limit int) ([]explaintrace.OpcodeEvent, int) {
 	opcodes := make(map[string]struct{})
 	for _, value := range strings.Split(traceFlags.opcodes, ",") {
 		value = strings.ToUpper(strings.TrimSpace(value))
@@ -230,11 +251,17 @@ func filterTraceEvents(events []explaintrace.OpcodeEvent) ([]explaintrace.Opcode
 			continue
 		}
 		matched++
-		if traceFlags.limit == 0 || len(filtered) < traceFlags.limit {
+		if limit == 0 || len(filtered) < limit {
 			filtered = append(filtered, event)
 		}
 	}
 	return filtered, matched
+}
+
+func writeEvidence(cmd *cobra.Command, document explaintrace.EvidenceDocument) error {
+	encoder := json.NewEncoder(cmd.OutOrStdout())
+	encoder.SetEscapeHTML(false)
+	return encoder.Encode(document)
 }
 
 func traceEventChanged(event explaintrace.OpcodeEvent) bool {

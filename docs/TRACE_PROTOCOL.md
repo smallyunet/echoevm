@@ -43,22 +43,43 @@ The final execution record distinguishes:
 
 `--limit` never stops EVM execution.
 
+### Compact causal evidence
+
+`--format evidence-json` emits `echoevm.evidence.v1`, a compact view selected
+after the complete execution has finished. It preserves execution status and
+prioritizes faults, reverts, storage, calls/creates, returns, memory changes,
+and semantic opcodes. The default `auto` profile omits stack-only plumbing such
+as PUSH, DUP, SWAP, POP, and JUMPDEST unless a higher-priority event requires it.
+
+Profiles route common questions without changing execution:
+
+- `auto`: general causal evidence;
+- `revert`: revert data, memory, state, and surrounding call/return control;
+- `storage`: persistent/transient access and commit/rollback control;
+- `call`: call/create control and nested-frame semantic events;
+- `abi`: calldata, memory, hashing, return, and revert evidence;
+- `gas`: the auto selection with gas deltas retained;
+- `full`: every selected opcode, compactly encoded.
+
+`selection.candidates`, `selected`, `omitted`, and `truncated` make the evidence
+boundary explicit. With evidence JSON, `--limit` is applied after full execution
+and priority selection, so a late terminal fault is not lost to an early limit.
+
 ## Agent workflow
 
-Start with a narrow changes-only view:
+Start with compact causal evidence:
 
 ```bash
 echoevm trace \
   --bin-runtime ./runtime.bin \
   --calldata 0x1234 \
-  --changes-only \
-  --fields gas,stack,storage,control,explanation \
-  --limit 200 \
-  --format json
+  --profile auto \
+  --limit 40 \
+  --format evidence-json
 ```
 
-If the result is truncated or a step needs more context, request a deterministic
-window without rerunning a different input:
+If the selection is truncated or a step needs more context, request a
+deterministic full-trace window without rerunning a different input:
 
 ```bash
 echoevm trace \

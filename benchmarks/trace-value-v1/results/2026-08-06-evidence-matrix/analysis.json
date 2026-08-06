@@ -1,0 +1,445 @@
+{
+  "schema": "echoevm.trace-value-analysis.v1",
+  "groups": {
+    "control": {
+      "runs": 24,
+      "correct": 23,
+      "accuracy": 0.9583333333333334,
+      "causal_correct": 24,
+      "causal_accuracy": 1.0,
+      "median_score": 10.0,
+      "median_duration_seconds": 31.9055,
+      "median_noncached_tokens": 15223.5,
+      "median_output_tokens": 741.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 386.0,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0,
+      "causalCorrect": 24,
+      "causalAccuracy": 1.0
+    },
+    "echo": {
+      "runs": 24,
+      "correct": 23,
+      "accuracy": 0.9583333333333334,
+      "causal_correct": 24,
+      "causal_accuracy": 1.0,
+      "median_score": 10.0,
+      "median_duration_seconds": 29.781,
+      "median_noncached_tokens": 16418.0,
+      "median_output_tokens": 680.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 3448.5,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0,
+      "causalCorrect": 24,
+      "causalAccuracy": 1.0
+    },
+    "evidence": {
+      "runs": 24,
+      "correct": 24,
+      "accuracy": 1.0,
+      "causal_correct": 24,
+      "causal_accuracy": 1.0,
+      "median_score": 10.0,
+      "median_duration_seconds": 30.9875,
+      "median_noncached_tokens": 13629.5,
+      "median_output_tokens": 699.0,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 879.0,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0,
+      "causalCorrect": 24,
+      "causalAccuracy": 1.0
+    },
+    "raw": {
+      "runs": 24,
+      "correct": 24,
+      "accuracy": 1.0,
+      "causal_correct": 24,
+      "causal_accuracy": 1.0,
+      "median_score": 10.0,
+      "median_duration_seconds": 29.8555,
+      "median_noncached_tokens": 14654.0,
+      "median_output_tokens": 682.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 973.5,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0,
+      "causalCorrect": 24,
+      "causalAccuracy": 1.0
+    }
+  },
+  "comparisons": {
+    "echo-vs-control": {
+      "accuracy": {
+        "delta": 0.0,
+        "ci95Low": -0.125,
+        "ci95High": 0.125
+      },
+      "causalAccuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "score": {
+        "delta": -0.04166666666666674,
+        "ci95Low": -0.375,
+        "ci95High": 0.24999999999999978
+      },
+      "freshTokens": {
+        "relativeDelta": 0.12449355806946612,
+        "ci95Low": 0.008074823325379885,
+        "ci95High": 0.2541350819868832
+      },
+      "duration": {
+        "relativeDelta": -0.10180010579646157,
+        "ci95Low": -0.19048766501789846,
+        "ci95High": -0.00789162260538672
+      },
+      "evidenceBytes": {
+        "relativeDelta": 7.463165434154684,
+        "ci95Low": 5.843054371314356,
+        "ci95High": 9.125738472522812
+      }
+    },
+    "evidence-vs-control": {
+      "accuracy": {
+        "delta": 0.04166666666666667,
+        "ci95Low": 0.0,
+        "ci95High": 0.125
+      },
+      "causalAccuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "score": {
+        "delta": 0.16666666666666674,
+        "ci95Low": 0.0,
+        "ci95High": 0.41666666666666674
+      },
+      "freshTokens": {
+        "relativeDelta": 0.05859350437729573,
+        "ci95Low": -0.09589744139639733,
+        "ci95High": 0.23252155772213903
+      },
+      "duration": {
+        "relativeDelta": -0.010474714189953972,
+        "ci95Low": -0.1421375374692293,
+        "ci95High": 0.1338660812334127
+      },
+      "evidenceBytes": {
+        "relativeDelta": 1.4261697988399007,
+        "ci95Low": 1.132595851109162,
+        "ci95High": 1.7867400653112888
+      }
+    },
+    "raw-vs-control": {
+      "accuracy": {
+        "delta": 0.04166666666666667,
+        "ci95Low": 0.0,
+        "ci95High": 0.125
+      },
+      "causalAccuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "score": {
+        "delta": 0.125,
+        "ci95Low": 0.0,
+        "ci95High": 0.375
+      },
+      "freshTokens": {
+        "relativeDelta": -0.008737532692633642,
+        "ci95Low": -0.12021523783931401,
+        "ci95High": 0.11793380576054223
+      },
+      "duration": {
+        "relativeDelta": -0.055803983256217084,
+        "ci95Low": -0.10934890072493089,
+        "ci95High": 0.0018120553107314021
+      },
+      "evidenceBytes": {
+        "relativeDelta": 1.4215675070371592,
+        "ci95Low": 1.0853979463320078,
+        "ci95High": 1.8134651945605853
+      }
+    },
+    "evidence-vs-raw": {
+      "accuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "causalAccuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "score": {
+        "delta": 0.04166666666666674,
+        "ci95Low": 0.0,
+        "ci95High": 0.12500000000000022
+      },
+      "freshTokens": {
+        "relativeDelta": 0.08178853264212557,
+        "ci95Low": -0.0758339329370621,
+        "ci95High": 0.2503769867152096
+      },
+      "duration": {
+        "relativeDelta": 0.05812501922760682,
+        "ci95Low": -0.10246225127290648,
+        "ci95High": 0.23738217640884712
+      },
+      "evidenceBytes": {
+        "relativeDelta": 0.02641291736886861,
+        "ci95Low": -0.08789119401825461,
+        "ci95High": 0.19862141705557312
+      }
+    },
+    "evidence-vs-echo": {
+      "accuracy": {
+        "delta": 0.04166666666666667,
+        "ci95Low": 0.0,
+        "ci95High": 0.125
+      },
+      "causalAccuracy": {
+        "delta": 0.0,
+        "ci95Low": 0.0,
+        "ci95High": 0.0
+      },
+      "score": {
+        "delta": 0.20833333333333348,
+        "ci95Low": 0.04166666666666674,
+        "ci95High": 0.4583333333333335
+      },
+      "freshTokens": {
+        "relativeDelta": -0.036831468867675715,
+        "ci95Low": -0.20217270285351513,
+        "ci95High": 0.14104771349195225
+      },
+      "duration": {
+        "relativeDelta": 0.10917786606462206,
+        "ci95Low": -0.019492723640406544,
+        "ci95High": 0.26874798564982016
+      },
+      "evidenceBytes": {
+        "relativeDelta": -0.6926298389458978,
+        "ci95Low": -0.7510581500479436,
+        "ci95High": -0.6108169939957556
+      }
+    }
+  },
+  "cases": {
+    "calldata_selector_offset": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "division_operand_order": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "invalid_jump_destination": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      }
+    },
+    "keccak_length_31": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 2,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "mstore8_word_alignment": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "return_offset_shift": {
+      "control": {
+        "correct": 2,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "storage_rolled_back": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "storage_wrong_slot": {
+      "control": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "evidence": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "causalCorrect": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    }
+  }
+}

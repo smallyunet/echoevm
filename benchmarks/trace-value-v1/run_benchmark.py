@@ -14,6 +14,8 @@ import statistics
 import subprocess
 import time
 
+from benchmark_lib import load_cases
+
 
 ROOT = Path(__file__).resolve().parent
 PROMPT = "Read TASK.md and EVIDENCE.json, diagnose the execution, and write ANSWER.json in the required schema. Do not modify any other file."
@@ -94,10 +96,14 @@ def command_count(path: Path) -> int:
 
 def score_answer(answer: object, oracle: dict[str, object]) -> dict[str, object]:
     if not isinstance(answer, dict):
-        return {"score": 0, "diagnosis_correct": False, "components": {}}
+        return {"score": 0, "diagnosis_correct": False, "causal_correct": False, "components": {}}
     primary = answer.get("primary") if isinstance(answer.get("primary"), dict) else {}
     secondary = answer.get("secondary") if isinstance(answer.get("secondary"), dict) else None
     normalize_opcode = lambda value: "SHA3" if str(value).upper() == "KECCAK256" else str(value).upper()
+    causal_location = any(
+        primary.get("pc") == candidate["pc"] and normalize_opcode(primary.get("opcode", "")) == candidate["opcode"]
+        for candidate in oracle.get("acceptedPrimary", [{"pc": oracle["primaryPC"], "opcode": oracle["primaryOpcode"]}])
+    )
     checks = {
         "rootCause": answer.get("rootCause") == oracle["rootCause"],
         "primaryPC": primary.get("pc") == oracle["primaryPC"],
@@ -110,7 +116,8 @@ def score_answer(answer: object, oracle: dict[str, object]) -> dict[str, object]
     weights = {"rootCause": 4, "primaryPC": 2, "primaryOpcode": 1, "fix": 2, "secondary": 1}
     score = sum(weights[key] for key, passed in checks.items() if passed)
     correct = all(checks[key] for key in ("rootCause", "primaryPC", "primaryOpcode", "fix"))
-    return {"score": score, "diagnosis_correct": correct, "components": checks}
+    causal_correct = bool(checks["rootCause"] and checks["fix"] and causal_location)
+    return {"score": score, "diagnosis_correct": correct, "causal_correct": causal_correct, "components": {**checks, "causalLocation": causal_location}}
 
 
 def run_one(spec: dict[str, object], args: argparse.Namespace, output: Path, cases: dict[str, dict[str, object]]) -> dict[str, object]:
@@ -161,6 +168,8 @@ def summarize(results: list[dict[str, object]]) -> dict[str, object]:
             "runs": len(rows),
             "correct": sum(bool(row["diagnosis_correct"]) for row in rows),
             "accuracy": sum(bool(row["diagnosis_correct"]) for row in rows) / len(rows),
+            "causal_correct": sum(bool(row["causal_correct"]) for row in rows),
+            "causal_accuracy": sum(bool(row["causal_correct"]) for row in rows) / len(rows),
             "median_score": statistics.median(float(row["score"]) for row in rows),
             "median_duration_seconds": statistics.median(float(row["duration_seconds"]) for row in rows),
             "median_noncached_tokens": statistics.median(int(row["usage"]["input_tokens"]) - int(row["usage"]["cached_input_tokens"]) + int(row["usage"]["output_tokens"]) for row in rows),
@@ -175,7 +184,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, default=Path("/private/tmp/echoevm-trace-value-results"))
     parser.add_argument("--cases", default="")
-    parser.add_argument("--conditions", default="control,raw,echo")
+    parser.add_argument("--conditions", default="control,raw,echo,evidence")
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--jobs", type=int, default=2)
     parser.add_argument("--seed", type=int, default=20260806)
@@ -187,9 +196,11 @@ def main() -> None:
     if output.exists():
         raise SystemExit(f"output already exists: {output}")
     (output / "runs").mkdir(parents=True)
-    case_rows = json.loads((ROOT / "cases.json").read_text())
+    case_rows = load_cases(ROOT / "cases.json")
     cases = {row["id"]: row for row in case_rows}
-    selected = [item for item in args.cases.split(",") if item] or list(cases)
+    selected = [item for item in args.cases.split(",") if item] or [
+        str(row["id"]) for row in case_rows if "variant" not in row
+    ]
     conditions = [item for item in args.conditions.split(",") if item]
     plan = [{"case": case, "condition": condition, "repetition": repetition}
             for case in selected for condition in conditions for repetition in range(1, args.repetitions + 1)]

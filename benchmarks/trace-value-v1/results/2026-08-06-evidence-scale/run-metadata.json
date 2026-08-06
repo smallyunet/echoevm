@@ -1,0 +1,44 @@
+{
+  "schema": "echoevm.trace-value-run.v1",
+  "model": "gpt-5.6-sol",
+  "reasoningEffort": "medium",
+  "seed": 20260806,
+  "repetitions": 3,
+  "jobs": 4,
+  "conditions": [
+    "raw",
+    "evidence"
+  ],
+  "cases": [
+    "calldata_selector_offset_noise96",
+    "division_operand_order_noise96",
+    "storage_wrong_slot_noise96",
+    "storage_rolled_back_noise96"
+  ],
+  "codexVersion": "codex-cli 0.147.0-alpha.1.2",
+  "fixtureManifest": {
+    "schema": "echoevm.trace-value-fixtures.v1",
+    "echoevm": {
+      "version": "v0.0.40-benchmark",
+      "git_commit": "c00ffa7+working",
+      "build_date": "2026-08-06T00:00:00Z",
+      "go_version": "go1.25.0",
+      "platform": "darwin/arm64"
+    },
+    "gasLimit": 15000000,
+    "cases": [
+      "calldata_selector_offset",
+      "division_operand_order",
+      "mstore8_word_alignment",
+      "return_offset_shift",
+      "keccak_length_31",
+      "storage_wrong_slot",
+      "storage_rolled_back",
+      "invalid_jump_destination",
+      "calldata_selector_offset_noise96",
+      "division_operand_order_noise96",
+      "storage_wrong_slot_noise96",
+      "storage_rolled_back_noise96"
+    ]
+  }
+}

@@ -18,7 +18,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.39](#-whats-new-in-v0039)
+- [What's New in v0.0.40](#-whats-new-in-v0040)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -34,7 +34,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.39
+## 🆕 What's New in v0.0.40
+
+- **Causal Evidence JSON**: `trace --format evidence-json` emits the compact `echoevm.evidence.v1` schema after full execution, prioritizing failure, state, memory, call, and return evidence while removing stack plumbing.
+- **Question Profiles**: `--profile auto|revert|storage|call|abi|gas|full` selects deterministic evidence for the diagnosis at hand; `--limit` bounds presentation without stopping execution.
+- **Measured Long-Trace Efficiency**: In the published 24-run scaling test, evidence and raw traces both diagnosed 12/12 executions correctly while evidence reduced fresh tokens by 34.6% (task-clustered 95% CI: 21.3%–43.0%) and evidence bytes by 89.8%.
+
+### Previous v0.0.39
 
 - **Explainable Opcode Events**: `echoevm.trace.v1` emits bounded stack, memory, storage, gas, control-flow, halt, and deterministic explanation deltas with opcode/depth/range/field filters.
 - **Correct Top-Level Rollback**: Differential execution now restores provisional persistent state after top-level REVERT and exceptional halt, with dedicated Geth-backed regression vectors.
@@ -513,7 +519,7 @@ echoevm call -r ./runtime.bin -d 771602f70000...
 ```bash
 # Compact state-changing view; the EVM execution still completes
 echoevm trace -a ./artifacts/Add.json -f add(uint256,uint256) -A 1,2 \
-  --changes-only --limit 40 --format json | jq .
+  --profile auto --limit 40 --format evidence-json | jq .
 
 # Focus on a deterministic window around global opcode step 42
 echoevm trace -a ./artifacts/Loops.json -f forLoop(uint256) -A 5 \
@@ -629,7 +635,7 @@ See **[ROADMAP.md](ROADMAP.md)** for the complete development roadmap.
 - Add richer account, call-frame, log, and return-data events
 - Add semantic gas reasons for dynamic-cost opcodes
 - Extend the published trace-value benchmark to longer compiled and nested-frame executions
-- Reduce full-trace evidence cost with compact, question-routed event selection
+- Validate question-routed evidence on compiled Solidity and nested call frames
 
 ---
 

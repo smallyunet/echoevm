@@ -1,8 +1,8 @@
 {
   "schema": "echoevm.trace-value-fixtures.v1",
   "echoevm": {
-    "version": "v0.0.39-benchmark",
-    "git_commit": "b16f85b+working",
+    "version": "v0.0.40-benchmark",
+    "git_commit": "c00ffa7+working",
     "build_date": "2026-08-06T00:00:00Z",
     "go_version": "go1.25.0",
     "platform": "darwin/arm64"
@@ -16,6 +16,10 @@
     "keccak_length_31",
     "storage_wrong_slot",
     "storage_rolled_back",
-    "invalid_jump_destination"
+    "invalid_jump_destination",
+    "calldata_selector_offset_noise96",
+    "division_operand_order_noise96",
+    "storage_wrong_slot_noise96",
+    "storage_rolled_back_noise96"
   ]
 }

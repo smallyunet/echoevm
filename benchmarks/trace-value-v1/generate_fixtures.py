@@ -10,6 +10,8 @@ import shutil
 import subprocess
 import tempfile
 
+from benchmark_lib import load_cases
+
 
 ROOT = Path(__file__).resolve().parent
 GAS_LIMIT = 15_000_000
@@ -67,6 +69,14 @@ def require_oracle_steps(case: dict[str, object], diff: dict[str, object], trace
             raise RuntimeError(f"{case['id']} oracle step {step} missing from generated evidence")
 
 
+def require_compact_causal_step(case: dict[str, object], evidence: dict[str, object]) -> None:
+    normalize = lambda name: "SHA3" if name == "KECCAK256" else name
+    actual = {(step["pc"], normalize(step["op"])) for step in evidence["events"]}
+    accepted = {(step["pc"], normalize(step["opcode"])) for step in case["oracle"]["acceptedPrimary"]}
+    if actual.isdisjoint(accepted):
+        raise RuntimeError(f"{case['id']} compact evidence omitted every accepted causal location")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--echoevm", type=Path, required=True)
@@ -74,7 +84,7 @@ def main() -> None:
     args = parser.parse_args()
     binary = args.echoevm.resolve()
     version = run_json([str(binary), "version", "--json"])
-    cases = json.loads((ROOT / "cases.json").read_text())
+    cases = load_cases(ROOT / "cases.json")
     output = args.output.resolve()
     if output.exists():
         shutil.rmtree(output)
@@ -95,11 +105,19 @@ def main() -> None:
             trace = run_json([
                 str(binary), "trace", "--bin-runtime", str(runtime), "--calldata", case["calldata"],
                 "--changes-only", "--fields", "gas,stack,memory,storage,control,explanation",
-                "--limit", "200", "--format", "json",
+                "--limit", "1000", "--format", "json",
             ])
             if trace["execution"]["truncated"]:
                 raise RuntimeError(f"{case['id']} explainable trace was truncated")
             require_oracle_steps(case, diff, trace)
+            evidence = run_json([
+                str(binary), "trace", "--bin-runtime", str(runtime), "--calldata", case["calldata"],
+                "--changes-only", "--fields", "gas,stack,memory,storage,control,explanation",
+                "--limit", "40", "--profile", "auto", "--format", "evidence-json",
+            ])
+            if evidence["selection"]["truncated"]:
+                raise RuntimeError(f"{case['id']} evidence trace was truncated")
+            require_compact_causal_step(case, evidence)
             common = {
                 "benchmark": "echoevm.trace-value.v1", "case": case["id"],
                 "request": {"fork": "Cancun", "bytecode": case["bytecode"], "calldata": case["calldata"], "gasLimit": GAS_LIMIT},
@@ -109,8 +127,9 @@ def main() -> None:
                        "execution": {key: diff["geth"][key] for key in ("status", "gasUsed", "returnData", "storage")}}
             raw = {**common, **raw_opcode_evidence(diff)}
             explainable = {**common, "engineVersion": version, **trace}
-            for condition, evidence in (("control", control), ("raw", raw), ("echo", explainable)):
-                (case_dir / f"{condition}.json").write_text(json.dumps(evidence, indent=2) + "\n")
+            compact = {**common, "engineVersion": version, **evidence}
+            for condition, payload in (("control", control), ("raw", raw), ("echo", explainable), ("evidence", compact)):
+                (case_dir / f"{condition}.json").write_text(json.dumps(payload, separators=(",", ":")) + "\n")
     (output / "MANIFEST.json").write_text(json.dumps({
         "schema": "echoevm.trace-value-fixtures.v1", "echoevm": version,
         "gasLimit": GAS_LIMIT, "cases": [case["id"] for case in cases],
