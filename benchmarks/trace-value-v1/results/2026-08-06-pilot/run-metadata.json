@@ -1,0 +1,26 @@
+{
+  "schema": "echoevm.trace-value-run.v1",
+  "date": "2026-08-06",
+  "model": "gpt-5.6-sol",
+  "reasoningEffort": "medium",
+  "codexVersion": "codex-cli 0.147.0-alpha.1.2",
+  "seed": 20260806,
+  "repetitions": 3,
+  "jobs": 4,
+  "conditions": ["control", "raw", "echo"],
+  "cases": 8,
+  "runs": 72,
+  "validRuns": 72,
+  "echoevm": {
+    "version": "v0.0.39-benchmark",
+    "gitCommit": "b16f85b+working",
+    "goVersion": "go1.25.0",
+    "platform": "darwin/arm64"
+  },
+  "rawArtifactDirectory": "/private/tmp/echoevm-trace-value-pilot-20260806",
+  "sha256": {
+    "analysis.json": "129b1ff3dec8c2d2459ab7e3f514a9dd595332642c3f4487364f9ffba2fd61af",
+    "runs.jsonl": "304a7d1f0db3b7aa9b7ca03069f367dc4d11282909a8d58da1355165f7eea9fa",
+    "raw-summary.json": "0c1883e861cc86106e971ef05261a291e635b2d3e353f286a0eb0efae06ea379"
+  }
+}

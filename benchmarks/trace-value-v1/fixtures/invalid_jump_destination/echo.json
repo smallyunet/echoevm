@@ -1,0 +1,89 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "invalid_jump_destination",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "60055600",
+    "calldata": "0x",
+    "gasLimit": 15000000
+  },
+  "engineVersion": {
+    "version": "v0.0.39-benchmark",
+    "git_commit": "b16f85b+working",
+    "build_date": "2026-08-06T00:00:00Z",
+    "go_version": "go1.25.0",
+    "platform": "darwin/arm64"
+  },
+  "schema": "echoevm.trace.v1",
+  "execution": {
+    "status": "fault",
+    "gasLimit": 15000000,
+    "gasUsed": 15000000,
+    "returnData": "0x",
+    "totalSteps": 2,
+    "matchedSteps": 2,
+    "emittedSteps": 2,
+    "truncated": false,
+    "error": "invalid jump destination"
+  },
+  "events": [
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 0,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 0,
+      "opcode": "0x60",
+      "opcodeName": "PUSH1",
+      "gas": {
+        "before": 15000000,
+        "after": 14999997,
+        "used": 3,
+        "staticCost": 3,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 0,
+        "sizeAfter": 1,
+        "pushed": [
+          "0x5"
+        ]
+      },
+      "explanation": "Pop 0 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 1,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 2,
+      "opcode": "0x56",
+      "opcodeName": "JUMP",
+      "gas": {
+        "before": 14999997,
+        "after": 0,
+        "used": 14999997,
+        "staticCost": 8,
+        "dynamicCost": 14999989
+      },
+      "stack": {
+        "sizeBefore": 1,
+        "sizeAfter": 0,
+        "popped": [
+          "0x5"
+        ]
+      },
+      "control": {
+        "kind": "jump",
+        "target": 5,
+        "taken": false
+      },
+      "halt": true,
+      "reverted": true,
+      "error": "invalid jump destination",
+      "explanation": "JUMP halted: invalid jump destination"
+    }
+  ]
+}

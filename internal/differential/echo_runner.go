@@ -53,6 +53,7 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	}
 	state.PrepareTransaction()
 	state.AddAddressToAccessList(executionAddress)
+	executionSnapshot := state.Snapshot()
 	intr := vm.NewWithCallData(code, input, state, executionAddress)
 	intr.SetGas(req.GasLimit)
 	intr.SetBlockGasLimit(req.GasLimit)
@@ -106,6 +107,9 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	if len(trace) > 0 {
 		trace[len(trace)-1].HaltClass = status
 		trace[len(trace)-1].StackAfter = nil
+	}
+	if status != StatusSuccess {
+		state.RevertToSnapshot(executionSnapshot)
 	}
 	storage := make(map[string]string)
 	for _, key := range storageKeys(req, trace) {

@@ -1,0 +1,225 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "calldata_selector_offset",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "5f355f5260205ff3",
+    "calldata": "0x12345678000000000000000000000000000000000000000000000000000000000000002a",
+    "gasLimit": 15000000
+  },
+  "engineVersion": {
+    "version": "v0.0.39-benchmark",
+    "git_commit": "b16f85b+working",
+    "build_date": "2026-08-06T00:00:00Z",
+    "go_version": "go1.25.0",
+    "platform": "darwin/arm64"
+  },
+  "schema": "echoevm.trace.v1",
+  "execution": {
+    "status": "success",
+    "gasLimit": 15000000,
+    "gasUsed": 18,
+    "returnData": "0x1234567800000000000000000000000000000000000000000000000000000000",
+    "totalSteps": 7,
+    "matchedSteps": 7,
+    "emittedSteps": 7,
+    "truncated": false
+  },
+  "events": [
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 0,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 0,
+      "opcode": "0x5f",
+      "opcodeName": "PUSH0",
+      "gas": {
+        "before": 15000000,
+        "after": 14999998,
+        "used": 2,
+        "staticCost": 2,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 0,
+        "sizeAfter": 1,
+        "pushed": [
+          "0x0"
+        ]
+      },
+      "explanation": "Pop 0 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 1,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 1,
+      "opcode": "0x35",
+      "opcodeName": "CALLDATALOAD",
+      "gas": {
+        "before": 14999998,
+        "after": 14999995,
+        "used": 3,
+        "staticCost": 3,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 1,
+        "sizeAfter": 1,
+        "popped": [
+          "0x0"
+        ],
+        "pushed": [
+          "0x1234567800000000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      "explanation": "Pop 1 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 2,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 2,
+      "opcode": "0x5f",
+      "opcodeName": "PUSH0",
+      "gas": {
+        "before": 14999995,
+        "after": 14999993,
+        "used": 2,
+        "staticCost": 2,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 1,
+        "sizeAfter": 2,
+        "pushed": [
+          "0x0"
+        ]
+      },
+      "explanation": "Pop 0 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 3,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 3,
+      "opcode": "0x52",
+      "opcodeName": "MSTORE",
+      "gas": {
+        "before": 14999993,
+        "after": 14999987,
+        "used": 6,
+        "staticCost": 3,
+        "dynamicCost": 3
+      },
+      "stack": {
+        "sizeBefore": 2,
+        "sizeAfter": 0,
+        "popped": [
+          "0x0",
+          "0x1234567800000000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      "memory": {
+        "sizeBefore": 0,
+        "sizeAfter": 32,
+        "ranges": [
+          {
+            "offset": 0,
+            "before": "0x00000000",
+            "after": "0x12345678"
+          }
+        ]
+      },
+      "explanation": "Pop 2 stack word(s), push 0 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 4,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 4,
+      "opcode": "0x60",
+      "opcodeName": "PUSH1",
+      "gas": {
+        "before": 14999987,
+        "after": 14999984,
+        "used": 3,
+        "staticCost": 3,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 0,
+        "sizeAfter": 1,
+        "pushed": [
+          "0x20"
+        ]
+      },
+      "explanation": "Pop 0 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 5,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 6,
+      "opcode": "0x5f",
+      "opcodeName": "PUSH0",
+      "gas": {
+        "before": 14999984,
+        "after": 14999982,
+        "used": 2,
+        "staticCost": 2,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 1,
+        "sizeAfter": 2,
+        "pushed": [
+          "0x0"
+        ]
+      },
+      "explanation": "Pop 0 stack word(s), push 1 word(s)."
+    },
+    {
+      "type": "opcode",
+      "schema": "echoevm.trace.v1",
+      "step": 6,
+      "depth": 0,
+      "address": "0x0000000000000000000000000000000000000000",
+      "pc": 7,
+      "opcode": "0xf3",
+      "opcodeName": "RETURN",
+      "gas": {
+        "before": 14999982,
+        "after": 14999982,
+        "used": 0,
+        "staticCost": 0,
+        "dynamicCost": 0
+      },
+      "stack": {
+        "sizeBefore": 2,
+        "sizeAfter": 0,
+        "popped": [
+          "0x0",
+          "0x20"
+        ]
+      },
+      "control": {
+        "kind": "return"
+      },
+      "halt": true,
+      "explanation": "Halt this call frame successfully and return a memory slice."
+    }
+  ]
+}

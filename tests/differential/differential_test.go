@@ -206,7 +206,9 @@ var vectors = []vector{
 	{name: "mcopy", category: "memory", code: "602a5f5260205f60205e60206020f3"},
 	{name: "jump", category: "control", code: "600456005b602a5f5260205ff3"},
 	{name: "revert", category: "control", code: "63deadbeef5f526004601cfd"},
+	{name: "revert-restores-storage", category: "storage", code: "60015f5560006000fd"},
 	{name: "invalid-opcode", category: "fault", code: "fe"},
+	{name: "fault-restores-storage", category: "storage", code: "60015f55fe"},
 	{name: "stack-underflow", category: "fault", code: "01"},
 }
 

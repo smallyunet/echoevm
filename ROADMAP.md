@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.38
+**Current Version**: v0.0.39
 
 ---
 
@@ -68,6 +68,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.36 | Reliable bundled solc-js stdin handling in VS Code's Electron runtime |
 | v0.0.37 | Foundry remappings, optimizer/via-IR settings, and pinned SVM compiler discovery |
 | v0.0.38 | Agent-summary JSON, separate deployment/call gas limits, and token-efficient EchoEVM skill routing |
+| v0.0.39 | Explainable opcode-event protocol, top-level rollback conformance, and auditable trace-value benchmark |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -141,8 +142,8 @@ Full compliance and ecosystem integration.
 3. Make trace selection customizable by field, opcode, call depth, step range,
    change relevance, and deterministic windows
 4. Extend the protocol from runtime bytecode to Solidity execution and Mainnet replay
-5. Benchmark EVM-sensitive agent tasks for correctness, tool calls, fresh tokens,
-   and the ability to skip EchoEVM when execution evidence is unnecessary
+5. Iterate on compact, question-routed trace evidence using the published
+   correctness, tool-call, fresh-token, and raw-trace comparison baseline
 
 The product is AI-first. The VS Code extension and hosted Explorer remain useful
 demonstration and inspection surfaces, but human onboarding, CodeLens, source-level

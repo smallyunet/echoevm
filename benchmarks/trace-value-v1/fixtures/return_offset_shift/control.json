@@ -1,0 +1,19 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "return_offset_shift",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "602a5f5260206001f3",
+    "calldata": "0x",
+    "gasLimit": 15000000
+  },
+  "format": "execution-summary.v1",
+  "engine": "Geth",
+  "engineVersion": "v1.17.4",
+  "execution": {
+    "status": "success",
+    "gasUsed": 20,
+    "returnData": "0x0000000000000000000000000000000000000000000000000000000000002a00",
+    "storage": {}
+  }
+}

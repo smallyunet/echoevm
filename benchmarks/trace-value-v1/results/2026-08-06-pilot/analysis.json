@@ -1,0 +1,208 @@
+{
+  "schema": "echoevm.trace-value-analysis.v1",
+  "groups": {
+    "control": {
+      "runs": 24,
+      "correct": 22,
+      "accuracy": 0.9166666666666666,
+      "median_score": 10.0,
+      "median_duration_seconds": 30.911,
+      "median_noncached_tokens": 11644.0,
+      "median_output_tokens": 731.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 469.0,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0
+    },
+    "echo": {
+      "runs": 24,
+      "correct": 23,
+      "accuracy": 0.9583333333333334,
+      "median_score": 10.0,
+      "median_duration_seconds": 33.2475,
+      "median_noncached_tokens": 16596.5,
+      "median_output_tokens": 679.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 5167.0,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0
+    },
+    "raw": {
+      "runs": 24,
+      "correct": 24,
+      "accuracy": 1.0,
+      "median_score": 10.0,
+      "median_duration_seconds": 31.131999999999998,
+      "median_noncached_tokens": 13260.5,
+      "median_output_tokens": 680.5,
+      "median_command_calls": 2.0,
+      "median_evidence_bytes": 1578.5,
+      "semanticCorrect": 24,
+      "semanticAccuracy": 1.0
+    }
+  },
+  "comparisons": {
+    "raw-vs-control": {
+      "accuracy": {
+        "delta": 0.08333333333333334,
+        "ci95Low": 0.0,
+        "ci95High": 0.25
+      },
+      "score": {
+        "delta": 0.25,
+        "ci95Low": 0.0,
+        "ci95High": 0.75
+      }
+    },
+    "echo-vs-control": {
+      "accuracy": {
+        "delta": 0.04166666666666667,
+        "ci95Low": -0.125,
+        "ci95High": 0.25
+      },
+      "score": {
+        "delta": 0.16666666666666674,
+        "ci95Low": -0.33333333333333326,
+        "ci95High": 0.7916666666666667
+      }
+    }
+  },
+  "cases": {
+    "calldata_selector_offset": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "division_operand_order": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "invalid_jump_destination": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 9.666666666666666
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "keccak_length_31": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 2,
+        "runs": 3,
+        "meanScore": 9.0
+      }
+    },
+    "mstore8_word_alignment": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "return_offset_shift": {
+      "control": {
+        "correct": 1,
+        "runs": 3,
+        "meanScore": 8.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "storage_rolled_back": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    },
+    "storage_wrong_slot": {
+      "control": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "raw": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      },
+      "echo": {
+        "correct": 3,
+        "runs": 3,
+        "meanScore": 10.0
+      }
+    }
+  }
+}

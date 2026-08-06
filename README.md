@@ -18,7 +18,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.38](#-whats-new-in-v0038)
+- [What's New in v0.0.39](#-whats-new-in-v0039)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -34,7 +34,13 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.38
+## 🆕 What's New in v0.0.39
+
+- **Explainable Opcode Events**: `echoevm.trace.v1` emits bounded stack, memory, storage, gas, control-flow, halt, and deterministic explanation deltas with opcode/depth/range/field filters.
+- **Correct Top-Level Rollback**: Differential execution now restores provisional persistent state after top-level REVERT and exceptional halt, with dedicated Geth-backed regression vectors.
+- **Auditable Trace-Value Baseline**: A 72-run frozen-evidence benchmark compares result-only, raw opcode, and EchoEVM evidence. Semantic diagnosis tied at 100%; full EchoEVM JSON did not beat compact raw evidence on fresh-token efficiency, defining the next optimization target without overstating the result.
+
+### Previous v0.0.38
 
 - **Agent-Summary JSON**: `diff` and `solidity run` expose `--format summary-json`, preserving verdicts, gas, storage, trace counts, and first-divergence evidence without opcode arrays or full bytecode.
 - **Independent Gas Limits**: `solidity run --deploy-gas` separates constructor deployment from the runtime `--gas` budget, so agents can test tight call boundaries without manual bytecode extraction.
@@ -622,7 +628,8 @@ See **[ROADMAP.md](ROADMAP.md)** for the complete development roadmap.
 - Bring `echoevm.trace.v1` to Solidity source execution and transaction replay
 - Add richer account, call-frame, log, and return-data events
 - Add semantic gas reasons for dynamic-cost opcodes
-- Benchmark whether agents locate execution causes with fewer calls and tokens
+- Extend the published trace-value benchmark to longer compiled and nested-frame executions
+- Reduce full-trace evidence cost with compact, question-routed event selection
 
 ---
 

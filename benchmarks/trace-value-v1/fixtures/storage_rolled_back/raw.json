@@ -1,0 +1,81 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "storage_rolled_back",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "60015f5560006000fd",
+    "calldata": "0x",
+    "gasLimit": 15000000
+  },
+  "format": "geth-style-raw-opcode.v1",
+  "engine": "Geth",
+  "engineVersion": "v1.17.4",
+  "execution": {
+    "status": "revert",
+    "gasUsed": 22111,
+    "returnData": "0x",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "structLogs": [
+    {
+      "pc": 0,
+      "op": "PUSH1",
+      "gas": 15000000,
+      "gasCost": 3,
+      "depth": 0,
+      "stack": []
+    },
+    {
+      "pc": 2,
+      "op": "PUSH0",
+      "gas": 14999997,
+      "gasCost": 2,
+      "depth": 0,
+      "stack": [
+        "0x1"
+      ]
+    },
+    {
+      "pc": 3,
+      "op": "SSTORE",
+      "gas": 14999995,
+      "gasCost": 22100,
+      "depth": 0,
+      "stack": [
+        "0x1",
+        "0x0"
+      ]
+    },
+    {
+      "pc": 4,
+      "op": "PUSH1",
+      "gas": 14977895,
+      "gasCost": 3,
+      "depth": 0,
+      "stack": []
+    },
+    {
+      "pc": 6,
+      "op": "PUSH1",
+      "gas": 14977892,
+      "gasCost": 3,
+      "depth": 0,
+      "stack": [
+        "0x0"
+      ]
+    },
+    {
+      "pc": 8,
+      "op": "REVERT",
+      "gas": 14977889,
+      "gasCost": 0,
+      "depth": 0,
+      "stack": [
+        "0x0",
+        "0x0"
+      ]
+    }
+  ]
+}

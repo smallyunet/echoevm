@@ -1,0 +1,21 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "storage_rolled_back",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "60015f5560006000fd",
+    "calldata": "0x",
+    "gasLimit": 15000000
+  },
+  "format": "execution-summary.v1",
+  "engine": "Geth",
+  "engineVersion": "v1.17.4",
+  "execution": {
+    "status": "revert",
+    "gasUsed": 22111,
+    "returnData": "0x",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  }
+}

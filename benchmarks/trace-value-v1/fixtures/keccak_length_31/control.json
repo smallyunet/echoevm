@@ -1,0 +1,19 @@
+{
+  "benchmark": "echoevm.trace-value.v1",
+  "case": "keccak_length_31",
+  "request": {
+    "fork": "Cancun",
+    "bytecode": "602a5f52601f5f205f5260205ff3",
+    "calldata": "0x",
+    "gasLimit": 15000000
+  },
+  "format": "execution-summary.v1",
+  "engine": "Geth",
+  "engineVersion": "v1.17.4",
+  "execution": {
+    "status": "success",
+    "gasUsed": 62,
+    "returnData": "0x15fed0451499512d95f3ec5a41c878b9de55f21878b5b4e190d4667ec709b4cf",
+    "storage": {}
+  }
+}
