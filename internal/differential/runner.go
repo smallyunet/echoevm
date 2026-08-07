@@ -3,6 +3,8 @@ package differential
 import (
 	"context"
 	"fmt"
+
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 const traceSemantics = "top-level pre-op PC/opcode/gas/stack; post-op gas and non-terminal stack derived at the next top-level opcode; terminal stack and memory are not compared"
@@ -31,6 +33,29 @@ func (e *Engine) RunEcho(ctx context.Context, req Request) (ExecutionResult, err
 		return ExecutionResult{}, fmt.Errorf("EchoEVM runner: %w", err)
 	}
 	return result, nil
+}
+
+// RunEchoExplain preserves RunEcho validation while returning nested,
+// explainable opcode events from runners that expose that capability.
+func (e *Engine) RunEchoExplain(ctx context.Context, req Request, maxMemoryBytes int) (ExecutionResult, []explaintrace.OpcodeEvent, error) {
+	if e == nil || e.echo == nil {
+		return ExecutionResult{}, nil, fmt.Errorf("differential engine requires an EchoEVM runner")
+	}
+	runner, ok := e.echo.(interface {
+		RunExplain(context.Context, Request, int) (ExecutionResult, []explaintrace.OpcodeEvent, error)
+	})
+	if !ok {
+		return ExecutionResult{}, nil, fmt.Errorf("EchoEVM runner does not support explainable traces")
+	}
+	normalized, err := normalizeRequest(req)
+	if err != nil {
+		return ExecutionResult{}, nil, err
+	}
+	result, events, err := runner.RunExplain(ctx, normalized, maxMemoryBytes)
+	if err != nil {
+		return ExecutionResult{}, nil, fmt.Errorf("EchoEVM runner: %w", err)
+	}
+	return result, events, nil
 }
 
 func (e *Engine) Compare(ctx context.Context, req Request) (ComparisonResult, error) {

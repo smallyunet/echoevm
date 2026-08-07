@@ -55,7 +55,7 @@ func newTraceCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&traceFlags.args, "args", "A", "", "Comma separated function arguments")
 	cmd.Flags().StringVarP(&traceFlags.calldata, "calldata", "d", "", "Full calldata hex")
 	cmd.Flags().StringVar(&traceFlags.format, "format", "jsonl", "Trace format (jsonl|json|text|evidence-json)")
-	cmd.Flags().StringVar(&traceFlags.profile, "profile", explaintrace.ProfileAuto, "Evidence profile for evidence-json (auto|revert|storage|call|abi|gas|full)")
+	cmd.Flags().StringVar(&traceFlags.profile, "profile", explaintrace.ProfileAuto, "Evidence profile for evidence-json (auto|revert|storage|call|abi|gas|arithmetic|full)")
 	cmd.Flags().StringVar(&traceFlags.fields, "fields", "gas,stack,memory,storage,control,explanation", "Event fields to include")
 	cmd.Flags().StringVar(&traceFlags.opcodes, "opcodes", "", "Comma-separated opcode names or hex bytes")
 	cmd.Flags().IntVar(&traceFlags.limit, "limit", 0, "Maximum emitted opcode events; execution still completes (0 = no limit)")

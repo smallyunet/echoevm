@@ -11,6 +11,7 @@ Report when available:
 - Total steps plus compact candidate/selected/omitted counts and truncation state; for full traces, matched and emitted counts.
 - First relevant step, call depth, PC, opcode, gas, and state delta.
 - Persistent/transient storage, memory, stack, and control-flow evidence when selected.
+- Causal `enters-frame`, `returns-to`, `rolls-back`, and exact `value-flow` links when selected.
 - Declared or transaction fork and replay warnings when applicable.
 - Geth version, match fields, and first divergence only when a comparison was requested.
 
@@ -27,7 +28,7 @@ Report when available:
 ## Context control
 
 Start with `--format evidence-json --profile auto --limit 40`; route to
-`revert`, `storage`, `call`, `abi`, or `gas` when the question makes that scope
+`revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas` when the question makes that scope
 clear. On truncation or missing context, request an `--around-step` full-trace
 window with selected fields and opcode/depth constraints. For legacy comparison or replay output, write full JSON
 to a temporary file and use the compact-result script. Load a full raw trace only

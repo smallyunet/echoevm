@@ -35,9 +35,22 @@ echoevm solidity run <source.sol> \
   --format summary-json
 ```
 
-Use Solidity summary output to establish the result. The standalone explainable
-trace protocol currently accepts runtime bytecode or an artifact; do not claim
-source-run integration until the CLI exposes it.
+Use Solidity summary output to establish the result when opcode evidence is not
+needed. For an EVM-sensitive cause, request bounded source-run evidence directly:
+
+```bash
+echoevm solidity run <source.sol> \
+  --contract <contract> \
+  --function '<canonical-signature>' \
+  --args <comma-separated-values> \
+  --profile auto \
+  --limit 40 \
+  --format evidence-json
+```
+
+Route wrong-operand or numeric questions to `--profile arithmetic`. Source-run
+evidence preserves compiler/source/call metadata and nested frame links. It
+cannot be combined with `--diff`; use a separate summary comparison when needed.
 
 Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM does not currently provide Foundry cheatcodes, RPC forking, payable calls, source maps, or test discovery.
 

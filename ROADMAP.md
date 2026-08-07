@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.40
+**Current Version**: v0.0.41
 
 ---
 
@@ -70,6 +70,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.38 | Agent-summary JSON, separate deployment/call gas limits, and token-efficient EchoEVM skill routing |
 | v0.0.39 | Explainable opcode-event protocol, top-level rollback conformance, and auditable trace-value benchmark |
 | v0.0.40 | Compact causal evidence profiles with benchmarked long-trace token savings |
+| v0.0.41 | Solidity source-run causal evidence, nested frame/value links, and a formal compiled-Solidity benchmark |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -137,9 +138,9 @@ Full compliance and ecosystem integration.
 ## 🎯 Current Focus
 
 **Next Release Priorities:**
-1. Extend `echoevm.evidence.v1` from runtime bytecode to Solidity execution and Mainnet replay
-2. Validate profiles on compiled Solidity and nested call/create/revert frames
-3. Add richer account, log, return-data, and semantic dynamic-gas evidence
+1. Extend `echoevm.evidence.v1` from Solidity execution to Mainnet replay
+2. Add richer account, log, return-data, and semantic dynamic-gas evidence
+3. Expand the compiled-Solidity benchmark across contracts, compiler settings, and held-out failure classes
 4. Preserve the compact evidence advantage as schemas and profiles evolve
 5. Keep `echoevm.trace.v1` as the full explainable diagnostic contract behind bounded evidence
 

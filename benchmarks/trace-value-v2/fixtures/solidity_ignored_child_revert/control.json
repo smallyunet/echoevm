@@ -1,0 +1,1 @@
+{"benchmark":"echoevm.trace-value.v2","case":"solidity_ignored_child_revert","request":{"contract":"Parent","function":"ignoredChildRevert(uint256)","args":"42","fork":"Cancun"},"format":"execution-summary.v1","execution":{"status":"success","gasUsed":28869,"returnData":"0x0000000000000000000000000000000000000000000000000000000000000000","totalSteps":630}}

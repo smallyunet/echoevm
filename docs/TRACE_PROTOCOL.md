@@ -48,7 +48,11 @@ The final execution record distinguishes:
 `--format evidence-json` emits `echoevm.evidence.v1`, a compact view selected
 after the complete execution has finished. It preserves execution status and
 prioritizes faults, reverts, storage, calls/creates, returns, memory changes,
-and semantic opcodes. The default `auto` profile omits stack-only plumbing such
+and semantic opcodes. Evidence can also include causal links: `enters-frame`
+and `returns-to` connect parent and child execution, `rolls-back` identifies
+provisional state discarded by failure, and `value-flow` links an exact stack
+producer to its consumer through stack duplication and reordering. The default
+`auto` profile omits stack-only plumbing such
 as PUSH, DUP, SWAP, POP, and JUMPDEST unless a higher-priority event requires it.
 
 Profiles route common questions without changing execution:
@@ -58,6 +62,7 @@ Profiles route common questions without changing execution:
 - `storage`: persistent/transient access and commit/rollback control;
 - `call`: call/create control and nested-frame semantic events;
 - `abi`: calldata, memory, hashing, return, and revert evidence;
+- `arithmetic`: arithmetic consumers and the producers of their operands;
 - `gas`: the auto selection with gas deltas retained;
 - `full`: every selected opcode, compactly encoded.
 
@@ -77,6 +82,23 @@ echoevm trace \
   --limit 40 \
   --format evidence-json
 ```
+
+For Solidity source, the same evidence contract includes compilation and call
+metadata while preserving the complete deploy-then-call execution result:
+
+```bash
+echoevm solidity run ./Contract.sol \
+  --contract Contract \
+  --function 'run(uint256)' \
+  --args 42 \
+  --profile auto \
+  --limit 40 \
+  --format evidence-json
+```
+
+`solidity run --format evidence-json` is an EchoEVM execution view. It cannot be
+combined with `--diff`; request `summary-json --diff` separately when an engine
+comparison is required.
 
 If the selection is truncated or a step needs more context, request a
 deterministic full-trace window without rerunning a different input:
@@ -99,7 +121,7 @@ echoevm trace -r ./runtime.bin -d 0x1234 \
 
 ## Current boundary
 
-The explainable protocol currently fronts the standalone `trace` command for
-runtime bytecode and artifact input. Solidity source-run and Mainnet replay
-integration are subsequent milestones. Cancun remains EchoEVM's only fully
-declared ruleset.
+The explainable protocol fronts the standalone `trace` command for runtime
+bytecode and artifact input, plus `solidity run` for one compiled deploy/call.
+Mainnet replay integration remains a subsequent milestone. Cancun remains
+EchoEVM's only fully declared ruleset.

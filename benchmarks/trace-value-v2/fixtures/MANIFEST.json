@@ -1,0 +1,24 @@
+{
+  "schema": "echoevm.trace-value-v2-fixtures.v1",
+  "echoevm": {
+    "version": "v0.0.41-benchmark",
+    "git_commit": "6ac49f8+working",
+    "build_date": "2026-08-06T08:00:00Z",
+    "go_version": "go1.25.0",
+    "platform": "darwin/arm64"
+  },
+  "compiler": {
+    "executable": "node",
+    "arguments": [
+      "editors/vscode/dist/solcjs.cjs"
+    ]
+  },
+  "gasLimit": 1000000,
+  "deployGasLimit": 3000000,
+  "cases": [
+    "solidity_ignored_child_revert",
+    "solidity_swallowed_create_revert",
+    "solidity_delegatecall_storage_context",
+    "solidity_wrong_average_divisor"
+  ]
+}

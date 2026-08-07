@@ -1,0 +1,1 @@
+{"benchmark":"echoevm.trace-value.v2","case":"solidity_delegatecall_storage_context","request":{"contract":"Parent","function":"delegateWriteCorruptsParent(uint256)","args":"42","fork":"Cancun"},"format":"execution-summary.v1","execution":{"status":"success","gasUsed":9657,"returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","totalSteps":603}}

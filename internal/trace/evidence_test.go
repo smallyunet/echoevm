@@ -85,3 +85,54 @@ func TestValidateEvidenceProfileRejectsUnknownValue(t *testing.T) {
 		t.Fatal("expected unknown profile to fail")
 	}
 }
+
+func TestBuildEvidenceLinksNestedFrameAndRollback(t *testing.T) {
+	events := []OpcodeEvent{
+		{Step: 5, Depth: 0, PC: 10, Opcode: "0xf1", OpcodeName: "CALL", Control: &ControlFlow{Kind: "call"}},
+		{Step: 6, Depth: 1, PC: 0, Opcode: "0x55", OpcodeName: "SSTORE", Storage: []StorageAccess{{Kind: "write"}}},
+		{Step: 7, Depth: 1, PC: 1, Opcode: "0xfd", OpcodeName: "REVERT", Control: &ControlFlow{Kind: "revert"}, Reverted: true, Halt: true},
+		{Step: 8, Depth: 0, PC: 11, Opcode: "0x15", OpcodeName: "ISZERO"},
+	}
+	document, err := BuildEvidence(ExecutionResult{Status: "success", TotalSteps: 9}, events, ProfileAuto, 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantKinds := []string{"enters-frame", "returns-to", "rolls-back"}
+	if len(document.Links) != len(wantKinds) {
+		t.Fatalf("links = %+v", document.Links)
+	}
+	for index, kind := range wantKinds {
+		if document.Links[index].Kind != kind {
+			t.Fatalf("link %d = %+v, want %s", index, document.Links[index], kind)
+		}
+	}
+	if document.Links[2].From.Op != "SSTORE" || document.Links[2].To.Op != "REVERT" {
+		t.Fatalf("rollback link = %+v", document.Links[2])
+	}
+}
+
+func TestBuildEvidenceLinksValueFlowThroughDupAndSwap(t *testing.T) {
+	events := []OpcodeEvent{
+		{Step: 0, PC: 0, Opcode: "0x60", OpcodeName: "PUSH1", Stack: &StackDelta{SizeBefore: 0, SizeAfter: 1, Pushed: []string{"0x8"}}},
+		{Step: 1, PC: 2, Opcode: "0x60", OpcodeName: "PUSH1", Stack: &StackDelta{SizeBefore: 1, SizeAfter: 2, Pushed: []string{"0x2"}}},
+		{Step: 2, PC: 4, Opcode: "0x03", OpcodeName: "SUB", Stack: &StackDelta{SizeBefore: 2, SizeAfter: 1, Popped: []string{"0x2", "0x8"}, Pushed: []string{"0x6"}}},
+		{Step: 3, PC: 5, Opcode: "0x80", OpcodeName: "DUP1", Stack: &StackDelta{SizeBefore: 1, SizeAfter: 2, Pushed: []string{"0x6"}}},
+		{Step: 4, PC: 6, Opcode: "0x90", OpcodeName: "SWAP1", Stack: &StackDelta{SizeBefore: 2, SizeAfter: 2, Reordered: true}},
+		{Step: 5, PC: 7, Opcode: "0x04", OpcodeName: "DIV", Stack: &StackDelta{SizeBefore: 2, SizeAfter: 1, Popped: []string{"0x6", "0x6"}, Pushed: []string{"0x1"}}},
+	}
+	document, err := BuildEvidence(ExecutionResult{Status: "success", TotalSteps: 6}, events, ProfileMath, 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(document.Events) != 2 || document.Events[0].Op != "SUB" || document.Events[1].Op != "DIV" {
+		t.Fatalf("events = %+v", document.Events)
+	}
+	if len(document.Links) != 2 {
+		t.Fatalf("links = %+v", document.Links)
+	}
+	for _, link := range document.Links {
+		if link.Kind != "value-flow" || link.From.Op != "SUB" || link.To.Op != "DIV" || link.Value != "0x6" {
+			t.Fatalf("link = %+v", link)
+		}
+	}
+}

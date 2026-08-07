@@ -1,0 +1,88 @@
+{
+  "schema": "echoevm.trace-value-v2-analysis.v1",
+  "groups": {
+    "broad": {
+      "runs": 12,
+      "correct": 8,
+      "accuracy": 0.6666666666666666,
+      "medianScore": 10.0,
+      "medianFreshTokens": 27312.0,
+      "medianDurationSeconds": 33.288,
+      "medianEvidenceBytes": 40160.5
+    },
+    "control": {
+      "runs": 12,
+      "correct": 0,
+      "accuracy": 0.0,
+      "medianScore": 6.0,
+      "medianFreshTokens": 14858.0,
+      "medianDurationSeconds": 72.8295,
+      "medianEvidenceBytes": 365.0
+    },
+    "evidence": {
+      "runs": 12,
+      "correct": 11,
+      "accuracy": 0.9166666666666666,
+      "medianScore": 10.0,
+      "medianFreshTokens": 16158.5,
+      "medianDurationSeconds": 31.565,
+      "medianEvidenceBytes": 6729.0
+    }
+  },
+  "comparisons": {
+    "evidence-vs-control": {
+      "accuracy": {
+        "delta": 0.9166666666666666,
+        "ci95Low": 0.7499999999999999,
+        "ci95High": 1.0
+      },
+      "score": {
+        "delta": 3.166666666666667,
+        "ci95Low": 1.5000000000000002,
+        "ci95High": 4.0
+      },
+      "freshTokens": {
+        "relativeDelta": -0.0029117162033475627,
+        "ci95Low": -0.22645419602127828,
+        "ci95High": 0.2414980260761333
+      },
+      "duration": {
+        "relativeDelta": -0.6043358056779475,
+        "ci95Low": -0.664068625647453,
+        "ci95High": -0.5446029857084422
+      },
+      "evidenceBytes": {
+        "relativeDelta": 16.093480656450268,
+        "ci95Low": 8.512027855153203,
+        "ci95High": 22.148633129165916
+      }
+    },
+    "evidence-vs-broad": {
+      "accuracy": {
+        "delta": 0.25,
+        "ci95Low": 0.0,
+        "ci95High": 0.75
+      },
+      "score": {
+        "delta": 1.1666666666666667,
+        "ci95Low": 0.0,
+        "ci95High": 3.5
+      },
+      "freshTokens": {
+        "relativeDelta": -0.3976094470423367,
+        "ci95Low": -0.549935917113968,
+        "ci95High": -0.24528297697070528
+      },
+      "duration": {
+        "relativeDelta": -0.06671415326889785,
+        "ci95Low": -0.2577346182393747,
+        "ci95High": 0.12430631170157905
+      },
+      "evidenceBytes": {
+        "relativeDelta": -0.8409097665116128,
+        "ci95Low": -0.9111989158656587,
+        "ci95High": -0.784113077755191
+      }
+    }
+  }
+}

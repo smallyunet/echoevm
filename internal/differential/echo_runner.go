@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 var contractAddress = common.BytesToAddress([]byte("contract"))
@@ -17,6 +18,21 @@ var contractAddress = common.BytesToAddress([]byte("contract"))
 type EchoRunner struct{}
 
 func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error) {
+	return (EchoRunner{}).run(ctx, req, nil)
+}
+
+// RunExplain executes the same normalized request while collecting structured
+// pre/post events across the top-level execution and every nested frame.
+func (EchoRunner) RunExplain(ctx context.Context, req Request, maxMemoryBytes int) (ExecutionResult, []explaintrace.OpcodeEvent, error) {
+	collector := explaintrace.NewCollector(maxMemoryBytes)
+	result, err := (EchoRunner{}).run(ctx, req, collector)
+	if err != nil {
+		return ExecutionResult{}, nil, err
+	}
+	return result, collector.Events(), nil
+}
+
+func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.Collector) (ExecutionResult, error) {
 	code, _ := decodeHexField("bytecode", req.Bytecode)
 	initcode, _ := decodeHexField("initcode", req.InitCode)
 	input, _ := decodeHexField("calldata", req.Calldata)
@@ -57,14 +73,28 @@ func (EchoRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	intr := vm.NewWithCallData(code, input, state, executionAddress)
 	intr.SetGas(req.GasLimit)
 	intr.SetBlockGasLimit(req.GasLimit)
+	if collector != nil {
+		intr.SetTraceDetails(true)
+	}
 
 	trace := make([]NormalizedStep, 0, 128)
 	var pending *NormalizedStep
 	var runErr error
+	explainSteps := 0
 	intr.RunWithHook(func(raw vm.TraceStep) bool {
 		if err := ctx.Err(); err != nil {
 			runErr = err
 			return false
+		}
+		if collector != nil {
+			if !raw.IsPost {
+				explainSteps++
+				if explainSteps > MaxTraceSteps {
+					runErr = fmt.Errorf("explainable trace exceeds maximum %d steps", MaxTraceSteps)
+					return false
+				}
+			}
+			collector.Consume(raw)
 		}
 		// The isolated differential contract intentionally compares top-level
 		// trace semantics. Nested behavior is still reflected in the parent

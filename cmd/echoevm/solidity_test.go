@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 const fakeSolcOutput = `{"contracts":{"Example.sol":{"Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"evm":{"bytecode":{"object":"67602a5f5260205ff360005260086018f3"},"deployedBytecode":{"object":"602a5f5260205ff3"}}}}}}`
@@ -141,6 +142,36 @@ func TestSolidityRunTraceAndCompilerArguments(t *testing.T) {
 		if !strings.Contains(input, expected) {
 			t.Fatalf("standard JSON input missing %s: %s", expected, input)
 		}
+	}
+}
+
+func TestSolidityRunEvidenceJSON(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake solc fixture uses a POSIX shell")
+	}
+	tempDir := t.TempDir()
+	source := filepath.Join(tempDir, "Example.sol")
+	if err := os.WriteFile(source, []byte("contract Answer {}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
+	flags := &solidityRunFlags{
+		function: "add(uint256,uint256)", args: "2,40", solc: compiler,
+		gas: 100_000, format: "evidence-json", profile: explaintrace.ProfileAuto, limit: 3, maxMemoryBytes: 256,
+	}
+	var output bytes.Buffer
+	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
+		t.Fatalf("run Solidity evidence: %v", err)
+	}
+	var result solidityEvidenceJSONOutput
+	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
+		t.Fatalf("decode evidence: %v\n%s", err, output.String())
+	}
+	if result.Schema != explaintrace.EvidenceSchemaVersion || result.Source != source || result.Contract != "Answer" {
+		t.Fatalf("result = %+v", result)
+	}
+	if result.Selection.Selected != 2 || len(result.Events) != 2 {
+		t.Fatalf("selection = %+v events=%+v", result.Selection, result.Events)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smallyunet/echoevm/internal/differential"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 	"github.com/spf13/cobra"
 )
 
@@ -38,6 +39,9 @@ type solidityRunFlags struct {
 	optimizerRuns   uint64
 	viaIR           bool
 	remappings      []string
+	profile         string
+	limit           int
+	maxMemoryBytes  int
 }
 
 type compiledSolidityContract struct {
@@ -57,6 +61,15 @@ type solidityRunOutput struct {
 	DurationMS    int64                          `json:"durationMs"`
 	Execution     differential.ExecutionResult   `json:"execution"`
 	Comparison    *differential.ComparisonResult `json:"-"`
+	Evidence      *explaintrace.EvidenceDocument `json:"-"`
+}
+
+type solidityEvidenceJSONOutput struct {
+	explaintrace.EvidenceDocument
+	Source   string               `json:"source"`
+	Contract string               `json:"contract"`
+	Function string               `json:"function"`
+	Compiler solidityCompilerInfo `json:"compiler"`
 }
 
 type solidityCompilerInfo struct {
@@ -157,7 +170,7 @@ func newSolidityRunCmd() *cobra.Command {
 		Example: "echoevm solidity run Counter.sol --contract Counter --function 'add(uint256,uint256)' --args 2,40 --diff",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := runSolidity(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
-			if err != nil && (flags.format == "json" || flags.format == "summary-json") {
+			if err != nil && (flags.format == "json" || flags.format == "summary-json" || flags.format == "evidence-json") {
 				if _, alreadyReported := err.(reportedSolidityError); !alreadyReported {
 					_ = writeSolidityError(cmd.OutOrStdout(), classifySolidityError(err), err)
 				}
@@ -175,13 +188,16 @@ func newSolidityRunCmd() *cobra.Command {
 	cmd.Flags().StringSliceVar(&flags.includePaths, "include-path", nil, "additional solc import path (repeatable or comma-separated)")
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
 	cmd.Flags().Uint64Var(&flags.deployGas, "deploy-gas", 0, "constructor deployment gas limit (defaults to --gas)")
-	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json)")
+	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json|evidence-json)")
 	cmd.Flags().BoolVar(&flags.trace, "trace", false, "include the EchoEVM opcode trace")
 	cmd.Flags().BoolVar(&flags.diff, "diff", false, "compare EchoEVM execution with embedded Geth")
 	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
 	cmd.Flags().Uint64Var(&flags.optimizerRuns, "optimizer-runs", 0, "Solidity optimizer runs (Foundry auto-detected when omitted)")
 	cmd.Flags().BoolVar(&flags.viaIR, "via-ir", false, "compile through the Solidity IR pipeline")
 	cmd.Flags().StringArrayVar(&flags.remappings, "remapping", nil, "Solidity import remapping (repeatable; Foundry auto-detected)")
+	cmd.Flags().StringVar(&flags.profile, "profile", explaintrace.ProfileAuto, "Evidence profile for evidence-json (auto|revert|storage|call|abi|gas|arithmetic|full)")
+	cmd.Flags().IntVar(&flags.limit, "limit", 40, "Maximum evidence events; execution still completes (0 = no limit)")
+	cmd.Flags().IntVar(&flags.maxMemoryBytes, "max-memory-bytes", 256, "Maximum changed memory bytes captured per opcode")
 	return cmd
 }
 
@@ -213,8 +229,19 @@ func newSolidityInspectCmd() *cobra.Command {
 
 func runSolidity(ctx context.Context, out io.Writer, source string, flags *solidityRunFlags) error {
 	startedAt := time.Now()
-	if flags.format != "text" && flags.format != "json" && flags.format != "summary-json" {
-		return fmt.Errorf("unsupported format %q: use text, json, or summary-json", flags.format)
+	if flags.format != "text" && flags.format != "json" && flags.format != "summary-json" && flags.format != "evidence-json" {
+		return fmt.Errorf("unsupported format %q: use text, json, summary-json, or evidence-json", flags.format)
+	}
+	if flags.format == "evidence-json" {
+		if flags.diff {
+			return fmt.Errorf("evidence-json cannot be combined with --diff; run a separate summary comparison")
+		}
+		if flags.limit < 0 || flags.maxMemoryBytes < 0 {
+			return fmt.Errorf("evidence limits must be non-negative")
+		}
+		if err := explaintrace.ValidateEvidenceProfile(flags.profile); err != nil {
+			return err
+		}
 	}
 	compiled, err := compileSolidity(ctx, source, flags)
 	if err != nil {
@@ -248,7 +275,22 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 		Source:        source, Contract: contract.name, Function: method.Sig,
 		Compiler: solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
 	}
-	if flags.diff {
+	if flags.format == "evidence-json" {
+		execution, events, explainErr := engine.RunEchoExplain(ctx, req, flags.maxMemoryBytes)
+		if explainErr != nil {
+			return explainErr
+		}
+		result.Execution = execution
+		document, evidenceErr := explaintrace.BuildEvidence(explaintrace.ExecutionResult{
+			Status: string(execution.Status), GasLimit: flags.gas, GasUsed: execution.GasUsed,
+			ReturnData: execution.ReturnData, TotalSteps: len(events), MatchedSteps: len(events), EmittedSteps: len(events),
+			ExecutionError: execution.Error,
+		}, events, flags.profile, flags.limit)
+		if evidenceErr != nil {
+			return evidenceErr
+		}
+		result.Evidence = &document
+	} else if flags.diff {
 		comparison, compareErr := engine.Compare(ctx, req)
 		if compareErr != nil {
 			return compareErr
@@ -633,6 +675,16 @@ func writeSolidityError(out io.Writer, code string, err error) error {
 }
 
 func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *solidityRunFlags) error {
+	if flags.format == "evidence-json" {
+		if result.Evidence == nil {
+			return fmt.Errorf("missing Solidity evidence document")
+		}
+		jsonResult := solidityEvidenceJSONOutput{
+			EvidenceDocument: *result.Evidence,
+			Source:           result.Source, Contract: result.Contract, Function: result.Function, Compiler: result.Compiler,
+		}
+		return json.NewEncoder(out).Encode(jsonResult)
+	}
 	if flags.format == "summary-json" {
 		jsonResult := solidityRunSummaryJSONOutput{
 			SchemaVersion: agentSummarySchemaVersion,

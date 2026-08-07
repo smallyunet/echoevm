@@ -1,0 +1,1 @@
+{"benchmark":"echoevm.trace-value.v2","case":"solidity_swallowed_create_revert","request":{"contract":"Parent","function":"swallowedCreateRevert(uint256)","args":"7","fork":"Cancun"},"format":"execution-summary.v1","execution":{"status":"success","gasUsed":55775,"returnData":"0x0000000000000000000000000000000000000000000000000000000000000000","totalSteps":476}}

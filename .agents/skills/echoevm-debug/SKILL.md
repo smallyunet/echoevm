@@ -13,7 +13,7 @@ about compatibility or EchoEVM correctness.
 
 1. Resolve `<skill-dir>` as the directory containing this `SKILL.md`.
 2. Prefer a connected EchoEVM MCP server when it exposes the explainable trace operation.
-3. Otherwise use the local `echoevm` CLI. Start with bounded `echoevm.evidence.v1` using `--format evidence-json --profile auto --limit 40` for opcode questions and `summary-json` for execution-result questions.
+3. Otherwise use the local `echoevm` CLI. Start with bounded `echoevm.evidence.v1` using `--format evidence-json --profile auto --limit 40` for opcode questions and `summary-json` for execution-result questions. Solidity source runs support the same evidence format.
 4. Run `echoevm version --json` before the first CLI operation.
 5. For Solidity input, also verify the selected compiler with `solc --version` or the configured compiler equivalent.
 6. If neither MCP nor CLI is available, report the missing capability and stop. Do not invent execution results.
@@ -30,7 +30,7 @@ about compatibility or EchoEVM correctness.
 - Use only paths within the user's authorized workspace.
 - Do not send local Solidity source, compiler inputs, or workspace files to a hosted service.
 - Treat replay as read-only, but note that it calls the configured trace-capable Ethereum RPC.
-- Route evidence with `auto`, `revert`, `storage`, `call`, `abi`, or `gas`; use full trace fields, opcode/depth filters, and windows only when compact evidence is insufficient.
+- Route evidence with `auto`, `revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas`; use full trace fields, opcode/depth filters, and windows only when compact evidence is insufficient.
 - If the trace result is truncated, request a deterministic `--around-step` window; do not load the whole trace by default.
 - Write legacy differential or replay JSON results to a temporary file. Run `python3 <skill-dir>/scripts/compact_result.py <result.json>` before loading those results into model context.
 - Start with one representative input. Add at most one branch-distinct input before a mismatch; use the project's existing tests for broad input coverage.

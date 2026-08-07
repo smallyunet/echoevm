@@ -2,6 +2,7 @@ package differential
 
 import (
 	"context"
+	"encoding/hex"
 	"testing"
 )
 
@@ -82,5 +83,38 @@ func TestEngineUsesSeparateDeploymentAndCallGasLimits(t *testing.T) {
 	}
 	if !result.Match || result.Request.GasLimit != 10_000 || result.Request.DeployGasLimit != 100_000 {
 		t.Fatalf("unexpected separate-gas result: %+v", result)
+	}
+}
+
+func TestRunEchoExplainIncludesNestedStorageAndRevert(t *testing.T) {
+	childCode := []byte{0x60, 0x01, 0x5f, 0x55, 0x5f, 0x5f, 0xfd}
+	parentLabel := byte(5 + len(childCode))
+	code := []byte{0x36, 0x15, 0x60, parentLabel, 0x57}
+	code = append(code, childCode...)
+	code = append(code,
+		0x5b, 0x60, 0x01, 0x5f, 0x53,
+		0x5f, 0x5f, 0x60, 0x01, 0x5f, 0x5f, 0x30, 0x61, 0xff, 0xff, 0xf1,
+		0x5f, 0x52, 0x60, 0x20, 0x5f, 0xf3,
+	)
+	result, events, err := DefaultEngine().RunEchoExplain(context.Background(), Request{
+		Fork: ForkCancun, Bytecode: hex.EncodeToString(code), Calldata: "0x", GasLimit: DefaultGasLimit,
+	}, 256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != StatusSuccess {
+		t.Fatalf("result = %+v", result)
+	}
+	foundWrite, foundRevert := false, false
+	for _, event := range events {
+		if event.Depth == 1 && event.OpcodeName == "SSTORE" && len(event.Storage) == 1 {
+			foundWrite = true
+		}
+		if event.Depth == 1 && event.OpcodeName == "REVERT" && event.Reverted {
+			foundRevert = true
+		}
+	}
+	if !foundWrite || !foundRevert {
+		t.Fatalf("nested evidence missing write=%t revert=%t events=%+v", foundWrite, foundRevert, events)
 	}
 }

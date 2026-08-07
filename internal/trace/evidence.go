@@ -18,6 +18,7 @@ const (
 	ProfileCall    = "call"
 	ProfileABI     = "abi"
 	ProfileGas     = "gas"
+	ProfileMath    = "arithmetic"
 	ProfileFull    = "full"
 )
 
@@ -26,7 +27,23 @@ type EvidenceDocument struct {
 	Profile   string            `json:"profile"`
 	Execution EvidenceExecution `json:"execution"`
 	Events    []EvidenceEvent   `json:"events"`
+	Links     []EvidenceLink    `json:"links,omitempty"`
 	Selection EvidenceSelection `json:"selection"`
+}
+
+type EvidenceLink struct {
+	Kind  string           `json:"kind"`
+	From  EvidenceLocation `json:"from"`
+	To    EvidenceLocation `json:"to"`
+	Input int              `json:"input,omitempty"`
+	Value string           `json:"value,omitempty"`
+}
+
+type EvidenceLocation struct {
+	Step  int    `json:"step"`
+	Depth int    `json:"depth,omitempty"`
+	PC    uint64 `json:"pc"`
+	Op    string `json:"op"`
 }
 
 type EvidenceExecution struct {
@@ -88,10 +105,10 @@ type evidenceCandidate struct {
 
 func ValidateEvidenceProfile(profile string) error {
 	switch profile {
-	case ProfileAuto, ProfileRevert, ProfileStorage, ProfileCall, ProfileABI, ProfileGas, ProfileFull:
+	case ProfileAuto, ProfileRevert, ProfileStorage, ProfileCall, ProfileABI, ProfileGas, ProfileMath, ProfileFull:
 		return nil
 	default:
-		return fmt.Errorf("unsupported evidence profile %q (want auto, revert, storage, call, abi, gas, or full)", profile)
+		return fmt.Errorf("unsupported evidence profile %q (want auto, revert, storage, call, abi, gas, arithmetic, or full)", profile)
 	}
 }
 
@@ -107,7 +124,7 @@ func BuildEvidence(execution ExecutionResult, events []OpcodeEvent, profile stri
 		if !profileSelects(profile, event) {
 			continue
 		}
-		candidates = append(candidates, evidenceCandidate{priority: evidencePriority(event), event: event})
+		candidates = append(candidates, evidenceCandidate{priority: evidencePriority(profile, event), event: event})
 	}
 	selected := append([]evidenceCandidate(nil), candidates...)
 	truncated := limit > 0 && len(selected) > limit
@@ -123,7 +140,9 @@ func BuildEvidence(execution ExecutionResult, events []OpcodeEvent, profile stri
 	sort.Slice(selected, func(i, j int) bool { return selected[i].event.Step < selected[j].event.Step })
 
 	evidenceEvents := make([]EvidenceEvent, 0, len(selected))
+	selectedEvents := make([]OpcodeEvent, 0, len(selected))
 	for _, candidate := range selected {
+		selectedEvents = append(selectedEvents, candidate.event)
 		evidenceEvents = append(evidenceEvents, compactEvidenceEvent(candidate.event, profile))
 	}
 	return EvidenceDocument{
@@ -134,10 +153,152 @@ func BuildEvidence(execution ExecutionResult, events []OpcodeEvent, profile stri
 			TotalSteps: execution.TotalSteps, Error: execution.ExecutionError,
 		},
 		Events: evidenceEvents,
+		Links:  buildEvidenceLinks(events, selectedEvents),
 		Selection: EvidenceSelection{
 			Candidates: len(candidates), Selected: len(evidenceEvents), Omitted: len(events) - len(evidenceEvents), Truncated: truncated,
 		},
 	}, nil
+}
+
+func buildEvidenceLinks(allEvents, events []OpcodeEvent) []EvidenceLink {
+	links := buildValueFlowLinks(allEvents, events)
+	for index, event := range events {
+		if !controlKind(event, "call", "create") {
+			continue
+		}
+		firstChild, lastChild := -1, -1
+		for next := index + 1; next < len(events); next++ {
+			if events[next].Depth <= event.Depth {
+				break
+			}
+			if events[next].Depth == event.Depth+1 {
+				if firstChild == -1 {
+					firstChild = next
+				}
+				lastChild = next
+			}
+		}
+		if firstChild == -1 {
+			continue
+		}
+		links = append(links,
+			EvidenceLink{Kind: "enters-frame", From: evidenceLocation(event), To: evidenceLocation(events[firstChild])},
+			EvidenceLink{Kind: "returns-to", From: evidenceLocation(events[lastChild]), To: evidenceLocation(event)},
+		)
+	}
+	for index, terminal := range events {
+		if !terminalRollsBack(terminal) {
+			continue
+		}
+		frameStart := -1
+		if terminal.Depth > 0 {
+			for prior := index - 1; prior >= 0; prior-- {
+				if events[prior].Depth == terminal.Depth-1 && controlKind(events[prior], "call", "create") {
+					frameStart = prior
+					break
+				}
+			}
+		}
+		for prior := frameStart + 1; prior < index; prior++ {
+			if events[prior].Depth != terminal.Depth || !hasStorageWrite(events[prior]) {
+				continue
+			}
+			links = append(links, EvidenceLink{
+				Kind: "rolls-back", From: evidenceLocation(events[prior]), To: evidenceLocation(terminal),
+			})
+		}
+	}
+	return links
+}
+
+type stackOrigin struct {
+	location EvidenceLocation
+	known    bool
+}
+
+func buildValueFlowLinks(allEvents, selected []OpcodeEvent) []EvidenceLink {
+	selectedSteps := make(map[int]struct{}, len(selected))
+	for _, event := range selected {
+		selectedSteps[event.Step] = struct{}{}
+	}
+	stacks := make(map[int][]stackOrigin)
+	links := make([]EvidenceLink, 0)
+	previousDepth := 0
+	for index, event := range allEvents {
+		if index == 0 || event.Depth > previousDepth {
+			stacks[event.Depth] = nil
+		}
+		previousDepth = event.Depth
+		if event.Stack == nil {
+			continue
+		}
+		stack := stacks[event.Depth]
+		if len(stack) < event.Stack.SizeBefore {
+			stack = append(make([]stackOrigin, event.Stack.SizeBefore-len(stack)), stack...)
+		} else if len(stack) > event.Stack.SizeBefore {
+			stack = stack[len(stack)-event.Stack.SizeBefore:]
+		}
+		if _, consumerSelected := selectedSteps[event.Step]; consumerSelected {
+			for input, value := range event.Stack.Popped {
+				originIndex := len(stack) - 1 - input
+				if originIndex < 0 || !stack[originIndex].known {
+					continue
+				}
+				origin := stack[originIndex].location
+				if _, producerSelected := selectedSteps[origin.Step]; !producerSelected || origin.Step == event.Step {
+					continue
+				}
+				links = append(links, EvidenceLink{
+					Kind: "value-flow", From: origin, To: evidenceLocation(event), Input: input, Value: compactWord(value),
+				})
+			}
+		}
+		op := opcodeByte(event)
+		switch {
+		case op >= core.SWAP1 && op <= core.SWAP1+15:
+			width := int(op-core.SWAP1) + 2
+			if len(stack) >= width {
+				top, other := len(stack)-1, len(stack)-width
+				stack[top], stack[other] = stack[other], stack[top]
+			}
+		case op >= core.DUP1 && op <= core.DUP1+15:
+			depth := int(op-core.DUP1) + 1
+			origin := stackOrigin{}
+			if len(stack) >= depth {
+				origin = stack[len(stack)-depth]
+			}
+			stack = append(stack, origin)
+		default:
+			popped := len(event.Stack.Popped)
+			if popped > len(stack) {
+				popped = len(stack)
+			}
+			stack = stack[:len(stack)-popped]
+			origin := stackOrigin{location: evidenceLocation(event), known: true}
+			for range event.Stack.Pushed {
+				stack = append(stack, origin)
+			}
+		}
+		stacks[event.Depth] = stack
+	}
+	return links
+}
+
+func evidenceLocation(event OpcodeEvent) EvidenceLocation {
+	return EvidenceLocation{Step: event.Step, Depth: event.Depth, PC: event.PC, Op: event.OpcodeName}
+}
+
+func terminalRollsBack(event OpcodeEvent) bool {
+	return event.Reverted || event.Error != "" || controlKind(event, "revert")
+}
+
+func hasStorageWrite(event OpcodeEvent) bool {
+	for _, access := range event.Storage {
+		if access.Kind == "write" {
+			return true
+		}
+	}
+	return false
 }
 
 func profileSelects(profile string, event OpcodeEvent) bool {
@@ -158,14 +319,27 @@ func profileSelects(profile string, event OpcodeEvent) bool {
 		return controlKind(event, "call", "create", "revert", "return") || (event.Depth > 0 && !isStackPlumbing(event))
 	case ProfileABI:
 		return event.Memory != nil || controlKind(event, "return", "revert") || isABIOpcode(event)
+	case ProfileMath:
+		return event.Memory != nil || controlKind(event, "return", "revert") || isArithmeticOpcode(event)
 	default:
 		return false
 	}
 }
 
-func evidencePriority(event OpcodeEvent) int {
+func evidencePriority(profile string, event OpcodeEvent) int {
 	if event.Error != "" || event.Halt || event.Reverted {
 		return 1000
+	}
+	if profile == ProfileMath {
+		switch opcodeByte(event) {
+		case core.DIV, core.SDIV, core.MOD, core.SMOD, core.ADDMOD, core.MULMOD:
+			return 950
+		case core.SUB:
+			return 900
+		}
+		if isArithmeticOpcode(event) {
+			return 800
+		}
 	}
 	if len(event.Storage) > 0 {
 		return 900
@@ -254,13 +428,16 @@ func compactWord(value string) string {
 }
 
 func isStackPlumbing(event OpcodeEvent) bool {
-	op := byte(0)
-	if _, err := fmt.Sscanf(event.Opcode, "0x%02x", &op); err != nil {
-		return false
-	}
+	op := opcodeByte(event)
 	return op == core.PUSH0 || (op >= core.PUSH1 && op <= core.PUSH1+31) ||
 		(op >= core.DUP1 && op <= core.DUP1+15) || (op >= core.SWAP1 && op <= core.SWAP1+15) ||
 		op == core.POP || op == core.JUMPDEST
+}
+
+func opcodeByte(event OpcodeEvent) byte {
+	op := byte(0)
+	_, _ = fmt.Sscanf(event.Opcode, "0x%02x", &op)
+	return op
 }
 
 func controlKind(event OpcodeEvent, kinds ...string) bool {
@@ -286,4 +463,10 @@ func isABIOpcode(event OpcodeEvent) bool {
 
 func isReturnDataOpcode(event OpcodeEvent) bool {
 	return event.OpcodeName == "RETURNDATASIZE" || event.OpcodeName == "RETURNDATACOPY"
+}
+
+func isArithmeticOpcode(event OpcodeEvent) bool {
+	op := opcodeByte(event)
+	return (op >= core.ADD && op <= core.SIGNEXTEND) ||
+		(op >= core.LT && op <= core.SAR) || op == core.SHA3
 }

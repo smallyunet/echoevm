@@ -18,7 +18,7 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ## 📑 Table of Contents
 
-- [What's New in v0.0.40](#-whats-new-in-v0040)
+- [What's New in v0.0.41](#-whats-new-in-v0041)
 - [Features](#-features)
 - [Requirements](#-requirements)
 - [Installation](#-installation)
@@ -34,7 +34,14 @@ Try the hosted Differential Explorer at **[r.dark20.xyz](https://r.dark20.xyz/)*
 
 ---
 
-## 🆕 What's New in v0.0.40
+## 🆕 What's New in v0.0.41
+
+- **Solidity Source-Run Evidence**: `solidity run --format evidence-json` now compiles, deploys, calls, and emits bounded causal evidence with source, contract, function, and compiler metadata.
+- **Nested Causal Links**: `enters-frame`, `returns-to`, and `rolls-back` connect parent CALL/CREATE/DELEGATECALL sites to child execution and reverted writes; exact stack identities produce `value-flow` links through DUP/SWAP operations.
+- **Arithmetic Routing**: `--profile arithmetic` retains arithmetic consumers and the producers that supply their operands, making bugs such as a wrong DIV divisor inspectable without loading the full trace.
+- **Measured Solidity Efficiency**: In the published 36-run, four-case Solidity benchmark, routed evidence diagnosed 11/12 runs correctly versus 8/12 for broad opcode context while using 39.8% fewer fresh tokens (task-clustered 95% CI: 24.5%–55.0% fewer).
+
+### Previous v0.0.40
 
 - **Causal Evidence JSON**: `trace --format evidence-json` emits the compact `echoevm.evidence.v1` schema after full execution, prioritizing failure, state, memory, call, and return evidence while removing stack plumbing.
 - **Question Profiles**: `--profile auto|revert|storage|call|abi|gas|full` selects deterministic evidence for the diagnosis at hand; `--limit` bounds presentation without stopping execution.
