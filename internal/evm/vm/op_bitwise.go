@@ -98,3 +98,8 @@ func opSar(i *Interpreter, _ byte) {
 	signed.And(signed, mask256)
 	i.stack.PushSafe(signed)
 }
+
+func opClz(i *Interpreter, _ byte) {
+	value := i.stack.PopSafe()
+	i.stack.PushSafe(big.NewInt(int64(256 - value.BitLen())))
+}

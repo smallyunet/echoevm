@@ -32,7 +32,8 @@ const (
 	SHL       = 0x1b
 	SHR       = 0x1c
 	SAR       = 0x1d
-	INVALID1E = 0x1e
+	CLZ       = 0x1e // EIP-7939 (Osaka)
+	INVALID1E = CLZ  // Backward-compatible alias for pre-Osaka rules.
 
 	// 0x20 - 0x2f: SHA3
 	SHA3 = 0x20
@@ -140,7 +141,7 @@ var opcodeNames = map[byte]string{
 	SHL:            "SHL",
 	SHR:            "SHR",
 	SAR:            "SAR",
-	INVALID1E:      "INVALID",
+	CLZ:            "CLZ",
 	SHA3:           "SHA3",
 	ADDRESS:        "ADDRESS",
 	BALANCE:        "BALANCE",

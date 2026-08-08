@@ -1,18 +1,35 @@
-// Package differential compares an isolated EchoEVM execution with an embedded
-// go-ethereum execution. It intentionally supports one explicit environment:
-// Cancun rules, in-memory state, and no external RPC access.
+// Package differential compares isolated EchoEVM execution with embedded
+// go-ethereum under an explicitly selected historical execution fork.
 package differential
 
-import "context"
+import (
+	"context"
+
+	"github.com/smallyunet/echoevm/internal/evm/core"
+)
 
 const (
-	ForkCancun       = "Cancun"
-	DefaultGasLimit  = uint64(1_000_000)
-	MaxGasLimit      = uint64(30_000_000)
-	MaxBytecodeBytes = 24_576
-	MaxInitcodeBytes = 49_152
-	MaxCalldataBytes = 128 * 1024
-	MaxTraceSteps    = 2_000
+	ForkFrontier       = core.ForkFrontier
+	ForkHomestead      = core.ForkHomestead
+	ForkTangerine      = core.ForkTangerine
+	ForkSpuriousDragon = core.ForkSpuriousDragon
+	ForkByzantium      = core.ForkByzantium
+	ForkConstantinople = core.ForkConstantinople
+	ForkPetersburg     = core.ForkPetersburg
+	ForkIstanbul       = core.ForkIstanbul
+	ForkBerlin         = core.ForkBerlin
+	ForkLondon         = core.ForkLondon
+	ForkParis          = core.ForkParis
+	ForkShanghai       = core.ForkShanghai
+	ForkCancun         = core.ForkCancun
+	ForkPrague         = core.ForkPrague
+	ForkOsaka          = core.ForkOsaka
+	DefaultGasLimit    = uint64(1_000_000)
+	MaxGasLimit        = uint64(30_000_000)
+	MaxBytecodeBytes   = 24_576
+	MaxInitcodeBytes   = 49_152
+	MaxCalldataBytes   = 128 * 1024
+	MaxTraceSteps      = 2_000
 )
 
 type Request struct {

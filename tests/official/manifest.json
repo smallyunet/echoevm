@@ -1,0 +1,11 @@
+{
+  "repository": "ethereum/execution-specs",
+  "release": "tests@v20.0.0",
+  "publishedAt": "2026-07-02T15:04:12Z",
+  "asset": "fixtures.tar.gz",
+  "url": "https://github.com/ethereum/execution-specs/releases/download/tests%40v20.0.0/fixtures.tar.gz",
+  "size": 399656884,
+  "sha256": "b183702a5b447b465873865357ced9eb342315922e52e31b714e2de115dd0bb4",
+  "latestFork": "Osaka",
+  "includes": "all mainnet fixture formats and forks through Osaka/BPO2"
+}

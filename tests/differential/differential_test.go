@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 const differentialGasLimit = uint64(1_000_000)
@@ -256,6 +257,51 @@ func TestCancunDifferentialAgainstGeth(t *testing.T) {
 		parts = append(parts, fmt.Sprintf("%s=%d", category, categories[category]))
 	}
 	t.Logf("DIFFERENTIAL SUMMARY fork=Cancun total=%d categories=%s skipped=0", len(vectors), strings.Join(parts, ","))
+}
+
+func TestForkMatrixBasicExecutionAgainstGeth(t *testing.T) {
+	for _, fork := range core.SupportedForks {
+		t.Run(fork, func(t *testing.T) {
+			result, err := differential.DefaultEngine().Compare(context.Background(), differential.Request{
+				Fork: fork, Bytecode: "600260030160005260206000f3", GasLimit: differentialGasLimit,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.Match {
+				t.Fatalf("first divergence: %+v", result.FirstDivergence)
+			}
+		})
+	}
+}
+
+func TestForkOpcodeActivationAgainstGeth(t *testing.T) {
+	tests := []struct {
+		name, before, active, code string
+	}{
+		{name: "revert", before: differential.ForkHomestead, active: differential.ForkByzantium, code: "60006000fd"},
+		{name: "shift", before: differential.ForkByzantium, active: differential.ForkConstantinople, code: "600160011b00"},
+		{name: "chainid", before: differential.ForkConstantinople, active: differential.ForkIstanbul, code: "4660005260206000f3"},
+		{name: "basefee", before: differential.ForkBerlin, active: differential.ForkLondon, code: "4860005260206000f3"},
+		{name: "push0", before: differential.ForkParis, active: differential.ForkShanghai, code: "5f00"},
+		{name: "tstore", before: differential.ForkShanghai, active: differential.ForkCancun, code: "600160005d00"},
+		{name: "clz", before: differential.ForkPrague, active: differential.ForkOsaka, code: "60001e60005260206000f3"},
+	}
+	for _, test := range tests {
+		for _, fork := range []string{test.before, test.active} {
+			t.Run(test.name+"/"+fork, func(t *testing.T) {
+				result, err := differential.DefaultEngine().Compare(context.Background(), differential.Request{
+					Fork: fork, Bytecode: test.code, GasLimit: differentialGasLimit,
+				})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !result.Match {
+					t.Fatalf("first divergence: %+v", result.FirstDivergence)
+				}
+			})
+		}
+	}
 }
 
 func TestDifferentialCoverageContract(t *testing.T) {

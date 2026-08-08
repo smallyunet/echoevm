@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm/runtime"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 type GethRunner struct{}
@@ -32,7 +33,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 	}
 	executionAddress := contractAddress
 	if len(initcode) > 0 {
-		constructorConfig := gethRuntimeConfig(req.DeployGasLimit, state, nil)
+		constructorConfig := gethRuntimeConfig(req.DeployGasLimit, state, nil, req.Fork)
 		deployedCode, createdAddress, _, createErr := runtime.Create(initcode, constructorConfig)
 		if createErr != nil {
 			return ExecutionResult{}, fmt.Errorf("constructor execution failed: %w", createErr)
@@ -86,7 +87,7 @@ func (GethRunner) Run(ctx context.Context, req Request) (ExecutionResult, error)
 		gasUsed, output, exitErr = used, append([]byte(nil), out...), err
 	}
 
-	cfg := gethRuntimeConfig(req.GasLimit, state, hooks)
+	cfg := gethRuntimeConfig(req.GasLimit, state, hooks, req.Fork)
 	rules := cfg.ChainConfig.Rules(cfg.BlockNumber, cfg.Random != nil, cfg.Time)
 	state.Prepare(rules, cfg.Origin, cfg.Coinbase, &executionAddress, gethvm.ActivePrecompiles(rules), nil)
 	env := runtime.NewEnv(cfg)
@@ -144,21 +145,55 @@ func gethStack(scope tracing.OpContext) []string {
 	return out
 }
 
-func gethRuntimeConfig(gas uint64, state *gethstate.StateDB, hooks *tracing.Hooks) *runtime.Config {
+func gethRuntimeConfig(gas uint64, state *gethstate.StateDB, hooks *tracing.Hooks, fork string) *runtime.Config {
 	zero := uint64(0)
 	random := common.Hash{}
-	chain := &params.ChainConfig{
-		ChainID: big.NewInt(1), HomesteadBlock: new(big.Int), EIP150Block: new(big.Int),
-		EIP155Block: new(big.Int), EIP158Block: new(big.Int), ByzantiumBlock: new(big.Int),
-		ConstantinopleBlock: new(big.Int), PetersburgBlock: new(big.Int), IstanbulBlock: new(big.Int),
-		MuirGlacierBlock: new(big.Int), BerlinBlock: new(big.Int), LondonBlock: new(big.Int),
-		TerminalTotalDifficulty: new(big.Int), ShanghaiTime: &zero, CancunTime: &zero,
+	chain := &params.ChainConfig{ChainID: big.NewInt(1)}
+	atLeast := func(target string) bool {
+		forkIndex, targetIndex := -1, -1
+		for index, candidate := range core.SupportedForks {
+			if candidate == fork {
+				forkIndex = index
+			}
+			if candidate == target {
+				targetIndex = index
+			}
+		}
+		return forkIndex >= targetIndex
 	}
-	return &runtime.Config{
+	setBlock := func(target string, field **big.Int) {
+		if atLeast(target) {
+			*field = new(big.Int)
+		}
+	}
+	setTime := func(target string, field **uint64) {
+		if atLeast(target) {
+			*field = &zero
+		}
+	}
+	setBlock(core.ForkHomestead, &chain.HomesteadBlock)
+	setBlock(core.ForkTangerine, &chain.EIP150Block)
+	setBlock(core.ForkSpuriousDragon, &chain.EIP155Block)
+	setBlock(core.ForkSpuriousDragon, &chain.EIP158Block)
+	setBlock(core.ForkByzantium, &chain.ByzantiumBlock)
+	setBlock(core.ForkConstantinople, &chain.ConstantinopleBlock)
+	setBlock(core.ForkPetersburg, &chain.PetersburgBlock)
+	setBlock(core.ForkIstanbul, &chain.IstanbulBlock)
+	setBlock(core.ForkBerlin, &chain.BerlinBlock)
+	setBlock(core.ForkLondon, &chain.LondonBlock)
+	setTime(core.ForkShanghai, &chain.ShanghaiTime)
+	setTime(core.ForkCancun, &chain.CancunTime)
+	setTime(core.ForkPrague, &chain.PragueTime)
+	setTime(core.ForkOsaka, &chain.OsakaTime)
+	config := &runtime.Config{
 		ChainConfig: chain, Difficulty: new(big.Int), BlockNumber: new(big.Int),
 		GasLimit: gas, GasPrice: new(big.Int), Value: new(big.Int), BaseFee: new(big.Int),
-		BlobBaseFee: big.NewInt(params.BlobTxMinBlobGasprice), Random: &random,
-		State: state, EVMConfig: gethvm.Config{Tracer: hooks},
+		BlobBaseFee: big.NewInt(params.BlobTxMinBlobGasprice),
+		State:       state, EVMConfig: gethvm.Config{Tracer: hooks},
 		GetHashFn: func(uint64) common.Hash { return common.Hash{} },
 	}
+	if atLeast(core.ForkParis) {
+		config.Random = &random
+	}
+	return config
 }

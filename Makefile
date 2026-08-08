@@ -3,10 +3,10 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.41
+VERSION    ?= v0.0.42
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build run test test-unit test-integration test-e2e test-compliance test-differential test-conformance test-deploy test-skills package-skills coverage clean help
+.PHONY: install build run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-compliance test-official-fixtures test-differential test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -24,8 +24,12 @@ run: build ## Run the built binary
 clean: ## Clean build artifacts
 	rm -rf $(BIN_DIR) dist coverage.out coverage.html
 
-setup-tests: ## Show compliance fixture location (fixtures are bundled)
-	@echo "Compliance fixtures are bundled in tests/compliance/fixtures."
+setup-tests: ## Show bundled and full official fixture locations
+	@echo "Curated fixtures: tests/compliance/fixtures"
+	@echo "Full official EEST release: make setup-official-fixtures"
+
+setup-official-fixtures: ## Download and verify the pinned official EEST release (~381 MiB)
+	go run ./tests/official/cmd/fetch-fixtures
 
 test-unit: ## Run Go unit tests
 	go test -race -count=1 ./internal/... ./cmd/...
@@ -39,10 +43,15 @@ test-e2e: ## Run CLI end-to-end tests
 test-compliance: ## Run compliance tests
 	go test -v ./tests/compliance/...
 
+test-official-fixtures: setup-official-fixtures ## Audit every JSON file in the pinned official EEST release
+	ECHOEVM_OFFICIAL_FIXTURES=$(CURDIR)/tests/official/fixtures go test -v ./tests/official/...
+
 test-differential: ## Compare Cancun execution results with go-ethereum
 	go test -v ./tests/differential/...
 
 test-conformance: test-compliance test-differential ## Run official fixtures and geth differential tests
+
+test-conformance-full: test-conformance test-official-fixtures ## Run normal conformance plus the full official fixture audit
 
 test-deploy: ## Validate the production deployment contract
 	bash -n deploy/deploy-image.sh deploy/deploy-ssh-command.sh deploy/deploy-image_test.sh

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	gethvm "github.com/ethereum/go-ethereum/core/vm"
@@ -37,6 +38,10 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 	initcode, _ := decodeHexField("initcode", req.InitCode)
 	input, _ := decodeHexField("calldata", req.Calldata)
 	state := core.NewMemoryStateDB()
+	chainConfig, err := core.ChainConfigForFork(req.Fork)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
 	executionAddress := contractAddress
 	if len(initcode) > 0 {
 		executionAddress = crypto.CreateAddress(common.Address{}, 0)
@@ -49,6 +54,7 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 			state.AddAddressToAccessList(common.BytesToAddress([]byte{byte(address)}))
 		}
 		constructor := vm.New(initcode, state, executionAddress)
+		configureEchoFork(constructor, chainConfig)
 		constructor.SetGas(req.DeployGasLimit)
 		constructor.SetBlockGasLimit(req.DeployGasLimit)
 		constructor.Run()
@@ -71,6 +77,7 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 	state.AddAddressToAccessList(executionAddress)
 	executionSnapshot := state.Snapshot()
 	intr := vm.NewWithCallData(code, input, state, executionAddress)
+	configureEchoFork(intr, chainConfig)
 	intr.SetGas(req.GasLimit)
 	intr.SetBlockGasLimit(req.GasLimit)
 	if collector != nil {
@@ -154,4 +161,12 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 		result.Error = intr.Err().Error()
 	}
 	return result, nil
+}
+
+func configureEchoFork(intr *vm.Interpreter, config *core.ChainConfig) {
+	intr.SetChainConfig(config)
+	rules := config.Rules(new(big.Int))
+	if rules.IsParis {
+		intr.SetRandom(new(big.Int))
+	}
 }

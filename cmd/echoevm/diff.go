@@ -22,14 +22,14 @@ func newDiffCmd() *cobra.Command {
 	flags := &diffFlags{}
 	cmd := &cobra.Command{
 		Use:     "diff",
-		Short:   "Compare EchoEVM with embedded Geth under Cancun rules",
+		Short:   "Compare EchoEVM with embedded Geth under a selected fork",
 		Example: "echoevm diff --code 60026003015f5260205ff3 --input 0x --gas 1000000\nechoevm diff --web --addr :8080",
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runDiff(cmd.Context(), cmd.OutOrStdout(), flags) },
 	}
 	cmd.Flags().StringVar(&flags.code, "code", "", "EVM bytecode as hex")
 	cmd.Flags().StringVar(&flags.input, "input", "0x", "calldata as hex")
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
-	cmd.Flags().StringVar(&flags.fork, "fork", differential.ForkCancun, "EVM fork (Cancun only)")
+	cmd.Flags().StringVar(&flags.fork, "fork", differential.ForkOsaka, "EVM fork (Frontier through Osaka)")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json)")
 	cmd.Flags().BoolVar(&flags.web, "web", false, "start the local Differential Explorer")
 	cmd.Flags().StringVar(&flags.addr, "addr", ":8080", "HTTP listen address for --web")

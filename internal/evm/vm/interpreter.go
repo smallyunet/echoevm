@@ -305,6 +305,7 @@ func init() {
 	handlerMap[core.SHL] = opShl
 	handlerMap[core.SHR] = opShr
 	handlerMap[core.SAR] = opSar
+	handlerMap[core.CLZ] = opClz
 
 	// cryptographic
 	handlerMap[core.SHA3] = opSha3
@@ -502,7 +503,7 @@ func (i *Interpreter) run(hook func(step TraceStep) bool) {
 		}
 
 		handler := handlerMap[op]
-		if handler == nil {
+		if handler == nil || !i.opcodeEnabled(op) {
 			// Log invalid opcode error with context
 			logger.Error().
 				Uint64("pc", pc).
@@ -541,6 +542,30 @@ func (i *Interpreter) run(hook func(step TraceStep) bool) {
 		if !i.emitPostStep(hook, op, halt) || halt {
 			return
 		}
+	}
+}
+
+func (i *Interpreter) opcodeEnabled(op byte) bool {
+	rules := i.chainConfig.Rules(new(big.Int).SetUint64(i.blockNumber))
+	switch op {
+	case core.DELEGATECALL:
+		return rules.IsHomestead
+	case core.RETURNDATASIZE, core.RETURNDATACOPY, core.STATICCALL, core.REVERT:
+		return rules.IsByzantium
+	case core.SHL, core.SHR, core.SAR, core.EXTCODEHASH, core.CREATE2:
+		return rules.IsConstantinople
+	case core.CHAINID, core.SELFBALANCE:
+		return rules.IsIstanbul
+	case core.BASEFEE:
+		return rules.IsLondon
+	case core.PUSH0:
+		return rules.IsShanghai
+	case core.TLOAD, core.TSTORE, core.MCOPY, core.BLOBHASH, core.BLOBBASEFEE:
+		return rules.IsCancun
+	case core.CLZ:
+		return rules.IsOsaka
+	default:
+		return true
 	}
 }
 

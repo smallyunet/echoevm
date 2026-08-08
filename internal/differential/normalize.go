@@ -9,16 +9,18 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
 func normalizeRequest(req Request) (Request, error) {
 	if req.Fork == "" {
-		req.Fork = ForkCancun
+		req.Fork = ForkOsaka
 	}
-	if !strings.EqualFold(req.Fork, ForkCancun) {
-		return Request{}, fmt.Errorf("unsupported fork %q: only Cancun is supported", req.Fork)
+	fork, err := core.NormalizeFork(req.Fork)
+	if err != nil {
+		return Request{}, err
 	}
-	req.Fork = ForkCancun
+	req.Fork = fork
 	if req.GasLimit == 0 {
 		req.GasLimit = DefaultGasLimit
 	}

@@ -90,6 +90,7 @@ var GasTable = [256]uint64{
 	SHL:    GasVeryLow,
 	SHR:    GasVeryLow,
 	SAR:    GasVeryLow,
+	CLZ:    GasLow,
 
 	SHA3: GasKeccak256, // Dynamic cost not included
 

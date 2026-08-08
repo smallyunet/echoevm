@@ -265,7 +265,7 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	}
 
 	req := differential.Request{
-		Fork: differential.ForkCancun, Bytecode: contract.runtimeBytecode,
+		Fork: differential.ForkOsaka, Bytecode: contract.runtimeBytecode,
 		InitCode: initcode, Calldata: fmt.Sprintf("0x%x", calldata), GasLimit: flags.gas,
 		DeployGasLimit: flags.deployGas,
 	}
