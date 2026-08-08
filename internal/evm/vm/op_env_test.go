@@ -1,6 +1,7 @@
 package vm
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -23,6 +24,37 @@ func TestCallDataLoad(t *testing.T) {
 	val := i.stack.PopSafe().Bytes()
 	if len(val) != 32 || val[0] != 1 || val[1] != 2 || val[2] != 3 {
 		t.Fatalf("calldataload wrong")
+	}
+}
+
+func TestReturnDataCopyRejectsOutOfBoundsRead(t *testing.T) {
+	i := New([]byte{core.PUSH1, 0x03, core.PUSH0, core.PUSH0, core.RETURNDATACOPY, core.STOP}, core.NewMemoryStateDB(), common.Address{})
+	i.returnData = []byte{0xaa, 0xbb}
+	i.SetGas(100_000)
+	i.Run()
+
+	if !errors.Is(i.Err(), ErrReturnDataOutOfBounds) {
+		t.Fatalf("error = %v, want return data out of bounds", i.Err())
+	}
+	if !i.IsReverted() {
+		t.Fatal("out-of-bounds RETURNDATACOPY must exceptionally halt")
+	}
+	if i.Gas() != 0 {
+		t.Fatalf("gas = %d, want 0 after exceptional halt", i.Gas())
+	}
+}
+
+func TestReturnDataCopyAllowsExactBoundary(t *testing.T) {
+	i := New([]byte{core.PUSH1, 0x02, core.PUSH0, core.PUSH0, core.RETURNDATACOPY, core.STOP}, core.NewMemoryStateDB(), common.Address{})
+	i.returnData = []byte{0xaa, 0xbb}
+	i.SetGas(100_000)
+	i.Run()
+
+	if i.Err() != nil {
+		t.Fatal(i.Err())
+	}
+	if got := i.Memory().Data(); len(got) < 2 || got[0] != 0xaa || got[1] != 0xbb {
+		t.Fatalf("memory = %x, want prefix aabb", got)
 	}
 }
 

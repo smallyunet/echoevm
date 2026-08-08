@@ -179,9 +179,30 @@ func opReturnDataSize(i *Interpreter, _ byte) {
 }
 
 func opReturnDataCopy(i *Interpreter, _ byte) {
-	memOffset := i.stack.PopSafe().Uint64()
-	dataOffset := i.stack.PopSafe().Uint64()
-	length := i.stack.PopSafe().Uint64()
+	memOffsetWord := i.stack.PopSafe()
+	dataOffsetWord := i.stack.PopSafe()
+	lengthWord := i.stack.PopSafe()
+
+	// EIP-211 makes return-data reads strict: unlike CALLDATACOPY and
+	// CODECOPY, bytes beyond the available buffer are not zero padded.
+	if !dataOffsetWord.IsUint64() || !lengthWord.IsUint64() {
+		i.err = ErrReturnDataOutOfBounds
+		i.reverted = true
+		return
+	}
+	dataOffset := dataOffsetWord.Uint64()
+	length := lengthWord.Uint64()
+	if dataOffset > uint64(len(i.returnData)) || length > uint64(len(i.returnData))-dataOffset {
+		i.err = ErrReturnDataOutOfBounds
+		i.reverted = true
+		return
+	}
+	if length > 0 && !memOffsetWord.IsUint64() {
+		i.err = fmt.Errorf("out of gas: memory offset overflow")
+		i.reverted = true
+		return
+	}
+	memOffset := memOffsetWord.Uint64()
 
 	if !i.consumeMemoryExpansion(memOffset, length) {
 		return
@@ -197,11 +218,7 @@ func opReturnDataCopy(i *Interpreter, _ byte) {
 	}
 	i.gas -= copyCost
 
-	data := make([]byte, length)
-	if dataOffset < uint64(len(i.returnData)) {
-		copy(data, i.returnData[dataOffset:min(dataOffset+length, uint64(len(i.returnData)))])
-	}
-	i.memory.Write(memOffset, data)
+	i.memory.Write(memOffset, i.returnData[dataOffset:dataOffset+length])
 }
 
 func opExtCodeHash(i *Interpreter, _ byte) {

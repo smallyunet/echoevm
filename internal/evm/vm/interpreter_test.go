@@ -1,12 +1,28 @@
 package vm
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
+
+func TestMemoryGasCostMatchesCoreForNormalRanges(t *testing.T) {
+	for _, size := range []uint64{0, 32, 64, 1024, 1 << 20} {
+		got, overflow := memoryGasCost(size)
+		if overflow {
+			t.Fatalf("memoryGasCost(%d) unexpectedly overflowed", size)
+		}
+		if want := core.MemoryGasCost(size); got != want {
+			t.Fatalf("memoryGasCost(%d) = %d, want %d", size, got, want)
+		}
+	}
+	if _, overflow := memoryGasCost(math.MaxUint64 / 32 * 32); !overflow {
+		t.Fatal("memoryGasCost should report overflow for an unaffordable range")
+	}
+}
 
 func TestInterpreterRunSimple(t *testing.T) {
 	code := []byte{core.PUSH1, 0x01, core.PUSH1, 0x02, core.ADD, core.STOP}

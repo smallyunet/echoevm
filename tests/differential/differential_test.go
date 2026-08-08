@@ -196,16 +196,31 @@ var vectors = []vector{
 	{name: "mul", category: "arithmetic", code: "60076006025f5260205ff3"},
 	{name: "div", category: "arithmetic", code: "60026008045f5260205ff3"},
 	{name: "mod", category: "arithmetic", code: "60056017065f5260205ff3"},
+	{name: "signed-div-negative", category: "arithmetic", code: "6002600619055f5260205ff3"},
+	{name: "signed-mod-negative", category: "arithmetic", code: "6005600619075f5260205ff3"},
+	{name: "addmod", category: "arithmetic", code: "600560046003085f5260205ff3"},
+	{name: "mulmod", category: "arithmetic", code: "600560046003095f5260205ff3"},
+	{name: "exp", category: "arithmetic", code: "600360020a5f5260205ff3"},
+	{name: "less-than", category: "comparison", code: "60036002105f5260205ff3"},
+	{name: "signed-less-than", category: "comparison", code: "6001600019125f5260205ff3"},
+	{name: "signextend", category: "arithmetic", code: "608060000b5f5260205ff3"},
 	{name: "shift-left", category: "bitwise", code: "600860011b5f5260205ff3"},
 	{name: "xor", category: "bitwise", code: "60aa60ff185f5260205ff3"},
+	{name: "byte", category: "bitwise", code: "611234601e1a5f5260205ff3"},
+	{name: "arithmetic-shift-right-negative", category: "bitwise", code: "60071960011d5f5260205ff3"},
 	{name: "calldataload", category: "environment", code: "5f355f5260205ff3", input: "2a00000000000000000000000000000000000000000000000000000000000000"},
 	{name: "memory-roundtrip", category: "memory", code: "602a5f525f5160205ff3"},
+	{name: "mload-offset-overflow", category: "fault", code: "680100000000000000005100"},
+	{name: "mload-range-overflow", category: "fault", code: "67ffffffffffffffff5100"},
+	{name: "mstore-offset-overflow", category: "fault", code: "6001680100000000000000005200"},
+	{name: "mstore8-offset-overflow", category: "fault", code: "6001680100000000000000005300"},
 	{name: "keccak256", category: "crypto", code: "602a5f5260205f205f5260205ff3"},
 	{name: "storage-roundtrip", category: "storage", code: "602a5f555f545f5260205ff3"},
 	{name: "transient-storage", category: "storage", code: "602a5f5d5f5c5f5260205ff3"},
 	{name: "mcopy", category: "memory", code: "602a5f5260205f60205e60206020f3"},
 	{name: "jump", category: "control", code: "600456005b602a5f5260205ff3"},
 	{name: "revert", category: "control", code: "63deadbeef5f526004601cfd"},
+	{name: "returndatacopy-out-of-bounds", category: "fault", code: "60015f5f3e00"},
 	{name: "revert-restores-storage", category: "storage", code: "60015f5560006000fd"},
 	{name: "invalid-opcode", category: "fault", code: "fe"},
 	{name: "fault-restores-storage", category: "storage", code: "60015f55fe"},
@@ -244,11 +259,11 @@ func TestCancunDifferentialAgainstGeth(t *testing.T) {
 }
 
 func TestDifferentialCoverageContract(t *testing.T) {
-	const minimumVectors = 15
+	const minimumVectors = 34
 	if len(vectors) < minimumVectors {
 		t.Fatalf("differential baseline shrank: have %d vectors, require at least %d", len(vectors), minimumVectors)
 	}
-	requiredCategories := []string{"arithmetic", "bitwise", "control", "crypto", "environment", "fault", "memory", "storage"}
+	requiredCategories := []string{"arithmetic", "bitwise", "comparison", "control", "crypto", "environment", "fault", "memory", "storage"}
 	seen := make(map[string]bool)
 	for _, test := range vectors {
 		if test.name == "" || test.category == "" || test.code == "" {

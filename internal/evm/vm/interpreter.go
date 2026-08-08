@@ -2,7 +2,9 @@ package vm
 
 import (
 	"fmt"
+	"math"
 	"math/big"
+	"math/bits"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
@@ -163,13 +165,23 @@ func (i *Interpreter) consumeMemoryExpansion(offset, size uint64) bool {
 	if size == 0 {
 		return true
 	}
+	if offset > math.MaxUint64-size {
+		return i.failMemoryExpansion("offset overflow")
+	}
 	newSize := offset + size
 	if newSize <= i.maxMemorySize {
 		return true
 	}
+	if newSize > math.MaxUint64-31 {
+		return i.failMemoryExpansion("size overflow")
+	}
+	newSize = (newSize + 31) / 32 * 32
 
-	oldCost := core.MemoryGasCost(i.maxMemorySize)
-	newCost := core.MemoryGasCost(newSize)
+	oldCost, oldOverflow := memoryGasCost(i.maxMemorySize)
+	newCost, newOverflow := memoryGasCost(newSize)
+	if oldOverflow || newOverflow || newCost < oldCost {
+		return i.failMemoryExpansion("gas overflow")
+	}
 	cost := newCost - oldCost
 
 	if i.gas < cost {
@@ -178,8 +190,37 @@ func (i *Interpreter) consumeMemoryExpansion(offset, size uint64) bool {
 		return false
 	}
 	i.gas -= cost
-	i.maxMemorySize = (newSize + 31) / 32 * 32
+	i.maxMemorySize = newSize
 	return true
+}
+
+func (i *Interpreter) consumeFixedMemoryExpansion(offset *big.Int, size uint64) (uint64, bool) {
+	if !offset.IsUint64() {
+		return 0, i.failMemoryExpansion("offset overflow")
+	}
+	offset64 := offset.Uint64()
+	return offset64, i.consumeMemoryExpansion(offset64, size)
+}
+
+func (i *Interpreter) failMemoryExpansion(reason string) bool {
+	i.err = fmt.Errorf("out of gas: memory expansion %s", reason)
+	i.reverted = true
+	return false
+}
+
+func memoryGasCost(size uint64) (uint64, bool) {
+	words := size / 32
+	hi, lo := bits.Mul64(words, words)
+	if hi >= 512 {
+		return 0, true
+	}
+	quadratic, _ := bits.Div64(hi, lo, 512)
+	linearHi, linear := bits.Mul64(words, core.GasMemory)
+	if linearHi != 0 {
+		return 0, true
+	}
+	cost, carry := bits.Add64(quadratic, linear, 0)
+	return cost, carry != 0
 }
 
 func (i *Interpreter) SetCaller(addr common.Address) {

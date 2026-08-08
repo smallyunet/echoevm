@@ -9,29 +9,32 @@ import (
 func opMstore(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe()
 	value := i.stack.PopSafe()
-	if !i.consumeMemoryExpansion(offset.Uint64(), 32) {
+	offset64, ok := i.consumeFixedMemoryExpansion(offset, 32)
+	if !ok {
 		return
 	}
-	i.memory.Set(offset.Uint64(), value)
+	i.memory.Set(offset64, value)
 }
 
 func opMstore8(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe()
 	value := i.stack.PopSafe()
-	if !i.consumeMemoryExpansion(offset.Uint64(), 1) {
+	offset64, ok := i.consumeFixedMemoryExpansion(offset, 1)
+	if !ok {
 		return
 	}
 	// MSTORE8 writes the least significant byte
 	valByte := byte(value.Uint64() & 0xff)
-	i.memory.Write(offset.Uint64(), []byte{valByte})
+	i.memory.Write(offset64, []byte{valByte})
 }
 
 func opMload(i *Interpreter, _ byte) {
 	offset := i.stack.PopSafe()
-	if !i.consumeMemoryExpansion(offset.Uint64(), 32) {
+	offset64, ok := i.consumeFixedMemoryExpansion(offset, 32)
+	if !ok {
 		return
 	}
-	bytes := i.memory.Get(offset.Uint64())
+	bytes := i.memory.Get(offset64)
 	i.stack.PushSafe(new(big.Int).SetBytes(bytes))
 }
 
