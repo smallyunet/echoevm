@@ -82,7 +82,7 @@ func verifyArchive(path string, manifest Manifest) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	stat, err := file.Stat()
 	if err != nil {
 		return false, err
@@ -103,21 +103,21 @@ func download(ctx context.Context, client *http.Client, manifest Manifest, archi
 		return err
 	}
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, manifest.URL, nil)
 	if err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("download %s: %w", manifest.Release, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("download %s: HTTP %s", manifest.Release, resp.Status)
 	}
 	hash := sha256.New()
@@ -150,7 +150,7 @@ func installArchive(archivePath, destination string, manifest Manifest) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(staging)
+	defer func() { _ = os.RemoveAll(staging) }()
 	if err := extractTarGZ(archivePath, staging); err != nil {
 		return err
 	}
@@ -183,12 +183,12 @@ func extractTarGZ(archivePath, destination string) error {
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	gz, err := gzip.NewReader(file)
 	if err != nil {
 		return err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 	tr := tar.NewReader(gz)
 	for {
 		header, err := tr.Next()
@@ -208,7 +208,7 @@ func extractTarGZ(archivePath, destination string) error {
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
