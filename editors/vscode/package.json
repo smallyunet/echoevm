@@ -2,7 +2,7 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Run Solidity functions in place with source-aware execution evidence and Geth comparison.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -185,7 +185,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Additional solc import paths, resolved relative to the workspace folder."
+          "description": "Additional solc import paths, resolved relative to the nearest Foundry project or workspace folder."
         },
         "echoevm.codeLens": {
           "type": "boolean",

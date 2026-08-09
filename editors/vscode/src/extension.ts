@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 import { EchoEVMClient } from "./client";
 import { EvidenceTreeProvider, revealEvidenceLocation } from "./evidenceView";
 import { ExecutionDecorationManager, SolidityCodeLensProvider, type FunctionTarget } from "./editorInsights";
+import { resolveSolidityProjectRoot } from "./foundry";
 import type { CommonCommandOptions, RunResult, SolidityContract, SolidityFunction } from "./protocol";
 import { scanSolidityFunctions } from "./solidityScanner";
 import { ToolchainManager } from "./toolchain";
@@ -21,7 +22,8 @@ export function activate(context: vscode.ExtensionContext): void {
   status.show();
   const refreshStatus = async (): Promise<void> => {
     const resource = vscode.window.activeTextEditor?.document.uri;
-    const result = await toolchain.diagnose(resource);
+    const projectRoot = resource ? await projectRootForResource(resource) : undefined;
+    const result = await toolchain.diagnose(resource, projectRoot);
     const ready = Boolean(result.echoevm && result.solc);
     status.text = ready ? "$(check) EchoEVM" : "$(warning) EchoEVM Setup";
     status.tooltip = ready
@@ -37,7 +39,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.languages.registerCodeLensProvider({ language: "solidity", scheme: "file" }, codeLens),
     vscode.commands.registerCommand("echoevm.setup", async () => {
       try {
-        await runSetup(toolchain, vscode.window.activeTextEditor?.document.uri);
+        const resource = vscode.window.activeTextEditor?.document.uri;
+        await runSetup(toolchain, resource, resource ? await projectRootForResource(resource) : undefined);
         await refreshStatus();
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -109,12 +112,13 @@ async function executeActiveFunction(
   }
 
   const source = document.uri.fsPath;
-  const tools = await toolchain.ensureReady(document.uri);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+  const projectRoot = await resolveSolidityProjectRoot(source, workspaceFolder?.uri.fsPath);
+  const tools = await toolchain.ensureReady(document.uri, projectRoot);
   if (!tools) {
     return;
   }
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-  const cwd = workspaceFolder?.uri.fsPath ?? path.dirname(source);
+  const cwd = projectRoot;
   const configuration = vscode.workspace.getConfiguration("echoevm", document.uri);
   const executable = tools.echoevm;
   const solcPath = tools.solc;
@@ -129,6 +133,7 @@ async function executeActiveFunction(
     optimize, optimizerRuns, viaIR, remappings,
   };
   const client = new EchoEVMClient(executable, tools.environment);
+  output.info(`Project root: ${projectRoot}`);
 
   try {
     const inspection = await vscode.window.withProgress(
@@ -241,8 +246,8 @@ function targetForSelection(document: vscode.TextDocument, fn: SolidityFunction)
   return { uri: document.uri.toString(), name: fn.name, offset: declaration?.offset ?? 0 };
 }
 
-async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Promise<void> {
-  const current = await toolchain.diagnose(resource);
+async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri, projectRoot?: string): Promise<void> {
+  const current = await toolchain.diagnose(resource, projectRoot);
   const choices: string[] = [
     "Show detected versions",
     "Install or update EchoEVM CLI",
@@ -275,6 +280,14 @@ async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Pro
   } else if (action === "Open Solidity installation guide") {
     await vscode.env.openExternal(vscode.Uri.parse("https://docs.soliditylang.org/en/latest/installing-solidity.html"));
   }
+}
+
+async function projectRootForResource(resource: vscode.Uri): Promise<string | undefined> {
+  if (resource.scheme !== "file" || path.extname(resource.fsPath).toLowerCase() !== ".sol") {
+    return undefined;
+  }
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(resource);
+  return resolveSolidityProjectRoot(resource.fsPath, workspaceFolder?.uri.fsPath);
 }
 
 async function openExample(context: vscode.ExtensionContext): Promise<void> {

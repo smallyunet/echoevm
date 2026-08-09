@@ -35,9 +35,9 @@ export class ToolchainManager {
     private readonly output: vscode.LogOutputChannel,
   ) {}
 
-  public async diagnose(resource?: vscode.Uri): Promise<ToolStatus> {
+  public async diagnose(resource?: vscode.Uri, projectRoot?: string): Promise<ToolStatus> {
     const echoevm = await this.resolveEchoEVM(resource);
-    const solc = await this.resolveSolc(resource);
+    const solc = await this.resolveSolc(resource, projectRoot);
     const [echoVersion, solcVersion] = await Promise.all([
       probe(echoevm, ["version", "--json"]),
       probe(solc.path, [...solc.args, "--version"], solc.environment),
@@ -48,8 +48,8 @@ export class ToolchainManager {
     };
   }
 
-  public async ensureReady(resource: vscode.Uri): Promise<ResolvedToolchain | undefined> {
-    let status = await this.diagnose(resource);
+  public async ensureReady(resource: vscode.Uri, projectRoot?: string): Promise<ResolvedToolchain | undefined> {
+    let status = await this.diagnose(resource, projectRoot);
     if (!status.echoevm) {
       const action = await vscode.window.showWarningMessage(
         "EchoEVM CLI is required to run Solidity functions.",
@@ -73,7 +73,7 @@ export class ToolchainManager {
       } else {
         return undefined;
       }
-      status = await this.diagnose(resource);
+      status = await this.diagnose(resource, projectRoot);
     }
     if (status.echoevm && !isVersionAtLeast(status.echoevm.version, minimumEchoEVMVersion)) {
       const action = await vscode.window.showWarningMessage(
@@ -98,7 +98,7 @@ export class ToolchainManager {
       } else {
         return undefined;
       }
-      status = await this.diagnose(resource);
+      status = await this.diagnose(resource, projectRoot);
     }
     if (status.echoevm && !isVersionAtLeast(status.echoevm.version, minimumEchoEVMVersion)) {
       await vscode.window.showErrorMessage(
@@ -114,7 +114,7 @@ export class ToolchainManager {
       );
       if (action === "Choose solc") {
         await this.chooseExecutable("solcPath", "Select solc or solcjs");
-        status = await this.diagnose(resource);
+        status = await this.diagnose(resource, projectRoot);
       } else if (action === "Installation Guide") {
         await vscode.env.openExternal(vscode.Uri.parse("https://docs.soliditylang.org/en/latest/installing-solidity.html"));
       }
@@ -122,7 +122,7 @@ export class ToolchainManager {
     if (!status.echoevm || !status.solc) {
       return undefined;
     }
-    const compiler = await this.resolveSolc(resource);
+    const compiler = await this.resolveSolc(resource, projectRoot);
     return {
       echoevm: status.echoevm.path,
       solc: compiler.path,
@@ -211,19 +211,20 @@ export class ToolchainManager {
     return await isExecutable(managed) ? managed : configured;
   }
 
-  private async resolveSolc(resource?: vscode.Uri): Promise<{ path: string; args: string[]; environment?: NodeJS.ProcessEnv }> {
+  private async resolveSolc(resource?: vscode.Uri, projectRoot?: string): Promise<{ path: string; args: string[]; environment?: NodeJS.ProcessEnv }> {
     const configured = vscode.workspace.getConfiguration("echoevm", resource).get<string>("solcPath", "solc");
     if (configured !== "solc") {
       return { path: configured, args: [] };
     }
     const folder = resource ? vscode.workspace.getWorkspaceFolder(resource) : undefined;
-    const foundryCompiler = folder ? await resolveFoundrySolc(folder.uri.fsPath) : undefined;
+    const toolRoot = projectRoot ?? folder?.uri.fsPath;
+    const foundryCompiler = toolRoot ? await resolveFoundrySolc(toolRoot) : undefined;
     if (foundryCompiler) {
       return { path: foundryCompiler, args: [] };
     }
-    const candidates = folder && process.platform !== "win32" ? [
-      path.join(folder.uri.fsPath, "node_modules", ".bin", "solc"),
-      path.join(folder.uri.fsPath, "node_modules", ".bin", "solcjs"),
+    const candidates = toolRoot && process.platform !== "win32" ? [
+      path.join(toolRoot, "node_modules", ".bin", "solc"),
+      path.join(toolRoot, "node_modules", ".bin", "solcjs"),
     ] : [];
     for (const candidate of candidates) {
       if (await isExecutable(candidate)) {

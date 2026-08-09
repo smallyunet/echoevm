@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Detect the nearest nested Foundry project for an open Solidity file instead of assuming the outermost VS Code workspace is the compiler root.
+- Resolve Foundry remappings, libraries, project-local compilers, and pinned SVM compiler versions from that detected project root.
+- Resolve configured include paths relative to the detected Solidity project and log the selected root for troubleshooting.
+
 ## 0.1.0
 
 - Add Run and Compare CodeLens actions above Solidity function declarations.

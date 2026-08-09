@@ -24,6 +24,30 @@ export function parseFoundrySolcVersion(contents: string, requestedProfile = pro
   return profiles.get(requestedProfile) ?? profiles.get("default");
 }
 
+export async function resolveSolidityProjectRoot(sourcePath: string, workspaceFolder?: string): Promise<string> {
+  const sourceDirectory = path.dirname(path.resolve(sourcePath));
+  const boundary = workspaceFolder ? path.resolve(workspaceFolder) : undefined;
+  if (boundary && !isPathWithin(boundary, sourceDirectory)) {
+    return sourceDirectory;
+  }
+
+  let candidate = sourceDirectory;
+  while (true) {
+    if (await hasProjectMarker(candidate)) {
+      return candidate;
+    }
+    if (candidate === boundary) {
+      break;
+    }
+    const parent = path.dirname(candidate);
+    if (parent === candidate || (boundary && !isPathWithin(boundary, parent))) {
+      break;
+    }
+    candidate = parent;
+  }
+  return boundary ?? sourceDirectory;
+}
+
 export async function resolveFoundrySolc(workspaceFolder: string): Promise<string | undefined> {
   let contents: string;
   try {
@@ -43,4 +67,21 @@ export async function resolveFoundrySolc(workspaceFolder: string): Promise<strin
   } catch {
     return undefined;
   }
+}
+
+async function hasProjectMarker(directory: string): Promise<boolean> {
+  for (const marker of ["foundry.toml", "remappings.txt"]) {
+    try {
+      await access(path.join(directory, marker), fsConstants.F_OK);
+      return true;
+    } catch {
+      // Keep walking toward the workspace boundary.
+    }
+  }
+  return false;
+}
+
+function isPathWithin(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === "" || (!relative.startsWith(`..${path.sep}`) && relative !== ".." && !path.isAbsolute(relative));
 }
