@@ -38,6 +38,8 @@ assert.equal(inspection.schemaVersion, 1);
 const counter = inspection.contracts.find((contract) => contract.name === "Counter");
 assert.ok(counter);
 assert.equal(counter.functions[0].signature, "increment()");
+assert.equal(counter.functions[0].sourceLocation.file, "Counter.sol");
+assert.ok(counter.functions[0].sourceLocation.length > 0);
 
 const result = JSON.parse((await execute(echoevm, [
   "solidity", "run", source, ...common,
@@ -48,4 +50,6 @@ const result = JSON.parse((await execute(echoevm, [
 assert.equal(result.schemaVersion, 1);
 assert.equal(result.execution.status, "success");
 assert.ok(result.execution.trace.length > 0);
+assert.ok(result.sourceMap.locations.length > 0);
+assert.ok(result.sourceMap.locations.some((location) => location.file === "Counter.sol"));
 console.log(`EchoEVM client smoke passed with ${result.execution.trace.length} trace steps.`);

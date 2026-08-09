@@ -1,8 +1,8 @@
 {
   "name": "echoevm",
   "displayName": "EchoEVM",
-  "description": "Compile, run, trace, and differentially compare Solidity functions with EchoEVM.",
-  "version": "0.0.6",
+  "description": "Run Solidity functions in place with source-aware execution evidence and Geth comparison.",
+  "version": "0.1.0",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {
@@ -46,9 +46,33 @@
     "onCommand:echoevm.showLastTrace",
     "onCommand:echoevm.setup",
     "onCommand:echoevm.openExample",
+    "onView:echoevm.executionEvidence",
     "onLanguage:solidity"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "echoevm",
+          "title": "EchoEVM",
+          "icon": "images/echoevm-view.svg"
+        }
+      ]
+    },
+    "views": {
+      "echoevm": [
+        {
+          "id": "echoevm.executionEvidence",
+          "name": "Execution Evidence"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "echoevm.executionEvidence",
+        "contents": "Run a Solidity function to inspect status, gas, state, source locations, and key execution steps.\n[Run Active Function](command:echoevm.runFunction)"
+      }
+    ],
     "commands": [
       {
         "command": "echoevm.runFunction",
@@ -73,6 +97,16 @@
         "command": "echoevm.openExample",
         "title": "EchoEVM: Open Getting Started Example",
         "icon": "$(beaker)"
+      },
+      {
+        "command": "echoevm.runAtFunction",
+        "title": "EchoEVM: Run This Function",
+        "icon": "$(play)"
+      },
+      {
+        "command": "echoevm.compareAtFunction",
+        "title": "EchoEVM: Compare This Function with Geth",
+        "icon": "$(compare-changes)"
       }
     ],
     "menus": {
@@ -152,6 +186,16 @@
           },
           "default": [],
           "description": "Additional solc import paths, resolved relative to the workspace folder."
+        },
+        "echoevm.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Run and Compare actions above Solidity function declarations."
+        },
+        "echoevm.inlineResults": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the latest execution result beside its Solidity source location and report execution failures in Problems."
         }
       }
     }

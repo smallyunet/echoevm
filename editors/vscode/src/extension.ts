@@ -1,7 +1,10 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { EchoEVMClient } from "./client";
+import { EvidenceTreeProvider, revealEvidenceLocation } from "./evidenceView";
+import { ExecutionDecorationManager, SolidityCodeLensProvider, type FunctionTarget } from "./editorInsights";
 import type { CommonCommandOptions, RunResult, SolidityContract, SolidityFunction } from "./protocol";
+import { scanSolidityFunctions } from "./solidityScanner";
 import { ToolchainManager } from "./toolchain";
 import { showTracePanel } from "./tracePanel";
 
@@ -10,6 +13,9 @@ let lastResult: RunResult | undefined;
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("EchoEVM", { log: true });
   const toolchain = new ToolchainManager(context, output);
+  const evidence = new EvidenceTreeProvider();
+  const codeLens = new SolidityCodeLensProvider();
+  const decorations = new ExecutionDecorationManager();
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 30);
   status.command = "echoevm.setup";
   status.show();
@@ -26,6 +32,9 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     output,
     status,
+    decorations,
+    vscode.window.registerTreeDataProvider("echoevm.executionEvidence", evidence),
+    vscode.languages.registerCodeLensProvider({ language: "solidity", scheme: "file" }, codeLens),
     vscode.commands.registerCommand("echoevm.setup", async () => {
       try {
         await runSetup(toolchain, vscode.window.activeTextEditor?.document.uri);
@@ -38,13 +47,22 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("echoevm.openExample", () => openExample(context)),
     vscode.commands.registerCommand("echoevm.runFunction", async () => {
-      await executeActiveFunction(output, toolchain, false);
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, false);
       await refreshStatus();
     }),
     vscode.commands.registerCommand("echoevm.runAndCompare", async () => {
-      await executeActiveFunction(output, toolchain, true);
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, true);
       await refreshStatus();
     }),
+    vscode.commands.registerCommand("echoevm.runAtFunction", async (target: FunctionTarget) => {
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, false, target);
+      await refreshStatus();
+    }),
+    vscode.commands.registerCommand("echoevm.compareAtFunction", async (target: FunctionTarget) => {
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, true, target);
+      await refreshStatus();
+    }),
+    vscode.commands.registerCommand("echoevm.revealEvidenceLocation", revealEvidenceLocation),
     vscode.commands.registerCommand("echoevm.showLastTrace", () => {
       if (!lastResult) {
         void vscode.window.showInformationMessage("Run a Solidity function with EchoEVM first.");
@@ -56,6 +74,12 @@ export function activate(context: vscode.ExtensionContext): void {
       if (event.affectsConfiguration("echoevm")) {
         void refreshStatus();
       }
+      if (event.affectsConfiguration("echoevm.codeLens")) {
+        codeLens.refresh();
+      }
+      if (event.affectsConfiguration("echoevm.inlineResults") && !vscode.workspace.getConfiguration("echoevm").get<boolean>("inlineResults", true)) {
+        decorations.clear();
+      }
     }),
   );
   void refreshStatus();
@@ -63,25 +87,35 @@ export function activate(context: vscode.ExtensionContext): void {
 
 export function deactivate(): void {}
 
-async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain: ToolchainManager, diff: boolean): Promise<void> {
-  const editor = vscode.window.activeTextEditor;
-  if (!editor || path.extname(editor.document.uri.fsPath).toLowerCase() !== ".sol") {
+async function executeActiveFunction(
+  output: vscode.LogOutputChannel,
+  toolchain: ToolchainManager,
+  evidence: EvidenceTreeProvider,
+  codeLens: SolidityCodeLensProvider,
+  decorations: ExecutionDecorationManager,
+  diff: boolean,
+  requestedTarget?: FunctionTarget,
+): Promise<void> {
+  const document = requestedTarget
+    ? await vscode.workspace.openTextDocument(vscode.Uri.parse(requestedTarget.uri))
+    : vscode.window.activeTextEditor?.document;
+  if (!document || path.extname(document.uri.fsPath).toLowerCase() !== ".sol") {
     await vscode.window.showErrorMessage("Open a Solidity (.sol) file before running EchoEVM.");
     return;
   }
-  if (editor.document.isDirty && !(await editor.document.save())) {
+  if (document.isDirty && !(await document.save())) {
     await vscode.window.showErrorMessage("Save the Solidity file before running EchoEVM.");
     return;
   }
 
-  const source = editor.document.uri.fsPath;
-  const tools = await toolchain.ensureReady(editor.document.uri);
+  const source = document.uri.fsPath;
+  const tools = await toolchain.ensureReady(document.uri);
   if (!tools) {
     return;
   }
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
   const cwd = workspaceFolder?.uri.fsPath ?? path.dirname(source);
-  const configuration = vscode.workspace.getConfiguration("echoevm", editor.document.uri);
+  const configuration = vscode.workspace.getConfiguration("echoevm", document.uri);
   const executable = tools.echoevm;
   const solcPath = tools.solc;
   const includePaths = configuration.get<string[]>("includePaths", []).map((item) => path.resolve(cwd, item));
@@ -101,11 +135,11 @@ async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain:
       { location: vscode.ProgressLocation.Notification, title: "EchoEVM: compiling Solidity", cancellable: true },
       (_progress, token) => client.inspect(common, cwd, token),
     );
-    const contract = await pickContract(inspection.contracts);
+    const contract = await pickContract(inspection.contracts, requestedTarget);
     if (!contract) {
       return;
     }
-    const solidityFunction = await pickFunction(contract);
+    const solidityFunction = await pickFunction(contract, requestedTarget);
     if (!solidityFunction) {
       return;
     }
@@ -133,13 +167,20 @@ async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain:
     );
     lastResult = result;
     writeResult(output, result);
-    output.show(true);
+    const runTarget = requestedTarget ?? targetForSelection(document, solidityFunction);
+    evidence.update(result, cwd);
+    codeLens.update(runTarget, result);
+    await decorations.update(result, cwd, runTarget);
+    await vscode.commands.executeCommand("echoevm.executionEvidence.focus");
     const verdict = result.comparison ? (result.comparison.match ? "MATCH" : "DIVERGENCE") : result.execution.status.toUpperCase();
     const action = await vscode.window.showInformationMessage(
       `EchoEVM ${verdict}: ${result.contract}.${result.function} used ${result.execution.gasUsed} gas.`,
+      "Show Evidence",
       "Show Trace",
     );
-    if (action === "Show Trace") {
+    if (action === "Show Evidence") {
+      await vscode.commands.executeCommand("echoevm.executionEvidence.focus");
+    } else if (action === "Show Trace") {
       showTracePanel(result);
     }
   } catch (error) {
@@ -150,29 +191,35 @@ async function executeActiveFunction(output: vscode.LogOutputChannel, toolchain:
   }
 }
 
-async function pickContract(contracts: SolidityContract[]): Promise<SolidityContract | undefined> {
+async function pickContract(contracts: SolidityContract[], target?: FunctionTarget): Promise<SolidityContract | undefined> {
   if (contracts.length === 0) {
     throw new Error("solc produced no deployable contracts.");
   }
-  if (contracts.length === 1) {
-    return contracts[0];
+  const candidates = target
+    ? contracts.filter((contract) => contract.functions.some((fn) => functionMatchesTarget(fn, target)))
+    : contracts;
+  const available = candidates.length > 0 ? candidates : contracts;
+  if (available.length === 1) {
+    return available[0];
   }
   const selected = await vscode.window.showQuickPick(
-    contracts.map((contract) => ({ label: contract.name, detail: contract.key, contract })),
+    available.map((contract) => ({ label: contract.name, detail: contract.key, contract })),
     { title: "Select a contract to deploy", placeHolder: "Solidity contract" },
   );
   return selected?.contract;
 }
 
-async function pickFunction(contract: SolidityContract): Promise<SolidityFunction | undefined> {
+async function pickFunction(contract: SolidityContract, target?: FunctionTarget): Promise<SolidityFunction | undefined> {
   if (contract.functions.length === 0) {
     throw new Error(`${contract.name} exposes no ABI functions.`);
   }
-  if (contract.functions.length === 1) {
-    return contract.functions[0];
+  const candidates = target ? contract.functions.filter((fn) => functionMatchesTarget(fn, target)) : contract.functions;
+  const available = candidates.length > 0 ? candidates : contract.functions;
+  if (available.length === 1) {
+    return available[0];
   }
   const selected = await vscode.window.showQuickPick(
-    contract.functions.map((solidityFunction) => ({
+    available.map((solidityFunction) => ({
       label: solidityFunction.signature,
       description: solidityFunction.stateMutability,
       detail: outputDescription(solidityFunction),
@@ -181,6 +228,17 @@ async function pickFunction(contract: SolidityContract): Promise<SolidityFunctio
     { title: `Select a function from ${contract.name}`, placeHolder: "ABI function" },
   );
   return selected?.solidityFunction;
+}
+
+function functionMatchesTarget(fn: SolidityFunction, target: FunctionTarget): boolean {
+  if (fn.name !== target.name) return false;
+  const location = fn.sourceLocation;
+  return !location || (target.offset >= location.start && target.offset <= location.start + location.length);
+}
+
+function targetForSelection(document: vscode.TextDocument, fn: SolidityFunction): FunctionTarget {
+  const declaration = scanSolidityFunctions(document.getText()).find((candidate) => candidate.name === fn.name);
+  return { uri: document.uri.toString(), name: fn.name, offset: declaration?.offset ?? 0 };
 }
 
 async function runSetup(toolchain: ToolchainManager, resource?: vscode.Uri): Promise<void> {

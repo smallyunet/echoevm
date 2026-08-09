@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0
+
+- Add Run and Compare CodeLens actions above Solidity function declarations.
+- Show the latest status and gas result in the editor without replacing the source view.
+- Add an Execution Evidence view for status, gas, storage, Geth comparison, key opcodes, and source navigation.
+- Map runtime program counters and ABI functions back to Solidity source ranges when used with a source-aware EchoEVM CLI.
+- Report concrete execution reverts and faults in VS Code Problems; no static security findings are inferred.
+- Add settings to disable CodeLens or inline execution results independently.
+
 ## 0.0.6
 
 - Auto-detect Foundry remappings, optimizer settings, optimizer runs, and `via_ir` through the EchoEVM CLI.

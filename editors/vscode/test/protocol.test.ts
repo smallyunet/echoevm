@@ -75,6 +75,20 @@ test("parseProtocolOutput accepts version one results", () => {
   assert.equal(result.compiler.version, "0.8.30");
 });
 
+test("parseProtocolOutput preserves optional source-aware metadata", () => {
+  const result = parseProtocolOutput<RunResult>(JSON.stringify({
+    schemaVersion: 1,
+    source: "Counter.sol",
+    contract: "Counter",
+    function: "increment()",
+    compiler: { executable: "solc", version: "0.8.30" },
+    durationMs: 4,
+    execution: { engine: "EchoEVM", engineVersion: "dev", status: "success", returnData: "0x", gasUsed: 12, storage: {}, trace: [] },
+    sourceMap: { locations: [{ pc: 0, file: "Counter.sol", start: 40, length: 12 }] },
+  }));
+  assert.equal(result.sourceMap?.locations[0]?.start, 40);
+});
+
 test("parseProtocolOutput rejects incompatible or malformed output", () => {
   assert.throws(() => parseProtocolOutput<RunResult>("not-json"), /invalid JSON/);
   assert.throws(() => parseProtocolOutput<RunResult>(JSON.stringify({ schemaVersion: 2 })), /protocol version: 2/);

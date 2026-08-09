@@ -218,8 +218,11 @@ Codex and Gemini CLI discover the canonical Skills under `.agents/skills`.
 Claude Code uses the synchronized copies under `.claude/skills`. Tagged GitHub
 releases also include installable `.skill` archives.
 
-The [VS Code extension](editors/vscode/README.md) can inspect contracts, select
-an ABI function, run or compare it, and show opcode traces without starting a
+The [VS Code extension](editors/vscode/README.md) adds Run and Compare CodeLens
+actions above Solidity functions, shows the latest status and gas result beside
+the source, reports concrete execution failures in Problems, and organizes
+state, comparison, and key-opcode evidence in a source-navigable side view.
+The complete opcode table remains available on demand, without starting a
 JSON-RPC node.
 
 Local Solidity source is not sent to the hosted Explorer by these integrations.

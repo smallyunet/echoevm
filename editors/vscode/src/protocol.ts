@@ -11,6 +11,21 @@ export interface SolidityFunction {
   inputs: SolidityParameter[];
   outputs: SolidityParameter[];
   stateMutability: string;
+  sourceLocation?: SourceLocation;
+}
+
+export interface SourceLocation {
+  file: string;
+  start: number;
+  length: number;
+}
+
+export interface PCSourceLocation extends SourceLocation {
+  pc: number;
+}
+
+export interface RuntimeSourceMap {
+  locations: PCSourceLocation[];
 }
 
 export interface SolidityContract {
@@ -90,6 +105,7 @@ export interface RunResult {
   durationMs: number;
   execution: ExecutionResult;
   comparison?: ComparisonResult;
+  sourceMap?: RuntimeSourceMap;
 }
 
 export interface ErrorResult {

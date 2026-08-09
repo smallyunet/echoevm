@@ -1,7 +1,8 @@
 # EchoEVM for VS Code
 
-Compile, deploy, run, trace, and differentially compare a Solidity function
-without starting a local JSON-RPC node.
+Compile, deploy, run, explain, and differentially compare Solidity functions
+without starting a local JSON-RPC node. EchoEVM keeps execution evidence next
+to the source and exposes the complete opcode trace only when requested.
 
 ## Two-minute start
 
@@ -41,6 +42,23 @@ remote extension runtime rather than on the local desktop.
 3. Select a deployable contract and ABI function.
 4. Enter constructor and function arguments when prompted.
 5. Review the result in the EchoEVM output channel. Run **EchoEVM: Show Last Trace** for the opcode table.
+
+## Source-aware execution evidence
+
+Every Solidity function declaration has **EchoEVM Run** and **Compare with
+Geth** CodeLens actions. After a run, the extension:
+
+- shows the latest status and gas usage beside the relevant source line;
+- reports a concrete REVERT or fault in VS Code Problems;
+- fills the **EchoEVM: Execution Evidence** view with gas, state, comparison,
+  and selected control/state-changing opcodes;
+- maps a terminal opcode or first divergence back to Solidity when the CLI
+  provides a runtime source map; and
+- keeps the full opcode table available through **Show Last Trace**.
+
+Inline results describe only the executed input. They are not static security
+findings. Disable them with `echoevm.inlineResults`, or disable function actions
+with `echoevm.codeLens`.
 
 ## Trust and downloads
 

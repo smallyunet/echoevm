@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.41
+**Current Version**: v0.0.44
 
 ---
 
@@ -71,6 +71,9 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.39 | Explainable opcode-event protocol, top-level rollback conformance, and auditable trace-value benchmark |
 | v0.0.40 | Compact causal evidence profiles with benchmarked long-trace token savings |
 | v0.0.41 | Solidity source-run causal evidence, nested frame/value links, and a formal compiled-Solidity benchmark |
+| v0.0.42 | Fork conformance baseline and official EEST fixture audit infrastructure |
+| v0.0.43 | CI-clean compatibility release |
+| v0.0.44 | Source-aware Solidity inspection and runtime PC mapping for editor execution evidence |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -109,8 +112,9 @@ Tools and integrations for enhanced developer productivity.
 - [x] Web Debugger UI - Browser-based EVM execution visualizer
 - [x] **Solidity Source Runner** - Compile, deploy, call, trace, and differentially compare one contract function
 - [x] **VS Code Extension MVP** - Inspect, run, compare, and display opcode traces from `.sol` files
+- [x] **Source-Aware VS Code Evidence** - Function CodeLens, inline execution results, Problems diagnostics, evidence tree, and PC-to-source navigation
 - [x] **Agent Skills** - Debug contracts and transactions or validate conformance from Codex, Gemini CLI, and Claude Code
-- [ ] **Source-Mapped Editor Actions** - Deferred unless needed by agent source attribution
+- [ ] **Source-Level Debug Controls** - Breakpoints and step controls remain deferred; source-mapped execution evidence is available
 - [ ] **Step-by-Step Human Debugging** - Deferred; bounded agent trace windows take priority
 - [ ] **Gas Profiler** - Deferred in favor of per-opcode semantic gas explanations
 - [ ] **Contract Analyzer** - Deferred; EchoEVM provides execution evidence, not scanner claims

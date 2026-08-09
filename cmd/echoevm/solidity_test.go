@@ -13,7 +13,7 @@ import (
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
-const fakeSolcOutput = `{"contracts":{"Example.sol":{"Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"evm":{"bytecode":{"object":"67602a5f5260205ff360005260086018f3"},"deployedBytecode":{"object":"602a5f5260205ff3"}}}}}}`
+const fakeSolcOutput = `{"contracts":{"Example.sol":{"Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"evm":{"bytecode":{"object":"67602a5f5260205ff360005260086018f3"},"deployedBytecode":{"object":"602a5f5260205ff3","sourceMap":"18:42:0;18:42:0;30:10:0;30:10:0;45:5:0;18:42:0"}}}}},"sources":{"Example.sol":{"id":0,"ast":{"nodeType":"SourceUnit","src":"0:80:0","nodes":[{"nodeType":"ContractDefinition","name":"Answer","src":"0:80:0","nodes":[{"nodeType":"FunctionDefinition","name":"add","functionSelector":"771602f7","src":"18:42:0"}]}]}}}}`
 
 func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if runtime.GOOS == "windows" {
@@ -52,6 +52,9 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	}
 	if result.Execution.Trace != nil || result.Comparison.Geth.Trace != nil {
 		t.Fatal("JSON output included traces without --trace")
+	}
+	if result.SourceMap == nil || len(result.SourceMap.Locations) != 6 || result.SourceMap.Locations[1].PC != 2 {
+		t.Fatalf("runtime source map missing or incorrect: %+v", result.SourceMap)
 	}
 	if strings.Contains(output.String(), `"bytecode"`) || strings.Contains(output.String(), `"initCode"`) {
 		t.Fatalf("editor JSON leaked full execution request: %s", output.String())
@@ -204,6 +207,23 @@ func TestSolidityInspectListsContractsAndFunctions(t *testing.T) {
 	}
 	if result.Contracts[0].Functions[0].Signature != "add(uint256,uint256)" {
 		t.Fatalf("unexpected function: %+v", result.Contracts[0].Functions[0])
+	}
+	location := result.Contracts[0].Functions[0].SourceLocation
+	if location == nil || location.File != "Example.sol" || location.Start != 18 || location.Length != 42 {
+		t.Fatalf("unexpected function source location: %+v", location)
+	}
+}
+
+func TestSolidityInstructionPCsSkipsPushData(t *testing.T) {
+	got := solidityInstructionPCs([]byte{0x60, 0xaa, 0x7f, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 0x00})
+	want := []uint64{0, 2, 35}
+	if len(got) != len(want) {
+		t.Fatalf("pcs = %v, want %v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("pcs = %v, want %v", got, want)
+		}
 	}
 }
 

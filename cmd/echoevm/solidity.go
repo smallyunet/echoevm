@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -49,7 +51,27 @@ type compiledSolidityContract struct {
 	name                string
 	constructorBytecode string
 	runtimeBytecode     string
+	runtimeSourceMap    string
 	abi                 gethabi.ABI
+	functionLocations   map[string]soliditySourceLocation
+	sourceNames         map[int]string
+}
+
+type soliditySourceLocation struct {
+	File   string `json:"file"`
+	Start  int    `json:"start"`
+	Length int    `json:"length"`
+}
+
+type solidityPCSourceLocation struct {
+	PC     uint64 `json:"pc"`
+	File   string `json:"file"`
+	Start  int    `json:"start"`
+	Length int    `json:"length"`
+}
+
+type solidityRuntimeSourceMap struct {
+	Locations []solidityPCSourceLocation `json:"locations"`
 }
 
 type solidityRunOutput struct {
@@ -62,6 +84,7 @@ type solidityRunOutput struct {
 	Execution     differential.ExecutionResult   `json:"execution"`
 	Comparison    *differential.ComparisonResult `json:"-"`
 	Evidence      *explaintrace.EvidenceDocument `json:"-"`
+	SourceMap     *solidityRuntimeSourceMap      `json:"-"`
 }
 
 type solidityEvidenceJSONOutput struct {
@@ -98,6 +121,7 @@ type solidityRunJSONOutput struct {
 	DurationMS    int64                        `json:"durationMs"`
 	Execution     differential.ExecutionResult `json:"execution"`
 	Comparison    *solidityComparisonOutput    `json:"comparison,omitempty"`
+	SourceMap     *solidityRuntimeSourceMap    `json:"sourceMap,omitempty"`
 }
 
 type solidityRunSummaryJSONOutput struct {
@@ -122,6 +146,7 @@ type solidityFunctionOutput struct {
 	Inputs          []solidityParameterOutput `json:"inputs"`
 	Outputs         []solidityParameterOutput `json:"outputs"`
 	StateMutability string                    `json:"stateMutability"`
+	SourceLocation  *soliditySourceLocation   `json:"sourceLocation,omitempty"`
 }
 
 type solidityContractOutput struct {
@@ -145,6 +170,14 @@ type solidityErrorOutput struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
 	} `json:"error"`
+}
+
+type solcASTNode struct {
+	NodeType         string        `json:"nodeType"`
+	Name             string        `json:"name"`
+	Src              string        `json:"src"`
+	FunctionSelector string        `json:"functionSelector"`
+	Nodes            []solcASTNode `json:"nodes"`
 }
 
 type reportedSolidityError struct{ message string }
@@ -273,7 +306,8 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	result := solidityRunOutput{
 		SchemaVersion: solidityProtocolVersion,
 		Source:        source, Contract: contract.name, Function: method.Sig,
-		Compiler: solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
+		Compiler:  solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
+		SourceMap: buildRuntimeSourceMap(contract),
 	}
 	if flags.format == "evidence-json" {
 		execution, events, explainErr := engine.RunEchoExplain(ctx, req, flags.maxMemoryBytes)
@@ -336,10 +370,17 @@ func runSolidityInspect(ctx context.Context, out io.Writer, source string, flags
 			Constructor: solidityParameters(contract.abi.Constructor.Inputs),
 		}
 		for _, method := range contract.abi.Methods {
+			location := contract.functionLocations[fmt.Sprintf("%x", method.ID)]
+			var sourceLocation *soliditySourceLocation
+			if location.File != "" {
+				copy := location
+				sourceLocation = &copy
+			}
 			item.Functions = append(item.Functions, solidityFunctionOutput{
 				Name: method.RawName, Signature: method.Sig,
 				Inputs: solidityParameters(method.Inputs), Outputs: solidityParameters(method.Outputs),
 				StateMutability: method.StateMutability,
+				SourceLocation:  sourceLocation,
 			})
 		}
 		sort.Slice(item.Functions, func(i, j int) bool { return item.Functions[i].Signature < item.Functions[j].Signature })
@@ -425,7 +466,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 	compilerInput.Settings.Remappings = compilerSettings.Remappings
 	compilerInput.Settings.EVMVersion = "cancun"
 	compilerInput.Settings.OutputSelection = map[string]map[string][]string{
-		"*": {"*": {"abi", "evm.bytecode.object", "evm.deployedBytecode.object"}},
+		"*": {
+			"*": {"abi", "evm.bytecode.object", "evm.deployedBytecode.object", "evm.deployedBytecode.sourceMap"},
+			"":  {"ast"},
+		},
 	}
 	standardJSON, err := json.Marshal(compilerInput)
 	if err != nil {
@@ -466,10 +510,15 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 					Object string `json:"object"`
 				} `json:"bytecode"`
 				DeployedBytecode struct {
-					Object string `json:"object"`
+					Object    string `json:"object"`
+					SourceMap string `json:"sourceMap"`
 				} `json:"deployedBytecode"`
 			} `json:"evm"`
 		} `json:"contracts"`
+		Sources map[string]struct {
+			ID  int         `json:"id"`
+			AST solcASTNode `json:"ast"`
+		} `json:"sources"`
 		Errors []struct {
 			Severity         string `json:"severity"`
 			Message          string `json:"message"`
@@ -493,6 +542,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		return nil, fmt.Errorf("solc compilation failed: %s", strings.Join(compilerErrors, "\n"))
 	}
 	contracts := make([]compiledSolidityContract, 0)
+	sourceNames := make(map[int]string, len(compiledOutput.Sources))
+	for name, source := range compiledOutput.Sources {
+		sourceNames[source.ID] = name
+	}
 	for sourceName, sourceContracts := range compiledOutput.Contracts {
 		for contractName, artifact := range sourceContracts {
 			if artifact.EVM.DeployedBytecode.Object == "" {
@@ -505,7 +558,10 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 			}
 			contracts = append(contracts, compiledSolidityContract{
 				key: key, name: contractName, constructorBytecode: "0x" + artifact.EVM.Bytecode.Object,
-				runtimeBytecode: "0x" + artifact.EVM.DeployedBytecode.Object, abi: parsedABI,
+				runtimeBytecode:  "0x" + artifact.EVM.DeployedBytecode.Object,
+				runtimeSourceMap: artifact.EVM.DeployedBytecode.SourceMap,
+				abi:              parsedABI, sourceNames: sourceNames,
+				functionLocations: solidityFunctionLocations(compiledOutput.Sources[sourceName].AST, contractName, sourceNames),
 			})
 		}
 	}
@@ -514,6 +570,96 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 		return nil, fmt.Errorf("solc produced no deployable contracts for %s", source)
 	}
 	return contracts, nil
+}
+
+func solidityFunctionLocations(ast solcASTNode, contractName string, sourceNames map[int]string) map[string]soliditySourceLocation {
+	locations := make(map[string]soliditySourceLocation)
+	for _, contract := range ast.Nodes {
+		if contract.NodeType != "ContractDefinition" || contract.Name != contractName {
+			continue
+		}
+		for _, node := range contract.Nodes {
+			if node.NodeType != "FunctionDefinition" || node.FunctionSelector == "" {
+				continue
+			}
+			location, ok := parseSoliditySourceLocation(node.Src, sourceNames)
+			if ok {
+				locations[strings.ToLower(node.FunctionSelector)] = location
+			}
+		}
+	}
+	return locations
+}
+
+func parseSoliditySourceLocation(src string, sourceNames map[int]string) (soliditySourceLocation, bool) {
+	parts := strings.Split(src, ":")
+	if len(parts) < 3 {
+		return soliditySourceLocation{}, false
+	}
+	start, startErr := strconv.Atoi(parts[0])
+	length, lengthErr := strconv.Atoi(parts[1])
+	fileID, fileErr := strconv.Atoi(parts[2])
+	file := sourceNames[fileID]
+	if startErr != nil || lengthErr != nil || fileErr != nil || start < 0 || length < 0 || file == "" {
+		return soliditySourceLocation{}, false
+	}
+	return soliditySourceLocation{File: file, Start: start, Length: length}, true
+}
+
+func buildRuntimeSourceMap(contract compiledSolidityContract) *solidityRuntimeSourceMap {
+	if contract.runtimeSourceMap == "" {
+		return nil
+	}
+	code, err := hex.DecodeString(strings.TrimPrefix(contract.runtimeBytecode, "0x"))
+	if err != nil {
+		return nil
+	}
+	pcs := solidityInstructionPCs(code)
+	segments := strings.Split(contract.runtimeSourceMap, ";")
+	locations := make([]solidityPCSourceLocation, 0, len(segments))
+	start, length, fileID := -1, -1, -1
+	for index, segment := range segments {
+		if index >= len(pcs) {
+			break
+		}
+		fields := strings.Split(segment, ":")
+		if len(fields) > 0 && fields[0] != "" {
+			start, _ = strconv.Atoi(fields[0])
+		}
+		if len(fields) > 1 && fields[1] != "" {
+			length, _ = strconv.Atoi(fields[1])
+		}
+		if len(fields) > 2 && fields[2] != "" {
+			fileID, _ = strconv.Atoi(fields[2])
+		}
+		file := contract.sourceNames[fileID]
+		if start < 0 || length < 0 || file == "" {
+			continue
+		}
+		locations = append(locations, solidityPCSourceLocation{
+			PC: pcs[index], File: file, Start: start, Length: length,
+		})
+	}
+	if len(locations) == 0 {
+		return nil
+	}
+	return &solidityRuntimeSourceMap{Locations: locations}
+}
+
+func solidityInstructionPCs(code []byte) []uint64 {
+	pcs := make([]uint64, 0, len(code))
+	for pc := 0; pc < len(code); {
+		pcs = append(pcs, uint64(pc))
+		op := code[pc]
+		pc++
+		if op >= 0x60 && op <= 0x7f {
+			pc += int(op - 0x5f)
+			if pc > len(code) {
+				pc = len(code)
+			}
+		}
+	}
+	return pcs
 }
 
 func parseCombinedJSONABI(raw json.RawMessage) (gethabi.ABI, error) {
@@ -714,6 +860,7 @@ func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *soli
 			SchemaVersion: result.SchemaVersion,
 			Source:        result.Source, Contract: result.Contract, Function: result.Function,
 			Compiler: result.Compiler, DurationMS: result.DurationMS, Execution: result.Execution,
+			SourceMap: result.SourceMap,
 		}
 		if result.Comparison != nil {
 			jsonResult.Comparison = &solidityComparisonOutput{
