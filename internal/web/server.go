@@ -24,6 +24,11 @@ import (
 //go:embed assets/*
 var assetsEmbed embed.FS
 
+const (
+	maxWebEvidenceEvents = 200
+	maxWebMemoryBytes    = 4096
+)
+
 type Server struct {
 	addr         string
 	upgrader     websocket.Upgrader
@@ -133,7 +138,7 @@ func (s *Server) Start() error {
 
 	name := "Web Debugger"
 	if s.differential != nil {
-		name = "Differential Explorer"
+		name = "Transaction Explainer"
 	}
 	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
@@ -200,6 +205,16 @@ func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		writeJSONError(w, http.StatusBadRequest, "invalid request: expected one JSON object")
 		return
+	}
+	if strings.TrimSpace(req.Profile) != "" {
+		if req.Limit < 1 || req.Limit > maxWebEvidenceEvents {
+			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("evidence limit must be between 1 and %d", maxWebEvidenceEvents))
+			return
+		}
+		if req.MaxMemoryBytes < 1 || req.MaxMemoryBytes > maxWebMemoryBytes {
+			writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("maxMemoryBytes must be between 1 and %d", maxWebMemoryBytes))
+			return
+		}
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
@@ -284,7 +299,7 @@ func (s *Server) probeReadiness(ctx context.Context) (replay.Readiness, error) {
 }
 
 func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && !validTransactionPagePath(r.URL.Path) {
 		http.NotFound(w, r)
 		return
 	}
@@ -297,6 +312,23 @@ func (s *Server) serveDifferentialIndex(w http.ResponseWriter, r *http.Request) 
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(data)
+}
+
+func validTransactionPagePath(path string) bool {
+	const prefix = "/tx/"
+	if !strings.HasPrefix(path, prefix) {
+		return false
+	}
+	hash := strings.TrimSuffix(strings.TrimPrefix(path, prefix), "/")
+	if len(hash) != 66 || !strings.HasPrefix(hash, "0x") {
+		return false
+	}
+	for _, char := range hash[2:] {
+		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) {

@@ -173,6 +173,25 @@ func TestDifferentialIndexVersionsAssets(t *testing.T) {
 	}
 }
 
+func TestDifferentialIndexSupportsShareableTransactionPath(t *testing.T) {
+	server := NewDifferentialServer(":0", differential.DefaultEngine())
+	hash := "0x" + strings.Repeat("a", 64)
+	for _, path := range []string{"/tx/" + hash, "/tx/" + hash + "/"} {
+		recorder := httptest.NewRecorder()
+		server.serveDifferentialIndex(recorder, httptest.NewRequest(http.MethodGet, path+"?profile=revert", nil))
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Transaction Explainer") {
+			t.Fatalf("path=%s status=%d body=%s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+	for _, path := range []string{"/tx/0x1234", "/tx/" + strings.Repeat("z", 66), "/other"} {
+		recorder := httptest.NewRecorder()
+		server.serveDifferentialIndex(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("path=%s status=%d", path, recorder.Code)
+		}
+	}
+}
+
 func TestVersionedAssetsAreImmutable(t *testing.T) {
 	handler := cacheVersionedAsset(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -201,5 +220,26 @@ func TestReplayAPIRequiresConfiguredService(t *testing.T) {
 	server.serveReplay(recorder, httptest.NewRequest(http.MethodGet, "/api/replay", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("GET status=%d", recorder.Code)
+	}
+}
+
+func TestReplayAPIRejectsUnboundedEvidencePresentation(t *testing.T) {
+	rpc := &readinessRPC{}
+	server := NewServer(":0")
+	server.replay = replay.NewServiceWithCaller(rpc)
+	server.replaySlots = make(chan struct{}, 1)
+	for _, body := range []string{
+		`{"input":"0x00","profile":"auto","limit":0,"maxMemoryBytes":256}`,
+		`{"input":"0x00","profile":"auto","limit":201,"maxMemoryBytes":256}`,
+		`{"input":"0x00","profile":"auto","limit":40,"maxMemoryBytes":4097}`,
+	} {
+		recorder := httptest.NewRecorder()
+		server.serveReplay(recorder, httptest.NewRequest(http.MethodPost, "/api/replay", strings.NewReader(body)))
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("body=%s status=%d response=%s", body, recorder.Code, recorder.Body.String())
+		}
+	}
+	if rpc.calls != 0 {
+		t.Fatalf("RPC calls = %d, want 0 for rejected presentation bounds", rpc.calls)
 	}
 }

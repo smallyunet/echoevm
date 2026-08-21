@@ -52,7 +52,7 @@ Route wrong-operand or numeric questions to `--profile arithmetic`. Source-run
 evidence preserves compiler/source/call metadata and nested frame links. It
 cannot be combined with `--diff`; use a separate summary comparison when needed.
 
-Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM does not currently provide Foundry cheatcodes, RPC forking, payable calls, source maps, or test discovery.
+Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, payable calls, or test discovery.
 
 ## Explain bytecode or an artifact
 

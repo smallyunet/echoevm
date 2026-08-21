@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.44
+**Current Version**: v0.0.45
 
 ---
 
@@ -74,6 +74,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.42 | Fork conformance baseline and official EEST fixture audit infrastructure |
 | v0.0.43 | CI-clean compatibility release |
 | v0.0.44 | Source-aware Solidity inspection and runtime PC mapping for editor execution evidence |
+| v0.0.45 | Mainnet replay causal evidence and shareable transaction explanation flow |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -120,6 +121,7 @@ Tools and integrations for enhanced developer productivity.
 - [ ] **Contract Analyzer** - Deferred; EchoEVM provides execution evidence, not scanner claims
 - [x] **Differential Explorer** - Reusable Cancun EchoEVM/Geth engine, CLI, JSON API, and local trace UI
 - [x] **Transaction Replay** - Hash/Etherscan input, RPC prestate hydration, and full call-frame trace comparison
+- [x] **Replay Causal Evidence** - Question-routed, bounded transaction evidence with comparison confidence and shareable Explorer URLs
 - [ ] **Export Formats** - Trace export to JSON, CSV, CallGraph
 
 ---
@@ -142,11 +144,11 @@ Full compliance and ecosystem integration.
 ## 🎯 Current Focus
 
 **Next Release Priorities:**
-1. Extend `echoevm.evidence.v1` from Solidity execution to Mainnet replay
-2. Add richer account, log, return-data, and semantic dynamic-gas evidence
-3. Expand the compiled-Solidity benchmark across contracts, compiler settings, and held-out failure classes
-4. Preserve the compact evidence advantage as schemas and profiles evolve
-5. Keep `echoevm.trace.v1` as the full explainable diagnostic contract behind bounded evidence
+1. Freeze reproducible public-transaction witnesses for a Mainnet evidence benchmark
+2. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
+3. Add richer account, log, return-data, and semantic dynamic-gas evidence when benchmark cases require it
+4. Expand the compiled-Solidity benchmark across contracts, compiler settings, and held-out failure classes
+5. Preserve `echoevm.trace.v1` as the full diagnostic contract behind bounded evidence
 
 The product is AI-first. The VS Code extension and hosted Explorer remain useful
 demonstration and inspection surfaces, but human onboarding, CodeLens, source-level

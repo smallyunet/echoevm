@@ -7,13 +7,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smallyunet/echoevm/internal/differential"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 const MaxTraceSteps = 50_000
 const RecentTransactionLimit = 5
+const DefaultEvidenceLimit = 40
+const DefaultEvidenceMemoryBytes = 256
 
 type Request struct {
-	Input string `json:"input"`
+	Input          string `json:"input"`
+	Profile        string `json:"profile,omitempty"`
+	Limit          int    `json:"limit,omitempty"`
+	MaxMemoryBytes int    `json:"maxMemoryBytes,omitempty"`
 }
 
 type RecentTransaction struct {
@@ -60,6 +66,27 @@ type Result struct {
 	EchoState       map[string]string            `json:"echoState"`
 	GethState       map[string]string            `json:"gethState"`
 	TraceSemantics  string                       `json:"traceSemantics"`
+	Evidence        *EvidenceResult              `json:"evidence,omitempty"`
+}
+
+// EvidenceResult is the compact, replay-specific envelope presented to coding
+// agents. It retains transaction/fork provenance and comparison confidence
+// without duplicating both engines' complete opcode traces.
+type EvidenceResult struct {
+	explaintrace.EvidenceDocument
+	Transaction TransactionSummary `json:"transaction"`
+	Comparison  EvidenceComparison `json:"comparison"`
+	Warnings    []string           `json:"warnings,omitempty"`
+}
+
+type EvidenceComparison struct {
+	Match           bool                     `json:"match"`
+	StatusMatch     bool                     `json:"statusMatch"`
+	ReturnDataMatch bool                     `json:"returnDataMatch"`
+	GasMatch        bool                     `json:"gasMatch"`
+	StateMatch      bool                     `json:"stateMatch"`
+	TraceMatch      bool                     `json:"traceMatch"`
+	FirstDivergence *differential.Divergence `json:"firstDivergence,omitempty"`
 }
 
 type Readiness struct {

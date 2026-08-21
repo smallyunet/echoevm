@@ -32,7 +32,7 @@ about compatibility or EchoEVM correctness.
 - Treat replay as read-only, but note that it calls the configured trace-capable Ethereum RPC.
 - Route evidence with `auto`, `revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas`; use full trace fields, opcode/depth filters, and windows only when compact evidence is insufficient.
 - If the trace result is truncated, request a deterministic `--around-step` window; do not load the whole trace by default.
-- Write legacy differential or replay JSON results to a temporary file. Run `python3 <skill-dir>/scripts/compact_result.py <result.json>` before loading those results into model context.
+- Request replay evidence directly. Write only full differential or legacy replay JSON results to a temporary file, then run `python3 <skill-dir>/scripts/compact_result.py <result.json>` before loading them into model context.
 - Start with one representative input. Add at most one branch-distinct input before a mismatch; use the project's existing tests for broad input coverage.
 
 ## Report the result

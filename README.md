@@ -14,7 +14,7 @@ opcode trace.
 Use it to diagnose one execution locally, compare behavior with embedded Geth,
 or replay a confirmed Ethereum Mainnet transaction from RPC prestate.
 
-Try the hosted [Differential Explorer](https://r.dark20.xyz/).
+Try the hosted [Transaction Explainer](https://r.dark20.xyz/).
 
 ## Why EchoEVM
 
@@ -138,7 +138,7 @@ Both engines run under Cancun rules with isolated in-memory state. A `MATCH`
 applies only to the tested input and environment; it is not a claim of complete
 EVM compatibility.
 
-Start the local Differential Explorer with:
+Start the local Transaction Explainer with:
 
 ```bash
 echoevm diff --web --addr :8080
@@ -150,11 +150,23 @@ Replay requires an RPC endpoint with `debug_traceTransaction` and the built-in
 `prestateTracer` enabled:
 
 ```bash
-echoevm replay 0x0123... --rpc-url https://your-trace-rpc.example
+echoevm replay 0x0123... \
+  --rpc-url https://your-trace-rpc.example \
+  --format evidence-json \
+  --profile auto \
+  --limit 40
 
 ECHOEVM_ETHEREUM_RPC=https://your-trace-rpc.example \
-  echoevm replay https://etherscan.io/tx/0x0123... --format json
+  echoevm replay https://etherscan.io/tx/0x0123... \
+    --format evidence-json \
+    --profile revert
 ```
+
+Replay evidence uses the same profiles, causal links, and presentation limits
+as local source execution. It also carries transaction/fork provenance,
+EchoEVM/Geth comparison confidence, and compatibility warnings without
+duplicating both engines' complete traces. Use `--format json` when the full
+differential replay is required.
 
 EchoEVM recognizes confirmed Ethereum Mainnet transactions. Cancun is the only
 fully declared execution ruleset; transactions from other fork eras are marked
@@ -226,6 +238,9 @@ The complete opcode table remains available on demand, without starting a
 JSON-RPC node.
 
 Local Solidity source is not sent to the hosted Explorer by these integrations.
+The hosted Transaction Explainer accepts public transaction hashes, exposes
+question-routed evidence first, and keeps the complete differential trace in an
+advanced disclosure. Successful explanations have shareable `/tx/<hash>` URLs.
 
 ## Scope and Limitations
 
@@ -234,7 +249,9 @@ Local Solidity source is not sent to the hosted Explorer by these integrations.
 - Evidence is execution diagnostics, not a security audit or formal
   verification result.
 - Solidity execution does not implement Foundry cheatcodes, RPC forking,
-  payable calls, source maps, or test discovery.
+  payable calls, source-level stepping, or test discovery. Source-run output
+  does include compiler source ranges and runtime PC mappings for editor
+  evidence.
 - Mainnet replay requires a trace-capable RPC; EchoEVM does not approximate
   transaction prestate from the parent block.
 - Trie-backed state supports lazy reads; committing modified state roots is not
@@ -250,6 +267,10 @@ versus 8/12 for broad opcode context while using 39.8% fewer fresh tokens.
 These results describe the frozen benchmark, not general diagnostic accuracy or
 complete EVM compatibility. See the
 [benchmark methodology and artifacts](benchmarks/trace-value-v2/README.md).
+Mainnet replay evidence has deterministic regression coverage, but no new
+external-model accuracy or token-savings result is claimed for real
+transactions yet. Its frozen-witness acceptance gate is documented in the
+[Mainnet replay evidence benchmark](benchmarks/replay-evidence/README.md).
 
 ## Development
 

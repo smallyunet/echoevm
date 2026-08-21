@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/smallyunet/echoevm/internal/differential"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 const traceSemantics = "full transaction pre-op PC/opcode/gas/stack across nested frames; EchoEVM post-op values are captured directly while RPC reference steps are Geth struct logs"
@@ -43,6 +45,17 @@ func NewServiceWithCaller(caller Caller) *Service { return &Service{rpc: caller}
 func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	if s == nil || s.rpc == nil {
 		return Result{}, errors.New("transaction replay service is not configured")
+	}
+	if req.Profile != "" {
+		if err := explaintrace.ValidateEvidenceProfile(req.Profile); err != nil {
+			return Result{}, err
+		}
+		if req.Limit < 0 || req.MaxMemoryBytes < 0 {
+			return Result{}, errors.New("evidence limits must be non-negative")
+		}
+		if req.MaxMemoryBytes == 0 {
+			req.MaxMemoryBytes = DefaultEvidenceMemoryBytes
+		}
 	}
 	ref, err := ParseTransactionReference(req.Input)
 	if err != nil {
@@ -88,7 +101,7 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	echo, state, err := runEcho(ctx, tx, meta.From, chainID, &header, prestate)
+	echo, state, evidenceEvents, err := runEcho(ctx, tx, meta.From, chainID, &header, prestate, req.Profile != "", req.MaxMemoryBytes)
 	if err != nil {
 		return Result{}, err
 	}
@@ -102,6 +115,25 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	result.Transaction = summarize(tx, meta, &receipt, &header, chainID)
 	result.TraceSemantics = traceSemantics
 	result.Warnings = replayWarnings(header.Time, tx, echo)
+	if req.Profile != "" {
+		document, evidenceErr := explaintrace.BuildEvidence(explaintrace.ExecutionResult{
+			Status: string(echo.Status), GasLimit: tx.Gas(), GasUsed: echo.GasUsed,
+			ReturnData: echo.ReturnData, TotalSteps: len(evidenceEvents), ExecutionError: echo.Error,
+		}, evidenceEvents, req.Profile, req.Limit)
+		if evidenceErr != nil {
+			return Result{}, evidenceErr
+		}
+		result.Evidence = &EvidenceResult{
+			EvidenceDocument: document,
+			Transaction:      result.Transaction,
+			Warnings:         append([]string(nil), result.Warnings...),
+			Comparison: EvidenceComparison{
+				Match: result.Match, StatusMatch: result.StatusMatch, ReturnDataMatch: result.ReturnDataMatch,
+				GasMatch: result.GasMatch, StateMatch: result.StateMatch, TraceMatch: result.TraceMatch,
+				FirstDivergence: result.FirstDivergence,
+			},
+		}
+	}
 	return result, nil
 }
 
@@ -356,7 +388,7 @@ func opcodeByRPCName(name string) (byte, bool) {
 	return core.OpcodeByName(name)
 }
 
-func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, chainID uint64, header *types.Header, prestate map[common.Address]prestateAccount) (differential.ExecutionResult, *core.MemoryStateDB, error) {
+func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, chainID uint64, header *types.Header, prestate map[common.Address]prestateAccount, collectEvidence bool, maxMemoryBytes int) (differential.ExecutionResult, *core.MemoryStateDB, []explaintrace.OpcodeEvent, error) {
 	state := core.NewMemoryStateDB()
 	for address, account := range prestate {
 		state.CreateAccount(address)
@@ -372,6 +404,10 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	trace := make([]differential.NormalizedStep, 0, 1024)
 	pending := make(map[int]int)
 	overflow := false
+	var collector *explaintrace.Collector
+	if collectEvidence {
+		collector = explaintrace.NewCollector(maxMemoryBytes)
+	}
 	hook := func(raw vm.TraceStep) bool {
 		if ctx.Err() != nil {
 			return false
@@ -383,6 +419,9 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 					trace[index].StackAfter = canonicalStack(raw.Stack)
 				}
 			}
+			if collector != nil {
+				collector.Consume(raw)
+			}
 			return true
 		}
 		if len(trace) >= MaxTraceSteps {
@@ -392,18 +431,29 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 		step := differential.NormalizedStep{Index: len(trace), Depth: raw.Depth, PC: raw.PC, Opcode: fmt.Sprintf("0x%02x", raw.Opcode), OpcodeName: raw.OpcodeName, GasBefore: raw.Gas, StackBefore: canonicalStack(raw.Stack), Address: raw.Address}
 		trace = append(trace, step)
 		pending[raw.Depth] = len(trace) - 1
+		if collector != nil {
+			collector.Consume(raw)
+		}
 		return true
 	}
 	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID)}
 	if header.ExcessBlobGas != nil {
 		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(params.MainnetChainConfig, header)
 	}
-	output, gasUsed, reverted, executionErr := vm.ApplyTransactionWithContextAndHook(state, tx, sender, ctxBlock, hook)
+	var output []byte
+	var gasUsed uint64
+	var reverted bool
+	var executionErr error
+	if collector != nil {
+		output, gasUsed, reverted, executionErr = vm.ApplyTransactionWithContextAndDetailedHook(state, tx, sender, ctxBlock, hook)
+	} else {
+		output, gasUsed, reverted, executionErr = vm.ApplyTransactionWithContextAndHook(state, tx, sender, ctxBlock, hook)
+	}
 	if ctx.Err() != nil {
-		return differential.ExecutionResult{}, nil, ctx.Err()
+		return differential.ExecutionResult{}, nil, nil, ctx.Err()
 	}
 	if overflow {
-		return differential.ExecutionResult{}, nil, fmt.Errorf("EchoEVM trace exceeds maximum %d steps", MaxTraceSteps)
+		return differential.ExecutionResult{}, nil, nil, fmt.Errorf("EchoEVM trace exceeds maximum %d steps", MaxTraceSteps)
 	}
 	status := differential.StatusSuccess
 	if executionErr != nil {
@@ -411,11 +461,23 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	} else if reverted {
 		status = differential.StatusRevert
 	}
-	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: "v0.0.31", Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
+	result := differential.ExecutionResult{Engine: "EchoEVM", EngineVersion: echoModuleVersion(), Status: status, ReturnData: "0x" + hex.EncodeToString(output), GasUsed: gasUsed, Storage: map[string]string{}, Trace: trace}
 	if executionErr != nil {
 		result.Error = executionErr.Error()
 	}
-	return result, state, nil
+	var evidenceEvents []explaintrace.OpcodeEvent
+	if collector != nil {
+		evidenceEvents = collector.Events()
+	}
+	return result, state, evidenceEvents, nil
+}
+
+func echoModuleVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Path != "github.com/smallyunet/echoevm" || info.Main.Version == "" || info.Main.Version == "(devel)" {
+		return "devel"
+	}
+	return info.Main.Version
 }
 
 func compareState(state *core.MemoryStateDB, diff transactionStateDiff) (map[string]string, map[string]string) {

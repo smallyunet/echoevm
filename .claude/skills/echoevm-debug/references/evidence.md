@@ -22,7 +22,7 @@ Report when available:
 - One trace applies only to the tested input, environment, gas limit, and initial state.
 - `gas.used` on a call/create event can include nested-frame execution; do not label all of it as an opcode surcharge.
 - `appliedInFrame` does not mean committed after a later frame or transaction revert.
-- Without source maps, identify opcode PC and call depth, not a Solidity source line.
+- When runtime PC mapping is unavailable or ambiguous, identify opcode PC and call depth rather than claiming a Solidity source line.
 - Do not market the result as a vulnerability scan, formal verification, or complete compatibility proof.
 
 ## Context control
@@ -30,6 +30,7 @@ Report when available:
 Start with `--format evidence-json --profile auto --limit 40`; route to
 `revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas` when the question makes that scope
 clear. On truncation or missing context, request an `--around-step` full-trace
-window with selected fields and opcode/depth constraints. For legacy comparison or replay output, write full JSON
-to a temporary file and use the compact-result script. Load a full raw trace only
-when the user explicitly asks for it or bounded windows cannot answer the question.
+window with selected fields and opcode/depth constraints. For full comparison
+output, write JSON to a temporary file and use the compact-result script. Replay
+supports bounded evidence directly. Load a full raw trace only when the user
+explicitly asks for it or bounded windows cannot answer the question.

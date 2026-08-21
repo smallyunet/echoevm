@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smallyunet/echoevm/internal/differential"
+	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 
 type replayFixtureRPC struct {
@@ -150,7 +152,9 @@ func TestReplayHydratesPrestateAndExecutesTransaction(t *testing.T) {
 			},
 		},
 	}
-	result, err := NewServiceWithCaller(fixture).Replay(context.Background(), Request{Input: tx.Hash().Hex()})
+	result, err := NewServiceWithCaller(fixture).Replay(context.Background(), Request{
+		Input: tx.Hash().Hex(), Profile: explaintrace.ProfileAuto, Limit: DefaultEvidenceLimit,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,6 +163,51 @@ func TestReplayHydratesPrestateAndExecutesTransaction(t *testing.T) {
 	}
 	if result.EchoEVM.GasUsed != 21_000 || len(result.EchoEVM.Trace) != 0 {
 		t.Fatalf("EchoEVM gas=%d trace=%d", result.EchoEVM.GasUsed, len(result.EchoEVM.Trace))
+	}
+	if result.Evidence == nil || result.Evidence.Schema != explaintrace.EvidenceSchemaVersion || result.Evidence.Transaction.Hash != tx.Hash().Hex() || !result.Evidence.Comparison.Match {
+		t.Fatalf("replay evidence = %+v", result.Evidence)
+	}
+}
+
+func TestRunEchoCollectsCausalEvidenceForRevertedStorage(t *testing.T) {
+	sender := common.HexToAddress("0x1000000000000000000000000000000000000001")
+	recipient := common.HexToAddress("0x2000000000000000000000000000000000000002")
+	tx := types.NewTransaction(0, recipient, big.NewInt(0), 100_000, big.NewInt(1), nil)
+	prestate := map[common.Address]prestateAccount{
+		sender:    {Balance: (*hexutil.Big)(big.NewInt(1_000_000)), Nonce: 0},
+		recipient: {Code: hexutil.Bytes{0x60, 0x01, 0x60, 0x00, 0x55, 0x60, 0x00, 0x60, 0x00, 0xfd}},
+	}
+	header := &types.Header{Number: big.NewInt(1), Time: 1710338135, GasLimit: 30_000_000, Difficulty: new(big.Int)}
+
+	result, _, events, err := runEcho(context.Background(), tx, sender, ethereumMainnetChainID, header, prestate, true, DefaultEvidenceMemoryBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != differential.StatusRevert || len(events) == 0 {
+		t.Fatalf("status=%s events=%d", result.Status, len(events))
+	}
+	document, err := explaintrace.BuildEvidence(explaintrace.ExecutionResult{
+		Status: string(result.Status), GasLimit: tx.Gas(), GasUsed: result.GasUsed, ReturnData: result.ReturnData, TotalSteps: len(events),
+	}, events, explaintrace.ProfileStorage, DefaultEvidenceLimit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(document.Events) != 2 || document.Events[0].Op != "SSTORE" || document.Events[1].Op != "REVERT" {
+		t.Fatalf("events = %+v", document.Events)
+	}
+	if len(document.Links) != 1 || document.Links[0].Kind != "rolls-back" {
+		t.Fatalf("links = %+v", document.Links)
+	}
+}
+
+func TestReplayRejectsInvalidEvidenceOptionsBeforeRPC(t *testing.T) {
+	rpc := &replayFixtureRPC{}
+	_, err := NewServiceWithCaller(rpc).Replay(context.Background(), Request{Input: testHash, Profile: "mystery"})
+	if err == nil || !strings.Contains(err.Error(), "unsupported evidence profile") {
+		t.Fatalf("Replay error = %v", err)
+	}
+	if len(rpc.methodCalls) != 0 {
+		t.Fatalf("RPC calls = %+v", rpc.methodCalls)
 	}
 }
 

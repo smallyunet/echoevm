@@ -25,9 +25,12 @@ el('replay').addEventListener('click', replay);
 el('transaction-input').addEventListener('keydown', event => { if (event.key === 'Enter') replay(); });
 el('compare').addEventListener('click', compare);
 el('show-equal').addEventListener('change', renderTrace);
+el('copy-link').addEventListener('click', copyShareLink);
+el('copy-evidence').addEventListener('click', copyEvidence);
 el('copy-cli').addEventListener('click', copyCLI);
 el('export-json').addEventListener('click', exportJSON);
 loadRecentTransactions();
+hydrateDeepLink();
 
 async function loadRecentTransactions() {
   const list = el('recent-transactions'); const status = el('recent-status');
@@ -66,7 +69,8 @@ async function replay() {
   const input = el('transaction-input').value.trim();
   if (!input) return showError('Enter a transaction hash or Etherscan URL.');
   resultMode = 'transaction';
-  await execute({button: el('replay'), loading: 'Loading prestate…', status: 'Fetching transaction, prestate, and Geth trace', endpoint: '/api/replay', body: {input}});
+  const profile = el('evidence-profile').value;
+  await execute({button: el('replay'), loading: 'Explaining…', status: 'Replaying the transaction and selecting causal evidence', endpoint: '/api/replay', body: {input, profile, limit: 40, maxMemoryBytes: 256}});
 }
 
 async function compare() {
@@ -81,7 +85,9 @@ async function execute({button, loading, status, endpoint, body}) {
     const response = await fetch(endpoint, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
-    lastResult = data; render(data); el('request-status').textContent = resultMode === 'transaction' ? 'Transaction replay complete' : 'Comparison complete';
+    lastResult = data; render(data);
+    if (resultMode === 'transaction') updateShareURL(data.transaction.hash, data.evidence?.profile || el('evidence-profile').value);
+    el('request-status').textContent = resultMode === 'transaction' ? 'Transaction explanation complete' : 'Comparison complete';
   } catch (error) {
     showError(error.message); el('request-status').textContent = resultMode === 'transaction' ? 'Transaction replay failed' : 'Comparison failed';
   } finally {
@@ -94,13 +100,19 @@ function rawRequest() { return {fork: 'Cancun', bytecode: el('bytecode').value.t
 
 function render(result) {
   el('results').hidden = false;
-  el('result-kind').textContent = resultMode === 'transaction' ? 'Transaction replay result' : 'Bytecode comparison result';
-  el('verdict').textContent = result.match ? 'MATCH' : 'DIVERGENCE';
-  el('verdict').className = result.match ? 'match' : 'mismatch';
-  el('scope-note').textContent = result.match
-    ? 'EchoEVM matched the Geth reference for this execution.'
-    : 'The first reliably comparable difference is highlighted below.';
+  const evidence = resultMode === 'transaction' ? result.evidence : null;
+  el('result-kind').textContent = evidence ? 'Causal execution evidence' : resultMode === 'transaction' ? 'Transaction replay result' : 'Bytecode comparison result';
+  const status = evidence?.execution?.status;
+  el('verdict').textContent = evidence ? `${String(status || 'unknown').toUpperCase()} EXPLAINED` : result.match ? 'MATCH' : 'DIVERGENCE';
+  el('verdict').className = evidence ? (status === 'success' ? 'match' : 'mismatch') : result.match ? 'match' : 'mismatch';
+  el('scope-note').textContent = evidence
+    ? `EchoEVM selected ${evidence.selection.selected} causal events from ${evidence.execution.totalSteps} executed steps. The limit changes presentation, not execution.`
+    : result.match ? 'EchoEVM matched the Geth reference for this execution.' : 'The first reliably comparable difference is highlighted below.';
   renderTransaction(result);
+  renderEvidence(evidence);
+  el('copy-link').hidden = !evidence;
+  el('copy-evidence').hidden = !evidence;
+  el('comparison-details').open = resultMode === 'bytecode';
   const items = [
     ['Halt class', result.echoevm.status, result.geth.status, result.statusMatch],
     ['Return data', result.echoevm.returnData, result.geth.returnData, result.returnDataMatch],
@@ -123,6 +135,55 @@ function render(result) {
   el('trace-note').textContent = result.traceSemantics;
   renderTrace();
   el('results').scrollIntoView({behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+}
+
+function renderEvidence(evidence) {
+  const section = el('evidence'); const events = el('evidence-events'); const links = el('evidence-links');
+  section.hidden = !evidence; events.replaceChildren(); links.replaceChildren(); links.hidden = true;
+  if (!evidence) return;
+  el('evidence-note').textContent = `${profileLabel(evidence.profile)} · ${evidence.schema}`;
+  const selection = evidence.selection;
+  el('evidence-count').textContent = `${selection.selected} selected · ${selection.omitted} omitted${selection.truncated ? ' · bounded' : ''}`;
+  if (!evidence.events?.length) {
+    const empty = textNode('p', 'No opcode event matched this profile. The transaction metadata and comparison still describe the execution result.');
+    empty.className = 'evidence-empty'; events.append(empty);
+  } else {
+    evidence.events.forEach(event => {
+      const card = document.createElement('article'); card.className = 'evidence-event';
+      const header = document.createElement('div'); header.className = 'evidence-event-head';
+      header.append(textNode('strong', event.op), textNode('code', `step ${event.step} · depth ${event.depth || 0} · PC ${event.pc}`));
+      card.append(header);
+      if (event.why) card.append(textNode('p', event.why));
+      const facts = [];
+      if (event.address) facts.push(`address ${event.address}`);
+      if (event.error) facts.push(`error ${event.error}`);
+      if (event.reverted) facts.push('frame reverted');
+      if (event.gas) facts.push(`gas ${event.gas.used} used${event.gas.dynamicCost === undefined ? '' : ` · ${event.gas.dynamicCost} dynamic`}`);
+      if (facts.length) card.append(textNode('code', facts.join('\n')));
+      (event.storage || []).forEach(access => {
+        const storage = textNode('code', `${access.transient ? 'transient ' : ''}${access.kind} ${access.slot}: ${access.before} → ${access.after}${access.appliedInFrame === false ? ' · not applied' : ''}`);
+        storage.className = 'storage-fact'; card.append(storage);
+      });
+      events.append(card);
+    });
+  }
+  if (evidence.links?.length) {
+    links.hidden = false;
+    links.append(textNode('h3', 'Causal links'));
+    evidence.links.forEach(link => {
+      const item = document.createElement('p');
+      item.append(textNode('strong', link.kind), document.createTextNode(` · ${formatEvidenceLocation(link.from)} → ${formatEvidenceLocation(link.to)}${link.value ? ` · ${link.value}` : ''}`));
+      links.append(item);
+    });
+  }
+}
+
+function profileLabel(profile) {
+  return ({auto: 'What happened', revert: 'Failure path', storage: 'State changes', call: 'Call frames', gas: 'Gas causes', abi: 'Return data', arithmetic: 'Value flow'})[profile] || profile;
+}
+
+function formatEvidenceLocation(location) {
+  return `${location.op} D${location.depth || 0}:PC${location.pc}`;
 }
 
 function renderTransaction(result) {
@@ -190,11 +251,36 @@ function badge(text) { const node = textNode('span', text); node.className = 'ba
 
 async function copyCLI() {
   let command;
-  if (resultMode === 'transaction') command = `echoevm replay ${lastResult.transaction.hash}`;
+  if (resultMode === 'transaction') command = `echoevm replay ${lastResult.transaction.hash} --format evidence-json --profile ${lastResult.evidence?.profile || 'auto'} --limit 40`;
   else { const r = lastResult.request; command = `echoevm diff --code ${r.bytecode} --input ${r.calldata} --gas ${r.gasLimit} --format text`; }
   await navigator.clipboard.writeText(command); el('copy-cli').textContent = 'Copied'; setTimeout(() => el('copy-cli').textContent = 'Copy CLI command', 1200);
 }
+async function copyShareLink() {
+  await navigator.clipboard.writeText(window.location.href); flashButton(el('copy-link'), 'Copied');
+}
+async function copyEvidence() {
+  if (!lastResult?.evidence) return;
+  await navigator.clipboard.writeText(JSON.stringify(lastResult.evidence, null, 2)); flashButton(el('copy-evidence'), 'Copied');
+}
+function flashButton(button, text) {
+  const original = button.textContent; button.textContent = text; setTimeout(() => button.textContent = original, 1200);
+}
 function exportJSON() {
-  const blob = new Blob([JSON.stringify(lastResult, null, 2) + '\n'], {type: 'application/json'}); const url = URL.createObjectURL(blob);
-  const link = document.createElement('a'); link.href = url; link.download = resultMode === 'transaction' ? 'echoevm-replay.json' : 'echoevm-differential.json'; link.click(); URL.revokeObjectURL(url);
+  const exported = resultMode === 'transaction' && lastResult.evidence ? lastResult.evidence : lastResult;
+  const blob = new Blob([JSON.stringify(exported, null, 2) + '\n'], {type: 'application/json'}); const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = resultMode === 'transaction' ? 'echoevm-evidence.json' : 'echoevm-differential.json'; link.click(); URL.revokeObjectURL(url);
+}
+
+function updateShareURL(hash, profile) {
+  const next = `/tx/${encodeURIComponent(hash)}?profile=${encodeURIComponent(profile)}`;
+  window.history.replaceState({hash, profile}, '', next);
+}
+
+function hydrateDeepLink() {
+  const match = window.location.pathname.match(/^\/tx\/(0x[0-9a-fA-F]{64})\/?$/);
+  if (!match) return;
+  const profile = new URLSearchParams(window.location.search).get('profile');
+  if (['auto','revert','storage','call','gas','abi','arithmetic'].includes(profile)) el('evidence-profile').value = profile;
+  el('transaction-input').value = match[1];
+  replay();
 }

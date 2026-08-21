@@ -11,6 +11,21 @@ Use replay only for a confirmed Ethereum Mainnet transaction hash or an allowlis
 ## CLI workflow
 
 ```bash
+echoevm replay <transaction-hash-or-etherscan-url> \
+  --format evidence-json \
+  --profile auto \
+  --limit 40
+```
+
+Route a known failure to `--profile revert`, state questions to `storage`, call
+structure to `call`, and gas questions to `gas`. Check transaction/fork
+provenance, warnings, comparison confidence, and selection/truncation metadata
+before interpreting the selected events.
+
+Only when compact evidence is insufficient, request the full replay and compact
+it before loading the result into model context:
+
+```bash
 echoevm replay <transaction-hash-or-etherscan-url> --format json > <temporary-result.json>
 python3 <skill-dir>/scripts/compact_result.py <temporary-result.json>
 ```

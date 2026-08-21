@@ -63,6 +63,31 @@ func ApplyTransactionWithContextAndHook(
 	ctx *BlockContext,
 	hook func(TraceStep) bool,
 ) ([]byte, uint64, bool, error) {
+	return applyTransactionWithContextAndHook(statedb, tx, sender, ctx, hook, false)
+}
+
+// ApplyTransactionWithContextAndDetailedHook applies a full transaction while
+// capturing memory and storage context for explainable traces. Callers that
+// only need lightweight opcode identity should use
+// ApplyTransactionWithContextAndHook instead.
+func ApplyTransactionWithContextAndDetailedHook(
+	statedb core.StateDB,
+	tx *types.Transaction,
+	sender common.Address,
+	ctx *BlockContext,
+	hook func(TraceStep) bool,
+) ([]byte, uint64, bool, error) {
+	return applyTransactionWithContextAndHook(statedb, tx, sender, ctx, hook, true)
+}
+
+func applyTransactionWithContextAndHook(
+	statedb core.StateDB,
+	tx *types.Transaction,
+	sender common.Address,
+	ctx *BlockContext,
+	hook func(TraceStep) bool,
+	traceDetails bool,
+) ([]byte, uint64, bool, error) {
 	// Validate the transaction before mutating state.
 	nonce := statedb.GetNonce(sender)
 	if nonce != tx.Nonce() {
@@ -183,6 +208,7 @@ func ApplyTransactionWithContextAndHook(
 		intr.SetCallValue(value)
 		intr.SetGasPrice(gasPrice)
 		intr.SetTraceContext(hook, 0)
+		intr.SetTraceDetails(traceDetails)
 		intr.SetBlobHashes(tx.BlobHashes())
 		if ctx.BlobBaseFee != nil {
 			intr.SetBlobBaseFee(ctx.BlobBaseFee)

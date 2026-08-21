@@ -100,6 +100,21 @@ echoevm solidity run ./Contract.sol \
 combined with `--diff`; request `summary-json --diff` separately when an engine
 comparison is required.
 
+For a confirmed Ethereum Mainnet transaction, replay evidence adds immutable
+transaction and fork provenance, compatibility warnings, and a compact
+comparison verdict to the same evidence contract:
+
+```bash
+echoevm replay 0x0123... \
+  --profile revert \
+  --limit 40 \
+  --format evidence-json
+```
+
+The replay evidence envelope deliberately omits the duplicate full EchoEVM and
+Geth traces. Use `replay --format json` only when the complete differential
+result or a wider comparison window is required.
+
 If the selection is truncated or a step needs more context, request a
 deterministic full-trace window without rerunning a different input:
 
@@ -122,6 +137,7 @@ echoevm trace -r ./runtime.bin -d 0x1234 \
 ## Current boundary
 
 The explainable protocol fronts the standalone `trace` command for runtime
-bytecode and artifact input, plus `solidity run` for one compiled deploy/call.
-Mainnet replay integration remains a subsequent milestone. Cancun remains
-EchoEVM's only fully declared ruleset.
+bytecode and artifact input, `solidity run` for one compiled deploy/call, and
+confirmed Ethereum Mainnet transaction replay backed by exact RPC prestate.
+Cancun remains EchoEVM's only fully declared ruleset; replay preserves the
+actual transaction fork and explicit compatibility warnings.

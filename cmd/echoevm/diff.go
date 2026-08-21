@@ -31,7 +31,7 @@ func newDiffCmd() *cobra.Command {
 	cmd.Flags().Uint64Var(&flags.gas, "gas", differential.DefaultGasLimit, "execution gas limit")
 	cmd.Flags().StringVar(&flags.fork, "fork", differential.ForkOsaka, "EVM fork (Frontier through Osaka)")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json)")
-	cmd.Flags().BoolVar(&flags.web, "web", false, "start the local Differential Explorer")
+	cmd.Flags().BoolVar(&flags.web, "web", false, "start the local Transaction Explainer")
 	cmd.Flags().StringVar(&flags.addr, "addr", ":8080", "HTTP listen address for --web")
 	return cmd
 }
