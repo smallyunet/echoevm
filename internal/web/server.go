@@ -324,7 +324,7 @@ func validTransactionPagePath(path string) bool {
 		return false
 	}
 	for _, char := range hash[2:] {
-		if !((char >= '0' && char <= '9') || (char >= 'a' && char <= 'f') || (char >= 'A' && char <= 'F')) {
+		if (char < '0' || char > '9') && (char < 'a' || char > 'f') && (char < 'A' || char > 'F') {
 			return false
 		}
 	}
