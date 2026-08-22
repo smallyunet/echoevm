@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.4.0
+VERSION    ?= v0.4.1
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build build-chrome run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-chrome test-compliance test-official-fixtures test-regression test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help

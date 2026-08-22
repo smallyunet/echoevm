@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.4.0
+**Current Version**: v0.4.1
 
 ---
 
@@ -80,6 +80,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.2.1 | Release hardening for standalone witness file output and loading |
 | v0.3.0 | Manifest V3 Chrome extension with packaged EchoEVM Wasm and local Etherscan witness replay |
 | v0.4.0 | Independent Ethereum primitives and native precompiles, no go-ethereum dependency, and zero-skip Osaka official state-fixture conformance |
+| v0.4.1 | Release-gate hardening for independent transaction decoding, P256 validation, and clean static analysis |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
