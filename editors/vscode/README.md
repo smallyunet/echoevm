@@ -50,9 +50,9 @@ After a run, the extension:
 
 - shows the latest status and gas usage beside the relevant source line;
 - reports a concrete REVERT or fault in VS Code Problems;
-- fills the **EchoEVM: Execution Evidence** view with gas, state, comparison,
+- fills the **EchoEVM: Execution Evidence** view with gas, state,
   and selected control/state-changing opcodes;
-- maps a terminal opcode or first divergence back to Solidity when the CLI
+- maps terminal opcodes back to Solidity when the CLI
   provides a runtime source map; and
 - keeps the full opcode table available through **Show Last Trace**.
 
@@ -71,5 +71,5 @@ Projects that pin another compiler can select it explicitly. Non-Foundry
 workspaces can configure `echoevm.remappings`, `echoevm.optimizerRuns`, and
 `echoevm.viaIR` directly.
 
-This release targets Cancun and does not provide Foundry cheatcodes, RPC
+This release targets Cancun through Osaka and does not provide Foundry cheatcodes, RPC
 forking, payable calls, or source-level breakpoints.

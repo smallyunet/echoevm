@@ -1,7 +1,7 @@
 # EchoEVM Chrome extension
 
 The Manifest V3 extension enriches Ethereum Mainnet transaction pages on
-Etherscan with standalone EchoEVM replay. The Go execution engine is compiled
+Etherscan with standalone EchoEVM replay. The Rust execution engine is compiled
 to WebAssembly and packaged inside the extension, so users do not install a CLI
 and transaction execution never leaves the browser.
 

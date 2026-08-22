@@ -3,7 +3,7 @@ import * as https from "node:https";
 
 export const latestReleaseDownloadBase = "https://github.com/smallyunet/echoevm/releases/latest/download";
 export const homebrewFormula = "smallyunet/tap/echoevm";
-export const minimumEchoEVMVersion = "0.0.37";
+export const minimumEchoEVMVersion = "1.0.0";
 
 export function isVersionAtLeast(actual: string, minimum: string): boolean {
   const parse = (value: string): number[] | undefined => {

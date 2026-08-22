@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0
+
+- Require the EchoEVM v1.0 Rust CLI and frozen Solidity protocol v1.
+- Execute constructor deployment and function calls through the embedded Rust engine.
+- Resolve the new native Rust release assets on macOS, Linux, and Windows.
+- Remove legacy Go and Geth comparison framing from the active product path.
+
 ## 0.1.1
 
 - Detect the nearest nested Foundry project for an open Solidity file instead of assuming the outermost VS Code workspace is the compiler root.

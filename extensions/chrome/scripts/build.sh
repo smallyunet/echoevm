@@ -22,12 +22,15 @@ cp "${extension_dir}/manifest.json" "${extension_dir}/background.js" "${extensio
 cp "${extension_dir}/popup.html" "${extension_dir}/popup.js" "${extension_dir}/popup.css" "${staging_dir}/"
 cp "${extension_dir}/THIRD_PARTY_NOTICES.md" "${repo_dir}/LICENSE" "${staging_dir}/"
 cp "${extension_dir}"/icons/icon-*.png "${staging_dir}/icons/"
-cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" "${staging_dir}/wasm/"
-
-GOOS=js GOARCH=wasm CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o "${staging_dir}/wasm/engine.wasm" ./cmd/echoevm-wasm
+cargo build -p echoevm-wasm --target wasm32-unknown-unknown --profile wasm-release
+wasm-bindgen \
+  --target web \
+  --out-dir "${staging_dir}/wasm" \
+  --out-name engine \
+  "${repo_dir}/target/wasm32-unknown-unknown/wasm-release/echoevm_wasm.wasm"
 
 node "${extension_dir}/scripts/validate.mjs" "${staging_dir}"
-go run "${extension_dir}/test/generate_fixture.go" "${fixture_path}"
+cargo run -q -p echoevm-core --example generate-witness -- "${fixture_path}"
 node "${extension_dir}/scripts/smoke-wasm.mjs" "${staging_dir}" "${fixture_path}"
 
 rm -f "${asset_path}"

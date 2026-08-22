@@ -1,6 +1,6 @@
 "use strict";
 
-importScripts("wasm/wasm_exec.js");
+import initEchoEVM, { replay } from "./wasm/engine.js";
 
 const maxWitnessCharacters = 64 * 1024 * 1024;
 const enginePromise = bootEngine();
@@ -57,26 +57,13 @@ chrome.runtime.onConnect.addListener((port) => {
 });
 
 async function bootEngine() {
-  const go = new Go();
-  const response = await fetch(chrome.runtime.getURL("wasm/engine.wasm"));
-  if (!response.ok) throw new Error(`Unable to load EchoEVM Wasm (${response.status}).`);
-  let instance;
-  try {
-    ({ instance } = await WebAssembly.instantiateStreaming(response.clone(), go.importObject));
-  } catch (_) {
-    ({ instance } = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject));
-  }
-  go.run(instance).catch((error) => console.error("EchoEVM Wasm stopped", error));
-  for (let attempt = 0; attempt < 200 && !globalThis.echoevmWasmReady; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  if (typeof globalThis.echoevmReplay !== "function") throw new Error("EchoEVM Wasm did not expose its replay API.");
+  await initEchoEVM({ module_or_path: chrome.runtime.getURL("wasm/engine_bg.wasm") });
 }
 
 async function executeReplay(port, request, witness) {
   try {
     await enginePromise;
-    const encoded = globalThis.echoevmReplay(witness, JSON.stringify(request.options));
+    const encoded = replay(witness, JSON.stringify(request.options));
     const response = JSON.parse(encoded);
     port.postMessage({ type: "result", id: request.id, ...response });
   } catch (error) {

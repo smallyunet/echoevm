@@ -1,25 +1,14 @@
-FROM golang:1.25.12-alpine AS build
-
+FROM rust:1.95.0-bookworm AS build
 WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
+COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY crates ./crates
+RUN cargo build --locked --release -p echoevm
 
-ARG VERSION=devel
-ARG GIT_COMMIT=unknown
-ARG BUILD_DATE=unknown
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-    -trimpath \
-    -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildDate=${BUILD_DATE}" \
-    -o /out/echoevm ./cmd/echoevm
-
-FROM alpine:3.24.1
-
-RUN apk add --no-cache ca-certificates
-COPY --from=build /out/echoevm /usr/local/bin/echoevm
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && rm -rf /var/lib/apt/lists/*
+COPY --from=build /src/target/release/echoevm /usr/local/bin/echoevm
 COPY deploy/docker-compose.yml deploy/Caddyfile deploy/deploy-image.sh /usr/local/share/echoevm/deploy/
-
 USER 65534:65534
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/echoevm"]
-CMD ["diff", "--web", "--addr", ":8080"]
+CMD ["web", "--addr", "0.0.0.0:8080", "--code", "00"]

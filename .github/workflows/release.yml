@@ -2,101 +2,97 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   cli:
-    name: CLI ${{ matrix.goos }}/${{ matrix.goarch }}
-    runs-on: ubuntu-latest
+    name: CLI ${{ matrix.asset }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - goos: linux
-            goarch: amd64
-            suffix: ""
-          - goos: linux
-            goarch: arm64
-            suffix: ""
-          - goos: darwin
-            goarch: amd64
-            suffix: ""
-          - goos: darwin
-            goarch: arm64
-            suffix: ""
-          - goos: windows
-            goarch: amd64
-            suffix: .exe
+          - os: ubuntu-latest
+            asset: linux-amd64
+            binary: echoevm
+          - os: ubuntu-24.04-arm
+            asset: linux-arm64
+            binary: echoevm
+          - os: macos-15-intel
+            asset: darwin-amd64
+            binary: echoevm
+          - os: macos-15
+            asset: darwin-arm64
+            binary: echoevm
+          - os: windows-latest
+            asset: windows-amd64
+            binary: echoevm.exe
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v6
-        with:
-          go-version: "1.25.12"
-      - name: Build static CLI
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: "0"
-          ASSET: echoevm-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+      - run: rustup toolchain install 1.95.0 --profile minimal
+      - run: cargo build --locked --release -p echoevm
+      - shell: bash
         run: |
           mkdir -p dist
-          go build -trimpath \
-            -ldflags "-s -w -X main.Version=${GITHUB_REF_NAME} -X main.GitCommit=${GITHUB_SHA} -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o "dist/${ASSET}" ./cmd/echoevm
+          cp "target/release/${{ matrix.binary }}" "dist/echoevm-${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
       - uses: actions/upload-artifact@v7
         with:
-          name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: cli-${{ matrix.asset }}
           path: dist/echoevm-*
-          if-no-files-found: error
 
   publish:
     needs: cli
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
+      - run: rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
       - uses: actions/download-artifact@v8
         with:
           pattern: cli-*
           path: dist
           merge-multiple: true
-      - uses: actions/setup-go@v6
-        with:
-          go-version: "1.25.12"
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
-      - name: Build VS Code extension
+      - run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
+      - run: npm ci && npm run package:vsix && cp echoevm-*.vsix ../../dist/
         working-directory: editors/vscode
-        run: |
-          npm ci
-          npm run package:vsix
-          cp echoevm-*.vsix ../../dist/
-      - name: Build Chrome extension
+      - run: bash extensions/chrome/scripts/build.sh
         env:
           ECHOEVM_RELEASE_TAG: ${{ github.ref_name }}
-        run: bash extensions/chrome/scripts/build.sh
-      - name: Package Agent Skills
-        run: |
-          make test-skills
-          python3 tools/package_agent_skills.py
-      - name: Generate checksums
+      - run: make package-skills
+      - run: sha256sum echoevm-* > SHA256SUMS
         working-directory: dist
-        run: sha256sum echoevm-* > SHA256SUMS
-      - name: Create or update GitHub release
-        env:
+      - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "EchoEVM $GITHUB_REF_NAME"
-          fi
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes --title "EchoEVM $GITHUB_REF_NAME"
           gh release upload "$GITHUB_REF_NAME" dist/echoevm-* dist/SHA256SUMS --clobber
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/smallyunet/echoevm:${{ github.ref_name }}
+            ghcr.io/smallyunet/echoevm:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}

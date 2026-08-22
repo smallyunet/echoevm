@@ -32,16 +32,17 @@ echoevm replay ./transaction.witness.json --format evidence-json
 This command is the formal replay capability. It is deterministic for the
 witness bytes and does not expose an RPC option.
 
-`witness import-debug` is an explicitly named migration/conformance adapter for
+`witness import-debug` is an explicitly named acquisition adapter for
 capturing exact prestate from a provider that exposes `prestateTracer`:
 
 ```bash
-echoevm witness import-debug 0x0123... --out transaction.witness.json
+echoevm witness import-debug 0x0123... \
+  --rpc-url https://your-trace-rpc.example \
+  --out transaction.witness.json
 ```
 
-The imported file must replay later with no provider. `verify` is a separate
-online differential command and may compare EchoEVM with Geth-compatible trace
-output. Neither command changes the standalone replay contract.
+The imported file must replay later with no provider. The adapter's upstream
+response is acquisition data, never the EchoEVM execution result or oracle.
 
 ## Completeness responsibility
 

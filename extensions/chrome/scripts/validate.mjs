@@ -15,7 +15,7 @@ assert.deepEqual(manifest.permissions, undefined, "the first release should not 
 const required = [
   "background.js", "content.js", "content.css", "lib.js", "popup.html", "popup.js", "popup.css",
   "LICENSE", "THIRD_PARTY_NOTICES.md",
-  "wasm/wasm_exec.js", "wasm/engine.wasm",
+  "wasm/engine.js", "wasm/engine_bg.wasm",
   "icons/icon-16.png", "icons/icon-32.png", "icons/icon-48.png", "icons/icon-128.png"
 ];
 for (const relative of required) {
@@ -23,11 +23,11 @@ for (const relative of required) {
   assert(info.isFile(), `${relative} must be a file`);
 }
 
-const wasm = await readFile(path.join(root, "wasm/engine.wasm"));
+const wasm = await readFile(path.join(root, "wasm/engine_bg.wasm"));
 assert.deepEqual([...wasm.subarray(0, 4)], [0x00, 0x61, 0x73, 0x6d], "engine.wasm must have the Wasm magic header");
 assert(wasm.byteLength > 100_000, "engine.wasm is unexpectedly small");
 
-for (const relative of ["background.js", "content.js", "popup.js"]) {
+for (const relative of ["background.js", "content.js", "popup.js", "wasm/engine.js"]) {
   const source = await readFile(path.join(root, relative), "utf8");
   assert(!/<script[^>]+src=["']https?:/i.test(source), `${relative} must not load remote code`);
 }

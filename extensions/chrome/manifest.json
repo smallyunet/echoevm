@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "EchoEVM Transaction Replay",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "description": "Replay self-contained Ethereum transaction witnesses locally on Etherscan with EchoEVM Wasm.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "EchoEVM Transaction Replay"
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {

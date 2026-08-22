@@ -2,92 +2,66 @@ name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  lint:
+  rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Setup Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.12'
-          cache: false
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: v2.11.4
+      - run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt,clippy --target wasm32-unknown-unknown
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build --locked --release -p echoevm
+      - run: cargo build --locked -p echoevm-wasm --target wasm32-unknown-unknown --profile wasm-release
+      - run: bash scripts/test-cli.sh
 
-  test:
+  official:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - run: rustup toolchain install 1.95.0 --profile minimal
+      - uses: actions/cache@v5
         with:
-          go-version: '1.25.12'
-      - name: Build
-        run: go build -v ./...
-      - name: Unit, integration, and E2E tests
-        run: make test-unit test-integration test-e2e
-      - name: Deployment contract
-        run: make test-deploy
-      - name: Curated conformance and execution regressions
-        run: make test-conformance
-      - name: Official Osaka state fixtures (zero skip)
-        run: make test-official-fixtures
-      - name: Validate portable Agent Skills
-        run: make test-skills
+          path: tests/official/.cache
+          key: eest-tests-v20.0.1-3586193d
+      - run: make test-official-fixtures
 
-  build:
+  integrations:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - run: rustup toolchain install 1.95.0 --profile minimal --target wasm32-unknown-unknown
+      - uses: actions/setup-node@v6
         with:
-          go-version: '1.25.12'
-      - name: Build CLI
-        run: go build -v ./cmd/echoevm
-      - name: Validate production image and configuration
-        run: |
-          docker build --build-arg VERSION=ci -t echoevm:ci .
-          docker run --rm --entrypoint sh echoevm:ci -c 'test -s /usr/local/share/echoevm/deploy/docker-compose.yml && test -s /usr/local/share/echoevm/deploy/Caddyfile && test -s /usr/local/share/echoevm/deploy/deploy-image.sh'
-          ECHOEVM_IMAGE=echoevm:ci docker compose -f deploy/docker-compose.yml config --quiet
-          docker run --rm --network none -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2.11.4-alpine caddy validate --config /etc/caddy/Caddyfile
-
-  vscode:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: editors/vscode
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: '1.25.12'
-      - name: Set up Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
+          node-version: "24"
           cache: npm
           cache-dependency-path: editors/vscode/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Typecheck
-        run: npm run check
-      - name: Test protocol client
-        run: npm test
-      - name: Build CLI for packaged-client smoke test
-        working-directory: .
-        run: go build -o bin/echoevm ./cmd/echoevm
-      - name: Run Solidity inspect and trace smoke test
+      - run: npm ci
+        working-directory: editors/vscode
+      - run: cargo build --locked -p echoevm
+      - run: npm run check && npm test
+        working-directory: editors/vscode
+      - run: npm run test:integration
+        working-directory: editors/vscode
         env:
-          ECHOEVM_TEST_BINARY: ${{ github.workspace }}/bin/echoevm
-        run: npm run test:integration
-      - name: Package VSIX
-        run: npm run package:vsix
+          ECHOEVM_TEST_BINARY: ${{ github.workspace }}/target/debug/echoevm
+      - run: npm run package:vsix
+        working-directory: editors/vscode
+      - run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
+      - run: make test-chrome
+      - run: make test-deploy test-skills
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: docker build -t echoevm:ci .
+      - run: docker run --rm echoevm:ci version --json
+      - run: ECHOEVM_IMAGE=echoevm:ci docker compose -f deploy/docker-compose.yml config --quiet

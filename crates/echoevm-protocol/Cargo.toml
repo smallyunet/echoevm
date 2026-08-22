@@ -1,0 +1,18 @@
+[package]
+name = "echoevm-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Stable wire types for EchoEVM traces, evidence, and replay witnesses"
+readme = "../../README.md"
+keywords = ["ethereum", "evm", "replay", "protocol"]
+categories = ["development-tools", "encoding"]
+
+[dependencies]
+alloy-primitives.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

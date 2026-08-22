@@ -1,0 +1,49 @@
+[workspace]
+members = [
+  "crates/echoevm-core",
+  "crates/echoevm-protocol",
+  "crates/echoevm-cli",
+  "crates/echoevm-wasm",
+]
+default-members = ["crates/echoevm-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+repository = "https://github.com/smallyunet/echoevm"
+
+[workspace.dependencies]
+alloy-primitives = { version = "1.6.1", features = ["serde"] }
+alloy-consensus = { version = "1.6.1", features = ["k256", "serde"] }
+alloy-eips = "1.6.1"
+alloy-dyn-abi = "1.6.1"
+alloy-json-abi = "1.6.1"
+anyhow = "1.0.102"
+clap = { version = "4.6.6", features = ["derive", "env"] }
+hex = "0.4.3"
+getrandom = { version = "0.2.17", features = ["js"] }
+revm = { version = "42.0.1", default-features = false, features = ["std", "serde", "sha3-keccak", "tracer", "test-types"] }
+schemars = "1.2.1"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+thiserror = "2.0.18"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+tiny_http = "0.12.0"
+ureq = { version = "2.12.1", features = ["json"] }
+wasm-bindgen = "0.2.127"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+panic = "abort"
