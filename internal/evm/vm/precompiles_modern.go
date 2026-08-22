@@ -74,7 +74,9 @@ func (*p256Verify) Run(input []byte) ([]byte, error) {
 	x := new(big.Int).SetBytes(input[96:128])
 	y := new(big.Int).SetBytes(input[128:160])
 	curve := elliptic.P256()
-	if !curve.IsOnCurve(x, y) || !ecdsa.Verify(&ecdsa.PublicKey{Curve: curve, X: x, Y: y}, input[:32], r, s) {
+	encoded := append([]byte{0x04}, input[96:160]...)
+	validatedX, validatedY := elliptic.Unmarshal(curve, encoded)
+	if validatedX == nil || validatedX.Cmp(x) != 0 || validatedY.Cmp(y) != 0 || !ecdsa.Verify(&ecdsa.PublicKey{Curve: curve, X: validatedX, Y: validatedY}, input[:32], r, s) {
 		return nil, nil
 	}
 	return append([]byte(nil), true32...), nil

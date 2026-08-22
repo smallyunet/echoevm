@@ -59,7 +59,7 @@ func (c *Client) CallContext(ctx context.Context, result any, method string, arg
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode/100 != 2 {
 		return fmt.Errorf("RPC HTTP status %s", resp.Status)
 	}

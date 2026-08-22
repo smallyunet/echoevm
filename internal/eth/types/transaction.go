@@ -239,7 +239,10 @@ func (t *Transaction) decodeFields(typ uint8, e []rlp.RawValue) error {
 	num := func(i int) (*big.Int, error) { b, err := get(i); return new(big.Int).SetBytes(b), err }
 	u := func(i int) (uint64, error) {
 		n, err := num(i)
-		if err != nil || !n.IsUint64() {
+		if err != nil {
+			return 0, err
+		}
+		if !n.IsUint64() {
 			return 0, fmt.Errorf("integer overflow")
 		}
 		return n.Uint64(), nil
@@ -260,63 +263,110 @@ func (t *Transaction) decodeFields(typ uint8, e []rlp.RawValue) error {
 	}
 	*t = Transaction{typeID: typ, v: new(big.Int), r: new(big.Int), s: new(big.Int), chainID: new(big.Int), value: new(big.Int), gasPrice: new(big.Int), gasTipCap: new(big.Int), gasFeeCap: new(big.Int), blobFeeCap: new(big.Int)}
 	var err error
+	readBytes := func(index int) []byte {
+		if err != nil {
+			return nil
+		}
+		var value []byte
+		value, err = get(index)
+		return value
+	}
+	readNumber := func(index int) *big.Int {
+		if err != nil {
+			return new(big.Int)
+		}
+		var value *big.Int
+		value, err = num(index)
+		return value
+	}
+	readUint64 := func(index int) uint64 {
+		if err != nil {
+			return 0
+		}
+		var value uint64
+		value, err = u(index)
+		return value
+	}
+	readTo := func(index int) *common.Address {
+		if err != nil {
+			return nil
+		}
+		var value *common.Address
+		value, err = to(index)
+		return value
+	}
+	readAccessList := func(index int) AccessList {
+		if err != nil {
+			return nil
+		}
+		var value AccessList
+		value, err = decodeAccessList(e[index])
+		return value
+	}
 	switch typ {
 	case LegacyTxType:
-		t.nonce, _ = u(0)
-		t.gasPrice, _ = num(1)
-		t.gas, _ = u(2)
-		t.to, err = to(3)
-		t.value, _ = num(4)
-		t.data, _ = get(5)
+		t.nonce = readUint64(0)
+		t.gasPrice = readNumber(1)
+		t.gas = readUint64(2)
+		t.to = readTo(3)
+		t.value = readNumber(4)
+		t.data = readBytes(5)
 	case AccessListTxType:
-		t.chainID, _ = num(0)
-		t.nonce, _ = u(1)
-		t.gasPrice, _ = num(2)
-		t.gas, _ = u(3)
-		t.to, err = to(4)
-		t.value, _ = num(5)
-		t.data, _ = get(6)
-		t.accessList, err = decodeAccessList(e[7])
+		t.chainID = readNumber(0)
+		t.nonce = readUint64(1)
+		t.gasPrice = readNumber(2)
+		t.gas = readUint64(3)
+		t.to = readTo(4)
+		t.value = readNumber(5)
+		t.data = readBytes(6)
+		t.accessList = readAccessList(7)
 	case DynamicFeeTxType:
-		t.chainID, _ = num(0)
-		t.nonce, _ = u(1)
-		t.gasTipCap, _ = num(2)
-		t.gasFeeCap, _ = num(3)
-		t.gas, _ = u(4)
-		t.to, err = to(5)
-		t.value, _ = num(6)
-		t.data, _ = get(7)
-		t.accessList, err = decodeAccessList(e[8])
+		t.chainID = readNumber(0)
+		t.nonce = readUint64(1)
+		t.gasTipCap = readNumber(2)
+		t.gasFeeCap = readNumber(3)
+		t.gas = readUint64(4)
+		t.to = readTo(5)
+		t.value = readNumber(6)
+		t.data = readBytes(7)
+		t.accessList = readAccessList(8)
 	case BlobTxType:
-		t.chainID, _ = num(0)
-		t.nonce, _ = u(1)
-		t.gasTipCap, _ = num(2)
-		t.gasFeeCap, _ = num(3)
-		t.gas, _ = u(4)
-		t.to, err = to(5)
-		t.value, _ = num(6)
-		t.data, _ = get(7)
-		t.accessList, err = decodeAccessList(e[8])
-		t.blobFeeCap, _ = num(9)
-		t.blobHashes, err = decodeHashes(e[10])
+		t.chainID = readNumber(0)
+		t.nonce = readUint64(1)
+		t.gasTipCap = readNumber(2)
+		t.gasFeeCap = readNumber(3)
+		t.gas = readUint64(4)
+		t.to = readTo(5)
+		t.value = readNumber(6)
+		t.data = readBytes(7)
+		t.accessList = readAccessList(8)
+		t.blobFeeCap = readNumber(9)
+		if err == nil {
+			t.blobHashes, err = decodeHashes(e[10])
+		}
 	case SetCodeTxType:
-		t.chainID, _ = num(0)
-		t.nonce, _ = u(1)
-		t.gasTipCap, _ = num(2)
-		t.gasFeeCap, _ = num(3)
-		t.gas, _ = u(4)
-		t.to, err = to(5)
-		t.value, _ = num(6)
-		t.data, _ = get(7)
-		t.accessList, err = decodeAccessList(e[8])
-		t.authList, err = decodeAuthorizations(e[9])
+		t.chainID = readNumber(0)
+		t.nonce = readUint64(1)
+		t.gasTipCap = readNumber(2)
+		t.gasFeeCap = readNumber(3)
+		t.gas = readUint64(4)
+		t.to = readTo(5)
+		t.value = readNumber(6)
+		t.data = readBytes(7)
+		t.accessList = readAccessList(8)
+		if err == nil {
+			t.authList, err = decodeAuthorizations(e[9])
+		}
 	}
 	if err != nil {
 		return err
 	}
-	t.v, _ = num(unsigned)
-	t.r, _ = num(unsigned + 1)
-	t.s, _ = num(unsigned + 2)
+	t.v = readNumber(unsigned)
+	t.r = readNumber(unsigned + 1)
+	t.s = readNumber(unsigned + 2)
+	if err != nil {
+		return err
+	}
 	if typ == LegacyTxType && t.Protected() {
 		t.chainID = deriveChainID(t.v)
 	}

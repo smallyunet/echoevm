@@ -1,7 +1,6 @@
 package vm
 
 import (
-	"encoding/binary"
 	"math/bits"
 )
 
@@ -40,11 +39,5 @@ func blake2bCompress(h *[8]uint64, m [16]uint64, t [2]uint64, final bool, rounds
 	}
 	for i := range h {
 		h[i] ^= v[i] ^ v[i+8]
-	}
-}
-
-func readLEWords(input []byte, out []uint64) {
-	for i := range out {
-		out[i] = binary.LittleEndian.Uint64(input[i*8:])
 	}
 }
