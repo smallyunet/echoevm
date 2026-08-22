@@ -72,7 +72,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "version",
 			args:     []string{"version"},
-			wantOut:  "echoevm v0.2.0",
+			wantOut:  "echoevm v0.2.1",
 			wantCode: 0,
 		},
 		{

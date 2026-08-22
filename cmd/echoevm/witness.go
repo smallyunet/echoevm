@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/smallyunet/echoevm/internal/replay"
@@ -44,17 +43,24 @@ func runWitnessImportDebug(cmd *cobra.Command, input, outputPath string) error {
 	if err != nil {
 		return err
 	}
-	var out io.Writer = cmd.OutOrStdout()
-	var file *os.File
-	if outputPath != "" {
-		file, err = os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err != nil {
-			return fmt.Errorf("create replay witness: %w", err)
-		}
-		defer file.Close()
-		out = file
+	if outputPath == "" {
+		encoder := json.NewEncoder(cmd.OutOrStdout())
+		encoder.SetIndent("", "  ")
+		return encoder.Encode(witness)
 	}
-	encoder := json.NewEncoder(out)
+	file, err := os.OpenFile(outputPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fmt.Errorf("create replay witness: %w", err)
+	}
+	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	return encoder.Encode(witness)
+	encodeErr := encoder.Encode(witness)
+	closeErr := file.Close()
+	if encodeErr != nil {
+		return encodeErr
+	}
+	if closeErr != nil {
+		return fmt.Errorf("close replay witness: %w", closeErr)
+	}
+	return nil
 }

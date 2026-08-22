@@ -52,8 +52,15 @@ func LoadWitness(path string) (Witness, error) {
 	if err != nil {
 		return Witness{}, fmt.Errorf("open replay witness: %w", err)
 	}
-	defer file.Close()
-	return DecodeWitness(file)
+	witness, decodeErr := DecodeWitness(file)
+	closeErr := file.Close()
+	if decodeErr != nil {
+		return Witness{}, decodeErr
+	}
+	if closeErr != nil {
+		return Witness{}, fmt.Errorf("close replay witness: %w", closeErr)
+	}
+	return witness, nil
 }
 
 func DecodeWitness(reader io.Reader) (Witness, error) {

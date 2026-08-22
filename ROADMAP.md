@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.2.0
+**Current Version**: v0.2.1
 
 ---
 
@@ -77,6 +77,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.45 | Mainnet replay causal evidence and shareable transaction explanation flow |
 | v0.1.0 | Prague/Osaka transaction semantics, EIP-7702, fork-aware precompiles, CLZ, and executable EEST conformance |
 | v0.2.0 | Standalone versioned transaction witnesses; RPC/Geth replay comparison moved behind explicit verify/import-debug tooling |
+| v0.2.1 | Release hardening for standalone witness file output and loading |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
