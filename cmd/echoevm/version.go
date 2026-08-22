@@ -10,11 +10,11 @@ import (
 )
 
 // These variables are intended to be set via -ldflags during build, e.g.:
-// go build -ldflags "-X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.Version=v0.2.1"
+// go build -ldflags "-X main.GitCommit=$(git rev-parse --short HEAD) -X main.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ) -X main.Version=v0.3.0"
 // They default to "dev" when not provided.
 // Version is the current version of the application.
 // It is set at build time or defaults to the hardcoded value here.
-var Version = "v0.2.1"
+var Version = "v0.3.0"
 
 var (
 	GitCommit = "dev"

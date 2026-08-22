@@ -67,6 +67,9 @@ jobs:
           pattern: cli-*
           path: dist
           merge-multiple: true
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25.12"
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
@@ -78,6 +81,10 @@ jobs:
           npm ci
           npm run package:vsix
           cp echoevm-*.vsix ../../dist/
+      - name: Build Chrome extension
+        env:
+          ECHOEVM_RELEASE_TAG: ${{ github.ref_name }}
+        run: bash extensions/chrome/scripts/build.sh
       - name: Package Agent Skills
         run: |
           make test-skills

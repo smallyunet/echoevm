@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EchoEVM Transaction Replay</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header>
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 2 5 6v5c0 5.2 2.8 9.1 7 11 4.2-1.9 7-5.8 7-11V6l-7-4Z"/><path d="m9 12 2 2 4-5"/></svg>
+      <div><span>Local transaction execution</span><h1>EchoEVM Replay</h1></div>
+    </header>
+    <section class="status"><span></span><div><strong>Wasm engine included</strong><p>No local CLI installation is required.</p></div></section>
+    <ol>
+      <li>Open an Ethereum Mainnet transaction on Etherscan.</li>
+      <li>Open the EchoEVM panel in the lower-right corner.</li>
+      <li>Select a self-contained replay witness; execution starts locally.</li>
+    </ol>
+    <p class="boundary">Etherscan does not expose complete historical prestate on the page. EchoEVM therefore requires a versioned witness instead of silently depending on a remote executor.</p>
+    <button id="open-etherscan" type="button">Open Etherscan</button>
+    <a href="https://github.com/smallyunet/echoevm/blob/main/docs/REPLAY_WITNESS.md" target="_blank" rel="noreferrer">Read the witness contract</a>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

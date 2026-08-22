@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "EchoEVM Transaction Replay",
+  "version": "0.3.0",
+  "description": "Replay self-contained Ethereum transaction witnesses locally on Etherscan with EchoEVM Wasm.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "EchoEVM Transaction Replay"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://etherscan.io/tx/*",
+        "https://www.etherscan.io/tx/*"
+      ],
+      "js": [
+        "lib.js",
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

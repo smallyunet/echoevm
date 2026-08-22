@@ -53,6 +53,15 @@ Or install from source with Go 1.25+:
 go install github.com/smallyunet/echoevm/cmd/echoevm@latest
 ```
 
+GitHub Releases also include `echoevm-chrome-<version>.zip`, a Manifest V3
+extension that runs the packaged EchoEVM WebAssembly engine directly on
+Ethereum Mainnet transaction pages. It requires no local CLI and requests no
+broad browser permissions. Extract the ZIP, load it from
+`chrome://extensions` with Developer mode enabled, open an Etherscan
+transaction, and select a self-contained replay witness. See the
+[`Chrome extension guide`](extensions/chrome/README.md) for installation and
+the explicit witness-acquisition boundary.
+
 Solidity source execution also requires a compatible `solc` executable on
 `PATH`. From a cloned repository, run the included counter example:
 

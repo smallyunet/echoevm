@@ -3,10 +3,10 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.2.1
+VERSION    ?= v0.3.0
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-compliance test-official-fixtures test-differential test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
+.PHONY: install build build-chrome run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-chrome test-compliance test-official-fixtures test-differential test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -17,6 +17,9 @@ install: ## Install the echoevm binary to GOPATH/bin
 build: ## Build the echoevm binary
 	@mkdir -p $(BIN_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) ./cmd/echoevm
+
+build-chrome: ## Build the unpacked Chrome extension and release ZIP
+	bash extensions/chrome/scripts/build.sh
 
 run: build ## Run the built binary
 	$(BIN_DIR)/$(BINARY_NAME) $(ARGS)
@@ -39,6 +42,11 @@ test-integration: ## Run integration tests
 
 test-e2e: ## Run CLI end-to-end tests
 	go test -v ./tests/e2e/...
+
+test-chrome: ## Validate Chrome UI helpers and the packaged Wasm engine
+	node --test extensions/chrome/test/*.test.cjs
+	GOOS=js GOARCH=wasm go test -count=1 -exec="bash $$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/replay
+	bash extensions/chrome/scripts/build.sh
 
 test-compliance: ## Run compliance tests
 	go test -v ./tests/compliance/...
@@ -65,4 +73,4 @@ test-skills: ## Validate portable Agent Skills and Claude mirrors
 package-skills: test-skills ## Build portable .skill archives
 	python3 tools/package_agent_skills.py
 
-test: test-unit test-integration test-e2e test-conformance test-deploy test-skills ## Run all tests
+test: test-unit test-integration test-e2e test-chrome test-conformance test-deploy test-skills ## Run all tests
