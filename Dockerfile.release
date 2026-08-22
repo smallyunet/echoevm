@@ -1,0 +1,14 @@
+FROM debian:bookworm-slim
+
+ARG TARGETARCH
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
+COPY dist/echoevm-linux-${TARGETARCH} /usr/local/bin/echoevm
+RUN chmod 0755 /usr/local/bin/echoevm
+COPY deploy/docker-compose.yml deploy/Caddyfile deploy/deploy-image.sh /usr/local/share/echoevm/deploy/
+
+USER 65534:65534
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/echoevm"]
+CMD ["web", "--addr", "0.0.0.0:8080", "--code", "00"]
