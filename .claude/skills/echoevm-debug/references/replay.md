@@ -1,42 +1,68 @@
-# Mainnet transaction replay
+# Transaction witness replay
 
-Use replay only for a confirmed Ethereum Mainnet transaction hash or an allowlisted Etherscan transaction URL.
+Use standalone replay for a self-contained `echoevm.replay-witness.v1` file.
+Use online verification only when the task explicitly asks to compare EchoEVM
+with a Geth-compatible RPC for conformance.
 
-## Preconditions
+## Standalone replay
 
-- Require an Ethereum Mainnet RPC endpoint with `debug_traceTransaction`, `debug_traceCall`, `prestateTracer`, and opcode tracing.
-- Prefer an EchoEVM MCP `replay_transaction` operation when available.
-- Otherwise use the CLI and keep RPC credentials in `ECHOEVM_ETHEREUM_RPC` or the configured environment. Never print the RPC URL when it contains credentials.
-
-## CLI workflow
+Replay must not require an RPC URL or another execution engine:
 
 ```bash
-echoevm replay <transaction-hash-or-etherscan-url> \
+echoevm replay ./transaction.witness.json \
   --format evidence-json \
   --profile auto \
   --limit 40
 ```
 
-Route a known failure to `--profile revert`, state questions to `storage`, call
-structure to `call`, and gas questions to `gas`. Check transaction/fork
-provenance, warnings, comparison confidence, and selection/truncation metadata
-before interpreting the selected events.
+Check the witness schema and SHA-256 provenance, transaction/fork metadata,
+warnings, execution result, and selection/truncation metadata before
+interpreting events. Treat an incomplete or invalid witness as an input failure;
+do not fetch missing state implicitly or invent it.
 
-Only when compact evidence is insufficient, request the full replay and compact
-it before loading the result into model context:
+Only when compact evidence is insufficient, request the full standalone result:
 
 ```bash
-echoevm replay <transaction-hash-or-etherscan-url> --format json > <temporary-result.json>
-python3 <skill-dir>/scripts/compact_result.py <temporary-result.json>
+echoevm replay ./transaction.witness.json --format json
 ```
 
-Use `--rpc-url` only when the user explicitly supplies a safe endpoint and the command output will not expose it.
+## Optional witness import
+
+For migration or conformance, a configured trace-capable RPC may import exact
+prestate into a witness:
+
+```bash
+echoevm witness import-debug <transaction-hash-or-etherscan-url> \
+  --out transaction.witness.json
+```
+
+Keep credentials in `ECHOEVM_ETHEREUM_RPC` or a user-supplied `--rpc-url` and
+never print credential-bearing URLs. The importer is a data-acquisition adapter;
+the generated witness must replay later without RPC access.
+
+## Optional engine verification
+
+Use this only when comparison was requested:
+
+```bash
+echoevm verify <transaction-hash-or-etherscan-url> \
+  --format evidence-json \
+  --profile auto \
+  --limit 40
+```
+
+Verification requires Mainnet `debug_traceTransaction`, `debug_traceCall`,
+`prestateTracer`, and opcode tracing. Distinguish transaction status, return
+data, gas, post-state, and trace mismatches. Treat missing transaction, pending
+transaction, upstream RPC failure, missing tracer support, and timeout as
+different failure classes.
 
 ## Interpretation
 
-- Verify chain ID 1 and confirmed block metadata.
-- Report the transaction's actual fork label.
-- EchoEVM selects Cancun, Prague, or Osaka transaction/interpreter semantics from the Mainnet block timestamp. Preserve compatibility warnings for pre-Cancun execution and missing historical block hashes.
-- Distinguish transaction status, return data, gas, post-state, and trace mismatches.
-- Treat missing transaction, pending transaction, upstream RPC failure, missing tracer support, and timeout as different failure classes.
-- Never approximate prestate from the parent block when the required tracer is unavailable.
+- Verify the witness or online transaction chain, block, and fork provenance.
+- EchoEVM selects Cancun, Prague, or Osaka transaction/interpreter semantics
+  from the Mainnet block timestamp.
+- Preserve compatibility warnings for pre-Cancun execution and absent
+  historical BLOCKHASH entries.
+- Report Geth version, match fields, and first divergence only for `verify`.
+- Never describe a debug-RPC reference as part of EchoEVM standalone execution.

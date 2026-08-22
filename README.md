@@ -14,11 +14,13 @@ nested calls, reverted writes, value flow, storage changes, gas usage, and
 failure causes without flooding the consumer with a full opcode trace.
 
 Use it to diagnose one execution locally, compare behavior with embedded Geth,
-or replay a confirmed Ethereum Mainnet transaction from RPC prestate.
+or replay a self-contained Ethereum transaction witness without another
+execution engine.
 
 [Static playground](https://smallyunet.github.io/echoevm/) ·
 [latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
-[Trace protocol](docs/TRACE_PROTOCOL.md)
+[Trace protocol](docs/TRACE_PROTOCOL.md) ·
+[Replay witness](docs/REPLAY_WITNESS.md)
 
 > The playground is a static GitHub Pages site backed by committed evidence
 > snapshots. It does not run uploaded code, contact an RPC, or replace the
@@ -34,8 +36,8 @@ or replay a confirmed Ethereum Mainnet transaction from RPC prestate.
   they do not stop execution early or change its result.
 - **Optional Geth comparison** — differential execution is a conformance tool,
   not a prerequisite for the primary explain-one-input workflow.
-- **Real transaction replay** — hydrate transaction prestate through a
-  trace-capable Ethereum Mainnet RPC and inspect the complete call tree.
+- **Standalone transaction replay** — execute a versioned witness without an
+  RPC, Geth process, or foreign execution result in the product path.
 
 ## Quick Start
 
@@ -153,29 +155,41 @@ Start the local Transaction Explainer with:
 echoevm diff --web --addr :8080
 ```
 
-### Replay a Mainnet transaction
+### Replay a transaction witness
 
-Replay requires an RPC endpoint with `debug_traceTransaction` and the built-in
-`prestateTracer` enabled:
+Replay consumes `echoevm.replay-witness.v1` and does not contact an RPC or run
+another execution engine:
 
 ```bash
-echoevm replay 0x0123... \
-  --rpc-url https://your-trace-rpc.example \
+echoevm replay ./transaction.witness.json \
   --format evidence-json \
   --profile auto \
   --limit 40
+```
 
-ECHOEVM_ETHEREUM_RPC=https://your-trace-rpc.example \
-  echoevm replay https://etherscan.io/tx/0x0123... \
-    --format evidence-json \
-    --profile revert
+For migration and conformance work, a trace-capable RPC can be used explicitly
+to import prestate into a standalone witness:
+
+```bash
+echoevm witness import-debug 0x0123... \
+  --rpc-url https://your-trace-rpc.example \
+  --out transaction.witness.json
+```
+
+The importer is not an execution backend: after capture, `replay` reads only the
+witness. For an explicit online Geth comparison, use the separate conformance
+command:
+
+```bash
+echoevm verify 0x0123... \
+  --rpc-url https://your-trace-rpc.example \
+  --format evidence-json \
+  --profile revert
 ```
 
 Replay evidence uses the same profiles, causal links, and presentation limits
-as local source execution. It also carries transaction/fork provenance,
-EchoEVM/Geth comparison confidence, and compatibility warnings without
-duplicating both engines' complete traces. Use `--format json` when the full
-differential replay is required.
+as local source execution. It carries transaction, fork, witness schema, and
+witness digest provenance without comparison fields.
 
 EchoEVM recognizes confirmed Ethereum Mainnet transactions and selects Cancun,
 Prague, or Osaka transaction/interpreter rules from the block timestamp.
@@ -213,7 +227,9 @@ counts so consumers can distinguish complete execution from partial display.
 | `solidity run` | Compile, deploy, and call one Solidity function |
 | `trace` | Emit explainable, filterable opcode or causal evidence |
 | `diff` | Compare EchoEVM with embedded Geth |
-| `replay` | Replay a confirmed transaction from RPC prestate |
+| `replay` | Execute a self-contained transaction witness with EchoEVM |
+| `verify` | Optionally compare a transaction execution with a debug RPC |
+| `witness import-debug` | Import RPC prestate into a standalone witness |
 | `run` | Execute raw bytecode or a transaction fixture |
 | `deploy` | Execute constructor bytecode and extract runtime code |
 | `call` | Execute runtime bytecode with ABI encoding |
@@ -229,8 +245,8 @@ Run `echoevm <command> --help` for the authoritative flags and examples.
 The repository includes two read-only Agent Skills:
 
 - [`echoevm-debug`](.agents/skills/echoevm-debug/SKILL.md) compiles and executes
-  Solidity, compares bytecode with Geth, and replays confirmed Mainnet
-  transactions.
+  Solidity, replays transaction witnesses, and optionally verifies confirmed
+  Mainnet transactions against an RPC reference.
 - [`echoevm-conformance`](.agents/skills/echoevm-conformance/SKILL.md) validates
   interpreter changes with focused tests, pinned official fixtures, and
   differential vectors.
@@ -262,8 +278,9 @@ started by `echoevm diff --web`; it is not operated as a public service.
   payable calls, source-level stepping, or test discovery. Source-run output
   does include compiler source ranges and runtime PC mappings for editor
   evidence.
-- Mainnet replay requires a trace-capable RPC; EchoEVM does not approximate
-  transaction prestate from the parent block.
+- Standalone replay requires a complete `echoevm.replay-witness.v1`; malformed,
+  incomplete, or mismatched witness metadata fails closed. The optional debug
+  importer is a migration/conformance adapter, not a replay dependency.
 - Trie-backed state supports lazy reads; committing modified state roots is not
   yet supported.
 

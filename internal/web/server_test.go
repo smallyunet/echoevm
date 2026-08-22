@@ -42,7 +42,7 @@ func (r *readinessRPC) CallContext(_ context.Context, result any, method string,
 func TestRecentTransactionsAPIUsesShortOnDemandCache(t *testing.T) {
 	rpc := &readinessRPC{}
 	server := NewServer(":0")
-	server.replay = replay.NewServiceWithCaller(rpc)
+	server.verification = replay.NewVerificationServiceWithCaller(rpc)
 	for range 2 {
 		recorder := httptest.NewRecorder()
 		server.serveRecentTransactions(recorder, httptest.NewRequest(http.MethodGet, "/api/recent-transactions", nil))
@@ -109,7 +109,7 @@ func TestDifferentialHealth(t *testing.T) {
 func TestDifferentialReadinessCachesTraceCapability(t *testing.T) {
 	rpc := &readinessRPC{}
 	server := NewServer(":0")
-	server.replay = replay.NewServiceWithCaller(rpc)
+	server.verification = replay.NewVerificationServiceWithCaller(rpc)
 	for range 2 {
 		recorder := httptest.NewRecorder()
 		server.serveReady(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
@@ -124,7 +124,7 @@ func TestDifferentialReadinessCachesTraceCapability(t *testing.T) {
 
 func TestDifferentialReadinessReportsTraceUnavailable(t *testing.T) {
 	server := NewServer(":0")
-	server.replay = replay.NewServiceWithCaller(&readinessRPC{err: errors.New("trace method disabled")})
+	server.verification = replay.NewVerificationServiceWithCaller(&readinessRPC{err: errors.New("trace method disabled")})
 	recorder := httptest.NewRecorder()
 	server.serveReady(recorder, httptest.NewRequest(http.MethodGet, "/readyz", nil))
 	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), `"status":"not_ready"`) {
@@ -179,7 +179,7 @@ func TestDifferentialIndexSupportsShareableTransactionPath(t *testing.T) {
 	for _, path := range []string{"/tx/" + hash, "/tx/" + hash + "/"} {
 		recorder := httptest.NewRecorder()
 		server.serveDifferentialIndex(recorder, httptest.NewRequest(http.MethodGet, path+"?profile=revert", nil))
-		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Transaction Explainer") {
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "Transaction Verification") {
 			t.Fatalf("path=%s status=%d body=%s", path, recorder.Code, recorder.Body.String())
 		}
 	}
@@ -210,14 +210,14 @@ func TestVersionedAssetsAreImmutable(t *testing.T) {
 
 func TestReplayAPIRequiresConfiguredService(t *testing.T) {
 	server := NewServer(":0")
-	server.replaySlots = make(chan struct{}, 1)
+	server.verifySlots = make(chan struct{}, 1)
 	recorder := httptest.NewRecorder()
-	server.serveReplay(recorder, httptest.NewRequest(http.MethodPost, "/api/replay", strings.NewReader(`{"input":"0x00"}`)))
+	server.serveVerify(recorder, httptest.NewRequest(http.MethodPost, "/api/verify", strings.NewReader(`{"input":"0x00"}`)))
 	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), "trace-capable RPC") {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
 	recorder = httptest.NewRecorder()
-	server.serveReplay(recorder, httptest.NewRequest(http.MethodGet, "/api/replay", nil))
+	server.serveVerify(recorder, httptest.NewRequest(http.MethodGet, "/api/verify", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("GET status=%d", recorder.Code)
 	}
@@ -226,15 +226,15 @@ func TestReplayAPIRequiresConfiguredService(t *testing.T) {
 func TestReplayAPIRejectsUnboundedEvidencePresentation(t *testing.T) {
 	rpc := &readinessRPC{}
 	server := NewServer(":0")
-	server.replay = replay.NewServiceWithCaller(rpc)
-	server.replaySlots = make(chan struct{}, 1)
+	server.verification = replay.NewVerificationServiceWithCaller(rpc)
+	server.verifySlots = make(chan struct{}, 1)
 	for _, body := range []string{
 		`{"input":"0x00","profile":"auto","limit":0,"maxMemoryBytes":256}`,
 		`{"input":"0x00","profile":"auto","limit":201,"maxMemoryBytes":256}`,
 		`{"input":"0x00","profile":"auto","limit":40,"maxMemoryBytes":4097}`,
 	} {
 		recorder := httptest.NewRecorder()
-		server.serveReplay(recorder, httptest.NewRequest(http.MethodPost, "/api/replay", strings.NewReader(body)))
+		server.serveVerify(recorder, httptest.NewRequest(http.MethodPost, "/api/verify", strings.NewReader(body)))
 		if recorder.Code != http.StatusBadRequest {
 			t.Fatalf("body=%s status=%d response=%s", body, recorder.Code, recorder.Body.String())
 		}

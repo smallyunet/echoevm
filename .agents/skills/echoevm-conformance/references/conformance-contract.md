@@ -15,4 +15,4 @@ For each relevant differential vector, compare:
 - persistent storage or post-state;
 - normalized trace identity and first divergence.
 
-Keep unsupported behavior explicit. Cancun through Osaka are declared for transaction/interpreter execution; pre-Cancun replay, block-level system processing, and unexecuted fixture families are outside that claim.
+Keep unsupported behavior explicit. Cancun through Osaka are declared for transaction/interpreter execution; pre-Cancun replay, proof-backed historical state acquisition, block-level system processing, and unexecuted fixture families are outside that claim. Geth remains a conformance oracle, never a required backend for standalone witness replay.

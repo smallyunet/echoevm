@@ -73,7 +73,7 @@ func TestRecentTransactionsLoadsLatestMainnetBlock(t *testing.T) {
 		common.HexToHash("0x04"), common.HexToHash("0x05"), common.HexToHash("0x06"),
 	}
 	rpc := &replayFixtureRPC{recentBlock: rpcRecentBlock{Number: hexutil.Uint64(123), Transactions: hashes}}
-	result, err := NewServiceWithCaller(rpc).RecentTransactions(context.Background())
+	result, err := NewVerificationServiceWithCaller(rpc).RecentTransactions(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestRecentTransactionsLoadsLatestMainnetBlock(t *testing.T) {
 }
 
 func TestProbeRequiresMainnetTraceCapabilities(t *testing.T) {
-	status, err := NewServiceWithCaller(&replayFixtureRPC{}).Probe(context.Background())
+	status, err := NewVerificationServiceWithCaller(&replayFixtureRPC{}).Probe(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestProbeRequiresMainnetTraceCapabilities(t *testing.T) {
 }
 
 func TestReplayRejectsNonMainnetRPC(t *testing.T) {
-	_, err := NewServiceWithCaller(&replayFixtureRPC{chainID: 11155111}).Replay(context.Background(), Request{Input: testHash})
+	_, err := NewVerificationServiceWithCaller(&replayFixtureRPC{chainID: 11155111}).Verify(context.Background(), VerificationRequest{Input: testHash})
 	if err == nil || err.Error() != "configured RPC is chain 11155111; Ethereum Mainnet chain 1 is required" {
 		t.Fatalf("Replay error = %v", err)
 	}
@@ -152,7 +152,7 @@ func TestReplayHydratesPrestateAndExecutesTransaction(t *testing.T) {
 			},
 		},
 	}
-	result, err := NewServiceWithCaller(fixture).Replay(context.Background(), Request{
+	result, err := NewVerificationServiceWithCaller(fixture).Verify(context.Background(), VerificationRequest{
 		Input: tx.Hash().Hex(), Profile: explaintrace.ProfileAuto, Limit: DefaultEvidenceLimit,
 	})
 	if err != nil {
@@ -169,6 +169,55 @@ func TestReplayHydratesPrestateAndExecutesTransaction(t *testing.T) {
 	}
 }
 
+func TestImportDebugWitnessDoesNotRequestReferenceExecution(t *testing.T) {
+	key, err := crypto.HexToECDSA("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender := crypto.PubkeyToAddress(key.PublicKey)
+	recipient := common.HexToAddress("0x2000000000000000000000000000000000000002")
+	tx, err := types.SignTx(types.NewTransaction(0, recipient, new(big.Int), 21_000, big.NewInt(1), nil), types.NewEIP155Signer(big.NewInt(1)), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := types.Header{Number: big.NewInt(1), Time: 1710338135, GasLimit: 30_000_000, Difficulty: new(big.Int)}
+	raw, err := transactionRPCJSON(tx, sender, header.Hash(), 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture := &replayFixtureRPC{
+		raw:      raw,
+		header:   header,
+		prestate: map[string]prestateAccount{sender.Hex(): {Balance: (*hexutil.Big)(big.NewInt(1_000_000))}},
+	}
+	witness, err := NewVerificationServiceWithCaller(fixture).ImportDebugWitness(context.Background(), tx.Hash().Hex())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if witness.Schema != WitnessSchemaVersion || len(witness.Transaction) == 0 || len(witness.Prestate) != 1 {
+		t.Fatalf("witness = %+v", witness)
+	}
+	if fixture.methodCalls["debug_traceTransaction"] != 1 {
+		t.Fatalf("debug trace calls = %d, want one prestate import", fixture.methodCalls["debug_traceTransaction"])
+	}
+}
+
+func transactionRPCJSON(tx *types.Transaction, sender common.Address, blockHash common.Hash, blockNumber, index uint64) (json.RawMessage, error) {
+	raw, err := tx.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	fields["from"] = sender.Hex()
+	fields["blockHash"] = blockHash.Hex()
+	fields["blockNumber"] = hexutil.EncodeUint64(blockNumber)
+	fields["transactionIndex"] = hexutil.EncodeUint64(index)
+	return json.Marshal(fields)
+}
+
 func TestRunEchoCollectsCausalEvidenceForRevertedStorage(t *testing.T) {
 	sender := common.HexToAddress("0x1000000000000000000000000000000000000001")
 	recipient := common.HexToAddress("0x2000000000000000000000000000000000000002")
@@ -179,7 +228,7 @@ func TestRunEchoCollectsCausalEvidenceForRevertedStorage(t *testing.T) {
 	}
 	header := &types.Header{Number: big.NewInt(1), Time: 1710338135, GasLimit: 30_000_000, Difficulty: new(big.Int)}
 
-	result, _, events, err := runEcho(context.Background(), tx, sender, ethereumMainnetChainID, header, prestate, true, DefaultEvidenceMemoryBytes)
+	result, _, events, err := runEcho(context.Background(), tx, sender, ethereumMainnetChainID, header, prestate, nil, true, DefaultEvidenceMemoryBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +251,7 @@ func TestRunEchoCollectsCausalEvidenceForRevertedStorage(t *testing.T) {
 
 func TestReplayRejectsInvalidEvidenceOptionsBeforeRPC(t *testing.T) {
 	rpc := &replayFixtureRPC{}
-	_, err := NewServiceWithCaller(rpc).Replay(context.Background(), Request{Input: testHash, Profile: "mystery"})
+	_, err := NewVerificationServiceWithCaller(rpc).Verify(context.Background(), VerificationRequest{Input: testHash, Profile: "mystery"})
 	if err == nil || !strings.Contains(err.Error(), "unsupported evidence profile") {
 		t.Fatalf("Replay error = %v", err)
 	}
@@ -229,6 +278,19 @@ func TestDecodeOpcodeCanonicalizesRPCForms(t *testing.T) {
 				t.Fatalf("decodeOpcode(%s, %q) = %#x %q", test.raw, test.opName, opcode, name)
 			}
 		})
+	}
+}
+
+func TestReplayWarningsDetectPartialBlockHashWitness(t *testing.T) {
+	execution := differential.ExecutionResult{Trace: []differential.NormalizedStep{
+		{OpcodeName: "BLOCKHASH", StackBefore: []string{"0x63"}},
+	}}
+
+	if warnings := replayWarnings(1710338135, 100, execution, map[uint64]common.Hash{98: common.HexToHash("0x01")}); len(warnings) != 1 {
+		t.Fatalf("warnings = %v", warnings)
+	}
+	if warnings := replayWarnings(1710338135, 100, execution, map[uint64]common.Hash{99: common.HexToHash("0x01")}); len(warnings) != 0 {
+		t.Fatalf("warnings = %v", warnings)
 	}
 }
 

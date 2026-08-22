@@ -25,11 +25,14 @@ import (
 
 const traceSemantics = "full transaction pre-op PC/opcode/gas/stack across nested frames; EchoEVM post-op values are captured directly while RPC reference steps are Geth struct logs"
 
-type Service struct {
+// VerificationService imports prestate and reference execution data from a
+// trace-capable RPC. It exists for conformance and witness acquisition; normal
+// replay executes a self-contained Witness through ReplayWitness.
+type VerificationService struct {
 	rpc Caller
 }
 
-func NewService(ctx context.Context, rpcURL string) (*Service, error) {
+func NewVerificationService(ctx context.Context, rpcURL string) (*VerificationService, error) {
 	if strings.TrimSpace(rpcURL) == "" {
 		return nil, errors.New("ethereum RPC URL is not configured")
 	}
@@ -37,21 +40,23 @@ func NewService(ctx context.Context, rpcURL string) (*Service, error) {
 	if err != nil {
 		return nil, NewError(ErrorUnavailable, fmt.Errorf("connect to Ethereum RPC: %w", err))
 	}
-	return &Service{rpc: client}, nil
+	return &VerificationService{rpc: client}, nil
 }
 
-func NewServiceWithCaller(caller Caller) *Service { return &Service{rpc: caller} }
+func NewVerificationServiceWithCaller(caller Caller) *VerificationService {
+	return &VerificationService{rpc: caller}
+}
 
-func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
+func (s *VerificationService) Verify(ctx context.Context, req VerificationRequest) (VerificationResult, error) {
 	if s == nil || s.rpc == nil {
-		return Result{}, errors.New("transaction replay service is not configured")
+		return VerificationResult{}, errors.New("transaction verification service is not configured")
 	}
 	if req.Profile != "" {
 		if err := explaintrace.ValidateEvidenceProfile(req.Profile); err != nil {
-			return Result{}, err
+			return VerificationResult{}, err
 		}
 		if req.Limit < 0 || req.MaxMemoryBytes < 0 {
-			return Result{}, errors.New("evidence limits must be non-negative")
+			return VerificationResult{}, errors.New("evidence limits must be non-negative")
 		}
 		if req.MaxMemoryBytes == 0 {
 			req.MaxMemoryBytes = DefaultEvidenceMemoryBytes
@@ -59,51 +64,51 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	}
 	ref, err := ParseTransactionReference(req.Input)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	chainID, err := s.chainID(ctx)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	if chainID != ethereumMainnetChainID {
-		return Result{}, NewError(ErrorUnavailable, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID))
+		return VerificationResult{}, NewError(ErrorUnavailable, fmt.Errorf("configured RPC is chain %d; Ethereum Mainnet chain %d is required", chainID, ethereumMainnetChainID))
 	}
 	if ref.ChainID != chainID {
-		return Result{}, fmt.Errorf("input targets chain %d but configured RPC is chain %d", ref.ChainID, chainID)
+		return VerificationResult{}, fmt.Errorf("input targets chain %d but configured RPC is chain %d", ref.ChainID, chainID)
 	}
 	tx, meta, err := s.transaction(ctx, ref.Hash)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	var receipt types.Receipt
 	if err := s.rpc.CallContext(ctx, &receipt, "eth_getTransactionReceipt", ref.Hash); err != nil {
-		return Result{}, NewError(ErrorUpstream, fmt.Errorf("load transaction receipt: %w", err))
+		return VerificationResult{}, NewError(ErrorUpstream, fmt.Errorf("load transaction receipt: %w", err))
 	}
 	if receipt.TxHash == (common.Hash{}) {
-		return Result{}, NewError(ErrorConflict, errors.New("transaction receipt is unavailable; the transaction may still be pending"))
+		return VerificationResult{}, NewError(ErrorConflict, errors.New("transaction receipt is unavailable; the transaction may still be pending"))
 	}
 	var header types.Header
 	if err := s.rpc.CallContext(ctx, &header, "eth_getBlockByHash", meta.BlockHash, false); err != nil {
-		return Result{}, NewError(ErrorUpstream, fmt.Errorf("load transaction block: %w", err))
+		return VerificationResult{}, NewError(ErrorUpstream, fmt.Errorf("load transaction block: %w", err))
 	}
 	if header.Number == nil {
-		return Result{}, NewError(ErrorUpstream, errors.New("RPC returned an incomplete transaction block"))
+		return VerificationResult{}, NewError(ErrorUpstream, errors.New("RPC returned an incomplete transaction block"))
 	}
 	prestate, err := s.prestate(ctx, ref.Hash)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	reference, err := s.referenceTrace(ctx, ref.Hash, &receipt)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	diff, err := s.stateDiff(ctx, ref.Hash)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
-	echo, state, evidenceEvents, err := runEcho(ctx, tx, meta.From, chainID, &header, prestate, req.Profile != "", req.MaxMemoryBytes)
+	echo, state, evidenceEvents, err := runEcho(ctx, tx, meta.From, chainID, &header, prestate, nil, req.Profile != "", req.MaxMemoryBytes)
 	if err != nil {
-		return Result{}, err
+		return VerificationResult{}, err
 	}
 	result := compare(echo, reference)
 	result.EchoState, result.GethState = compareState(state, diff)
@@ -114,16 +119,16 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	}
 	result.Transaction = summarize(tx, meta, &receipt, &header, chainID)
 	result.TraceSemantics = traceSemantics
-	result.Warnings = replayWarnings(header.Time, echo)
+	result.Warnings = replayWarnings(header.Time, header.Number.Uint64(), echo, nil)
 	if req.Profile != "" {
 		document, evidenceErr := explaintrace.BuildEvidence(explaintrace.ExecutionResult{
 			Status: string(echo.Status), GasLimit: tx.Gas(), GasUsed: echo.GasUsed,
 			ReturnData: echo.ReturnData, TotalSteps: len(evidenceEvents), ExecutionError: echo.Error,
 		}, evidenceEvents, req.Profile, req.Limit)
 		if evidenceErr != nil {
-			return Result{}, evidenceErr
+			return VerificationResult{}, evidenceErr
 		}
-		result.Evidence = &EvidenceResult{
+		result.Evidence = &VerificationEvidenceResult{
 			EvidenceDocument: document,
 			Transaction:      result.Transaction,
 			Warnings:         append([]string(nil), result.Warnings...),
@@ -137,7 +142,61 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	return result, nil
 }
 
-func (s *Service) chainID(ctx context.Context) (uint64, error) {
+// ImportDebugWitness is an optional migration and conformance adapter. It uses
+// an RPC prestate tracer to capture a standalone witness, but the resulting
+// witness is later executed by ReplayWitness without RPC or Geth output.
+func (s *VerificationService) ImportDebugWitness(ctx context.Context, input string) (Witness, error) {
+	if s == nil || s.rpc == nil {
+		return Witness{}, errors.New("transaction verification service is not configured")
+	}
+	ref, err := ParseTransactionReference(input)
+	if err != nil {
+		return Witness{}, err
+	}
+	chainID, err := s.chainID(ctx)
+	if err != nil {
+		return Witness{}, err
+	}
+	if ref.ChainID != chainID {
+		return Witness{}, fmt.Errorf("input targets chain %d but configured RPC is chain %d", ref.ChainID, chainID)
+	}
+	tx, meta, err := s.transaction(ctx, ref.Hash)
+	if err != nil {
+		return Witness{}, err
+	}
+	var header types.Header
+	if err := s.rpc.CallContext(ctx, &header, "eth_getBlockByHash", meta.BlockHash, false); err != nil {
+		return Witness{}, NewError(ErrorUpstream, fmt.Errorf("load transaction block: %w", err))
+	}
+	prestate, err := s.prestate(ctx, ref.Hash)
+	if err != nil {
+		return Witness{}, err
+	}
+	rawTransaction, err := tx.MarshalBinary()
+	if err != nil {
+		return Witness{}, fmt.Errorf("encode transaction witness: %w", err)
+	}
+	accounts := make(map[string]WitnessAccount, len(prestate))
+	for address, account := range prestate {
+		accounts[address.Hex()] = WitnessAccount{
+			Balance: account.Balance,
+			Nonce:   account.Nonce,
+			Code:    append(hexutil.Bytes(nil), account.Code...),
+			Storage: cloneStorage(account.Storage),
+		}
+	}
+	witness := Witness{
+		Schema: WitnessSchemaVersion, ChainID: chainID, BlockHash: meta.BlockHash,
+		TransactionIndex: meta.Index, Header: header, Transaction: rawTransaction,
+		Prestate: accounts, Source: "debug_traceTransaction/prestateTracer import",
+	}
+	if err := witness.Validate(); err != nil {
+		return Witness{}, err
+	}
+	return witness, nil
+}
+
+func (s *VerificationService) chainID(ctx context.Context) (uint64, error) {
 	var value hexutil.Uint64
 	if err := s.rpc.CallContext(ctx, &value, "eth_chainId"); err != nil {
 		return 0, NewError(ErrorUpstream, fmt.Errorf("load RPC chain ID: %w", err))
@@ -150,9 +209,9 @@ type rpcRecentBlock struct {
 	Transactions []common.Hash  `json:"transactions"`
 }
 
-func (s *Service) RecentTransactions(ctx context.Context) (RecentTransactions, error) {
+func (s *VerificationService) RecentTransactions(ctx context.Context) (RecentTransactions, error) {
 	if s == nil || s.rpc == nil {
-		return RecentTransactions{}, errors.New("transaction replay service is not configured")
+		return RecentTransactions{}, errors.New("transaction verification service is not configured")
 	}
 	chainID, err := s.chainID(ctx)
 	if err != nil {
@@ -173,10 +232,10 @@ func (s *Service) RecentTransactions(ctx context.Context) (RecentTransactions, e
 	return RecentTransactions{BlockNumber: uint64(block.Number), Transactions: transactions}, nil
 }
 
-func (s *Service) Probe(ctx context.Context) (Readiness, error) {
-	status := Readiness{}
+func (s *VerificationService) Probe(ctx context.Context) (VerificationReadiness, error) {
+	status := VerificationReadiness{}
 	if s == nil || s.rpc == nil {
-		return status, NewError(ErrorUnavailable, errors.New("transaction replay service is not configured"))
+		return status, NewError(ErrorUnavailable, errors.New("transaction verification service is not configured"))
 	}
 	chainID, err := s.chainID(ctx)
 	if err != nil {
@@ -214,7 +273,7 @@ func (s *Service) Probe(ctx context.Context) (Readiness, error) {
 	return status, nil
 }
 
-func (s *Service) transaction(ctx context.Context, hash common.Hash) (*types.Transaction, rawTransaction, error) {
+func (s *VerificationService) transaction(ctx context.Context, hash common.Hash) (*types.Transaction, rawTransaction, error) {
 	var raw json.RawMessage
 	if err := s.rpc.CallContext(ctx, &raw, "eth_getTransactionByHash", hash); err != nil {
 		return nil, rawTransaction{}, NewError(ErrorUpstream, fmt.Errorf("load transaction: %w", err))
@@ -260,7 +319,7 @@ type transactionStateDiff struct {
 	Post map[string]stateDiffAccount `json:"post"`
 }
 
-func (s *Service) prestate(ctx context.Context, hash common.Hash) (map[common.Address]prestateAccount, error) {
+func (s *VerificationService) prestate(ctx context.Context, hash common.Hash) (map[common.Address]prestateAccount, error) {
 	var raw map[string]prestateAccount
 	config := map[string]any{"tracer": "prestateTracer", "tracerConfig": map[string]any{"diffMode": false, "includeEmpty": true}}
 	if err := s.rpc.CallContext(ctx, &raw, "debug_traceTransaction", hash, config); err != nil {
@@ -279,7 +338,7 @@ func (s *Service) prestate(ctx context.Context, hash common.Hash) (map[common.Ad
 	return state, nil
 }
 
-func (s *Service) stateDiff(ctx context.Context, hash common.Hash) (transactionStateDiff, error) {
+func (s *VerificationService) stateDiff(ctx context.Context, hash common.Hash) (transactionStateDiff, error) {
 	var diff transactionStateDiff
 	config := map[string]any{"tracer": "prestateTracer", "tracerConfig": map[string]any{"diffMode": true}}
 	if err := s.rpc.CallContext(ctx, &diff, "debug_traceTransaction", hash, config); err != nil {
@@ -328,7 +387,7 @@ type rpcExecutionTrace struct {
 	StructLogs  []rpcStructLog `json:"structLogs"`
 }
 
-func (s *Service) referenceTrace(ctx context.Context, hash common.Hash, receipt *types.Receipt) (differential.ExecutionResult, error) {
+func (s *VerificationService) referenceTrace(ctx context.Context, hash common.Hash, receipt *types.Receipt) (differential.ExecutionResult, error) {
 	var raw rpcExecutionTrace
 	config := map[string]any{"disableMemory": true, "disableStorage": true, "disableStack": false, "enableReturnData": true, "limit": MaxTraceSteps + 1}
 	if err := s.rpc.CallContext(ctx, &raw, "debug_traceTransaction", hash, config); err != nil {
@@ -388,7 +447,7 @@ func opcodeByRPCName(name string) (byte, bool) {
 	return core.OpcodeByName(name)
 }
 
-func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, chainID uint64, header *types.Header, prestate map[common.Address]prestateAccount, collectEvidence bool, maxMemoryBytes int) (differential.ExecutionResult, *core.MemoryStateDB, []explaintrace.OpcodeEvent, error) {
+func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, chainID uint64, header *types.Header, prestate map[common.Address]prestateAccount, blockHashes map[uint64]common.Hash, collectEvidence bool, maxMemoryBytes int) (differential.ExecutionResult, *core.MemoryStateDB, []explaintrace.OpcodeEvent, error) {
 	state := core.NewMemoryStateDB()
 	for address, account := range prestate {
 		state.CreateAccount(address)
@@ -436,7 +495,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 		}
 		return true
 	}
-	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID), ChainConfig: core.ChainConfigForMainnetTimestamp(header.Time)}
+	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID), ChainConfig: core.ChainConfigForMainnetTimestamp(header.Time), BlockHashes: blockHashes}
 	if header.ExcessBlobGas != nil {
 		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(params.MainnetChainConfig, header)
 	}
@@ -451,6 +510,9 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	}
 	if ctx.Err() != nil {
 		return differential.ExecutionResult{}, nil, nil, ctx.Err()
+	}
+	if err := state.BackendError(); err != nil {
+		return differential.ExecutionResult{}, nil, nil, fmt.Errorf("load replay state: %w", err)
 	}
 	if overflow {
 		return differential.ExecutionResult{}, nil, nil, fmt.Errorf("EchoEVM trace exceeds maximum %d steps", MaxTraceSteps)
@@ -564,18 +626,34 @@ func forkName(timestamp uint64) string {
 	}
 }
 
-func replayWarnings(timestamp uint64, echo differential.ExecutionResult) []string {
+func replayWarnings(timestamp, blockNumber uint64, echo differential.ExecutionResult, blockHashes map[uint64]common.Hash) []string {
 	warnings := make([]string, 0, 3)
 	if timestamp < core.MainnetCancunTime {
 		warnings = append(warnings, "EchoEVM replay declares Mainnet transaction semantics from Cancun through Osaka; this pre-Cancun transaction is executed with the Cancun baseline, so a divergence may reflect unsupported historical fork semantics.")
 	}
 	for _, step := range echo.Trace {
-		if step.OpcodeName == "BLOCKHASH" {
-			warnings = append(warnings, "BLOCKHASH currently resolves to zero because historical block hashes are not part of the replay witness.")
+		if step.OpcodeName == "BLOCKHASH" && missingBlockHash(step, blockNumber, blockHashes) {
+			warnings = append(warnings, "One or more in-range BLOCKHASH values are absent from the replay witness and therefore resolve to zero.")
 			break
 		}
 	}
 	return warnings
+}
+
+func missingBlockHash(step differential.NormalizedStep, blockNumber uint64, blockHashes map[uint64]common.Hash) bool {
+	if len(step.StackBefore) == 0 {
+		return true
+	}
+	requested := new(big.Int)
+	if _, ok := requested.SetString(strings.TrimPrefix(step.StackBefore[len(step.StackBefore)-1], "0x"), 16); !ok || !requested.IsUint64() {
+		return true
+	}
+	number := requested.Uint64()
+	if number >= blockNumber || blockNumber-number > 256 {
+		return false
+	}
+	_, ok := blockHashes[number]
+	return !ok
 }
 
 func canonicalStack(values []string) []string {
@@ -599,8 +677,8 @@ func normalizeHex(value string) string {
 	return "0x" + strings.ToLower(value)
 }
 
-func compare(echo, geth differential.ExecutionResult) Result {
-	result := Result{StatusMatch: echo.Status == geth.Status, ReturnDataMatch: echo.ReturnData == geth.ReturnData, GasMatch: echo.GasUsed == geth.GasUsed, StateMatch: true, EchoEVM: echo, Geth: geth, EchoState: map[string]string{}, GethState: map[string]string{}}
+func compare(echo, geth differential.ExecutionResult) VerificationResult {
+	result := VerificationResult{StatusMatch: echo.Status == geth.Status, ReturnDataMatch: echo.ReturnData == geth.ReturnData, GasMatch: echo.GasUsed == geth.GasUsed, StateMatch: true, EchoEVM: echo, Geth: geth, EchoState: map[string]string{}, GethState: map[string]string{}}
 	limit := min(len(echo.Trace), len(geth.Trace))
 	result.TraceMatch = len(echo.Trace) == len(geth.Trace)
 	for index := 0; index < limit; index++ {

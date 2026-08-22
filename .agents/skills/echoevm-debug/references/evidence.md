@@ -13,7 +13,8 @@ Report when available:
 - Persistent/transient storage, memory, stack, and control-flow evidence when selected.
 - Causal `enters-frame`, `returns-to`, `rolls-back`, and exact `value-flow` links when selected.
 - Declared or transaction fork and replay warnings when applicable.
-- Geth version, match fields, and first divergence only when a comparison was requested.
+- Witness schema and SHA-256 provenance for standalone replay.
+- Geth version, match fields, and first divergence only when `verify` comparison was requested.
 
 ## Interpretation rules
 
@@ -30,7 +31,7 @@ Report when available:
 Start with `--format evidence-json --profile auto --limit 40`; route to
 `revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas` when the question makes that scope
 clear. On truncation or missing context, request an `--around-step` full-trace
-window with selected fields and opcode/depth constraints. For full comparison
-output, write JSON to a temporary file and use the compact-result script. Replay
-supports bounded evidence directly. Load a full raw trace only when the user
+window with selected fields and opcode/depth constraints. For full `verify`
+comparison output, write JSON to a temporary file and use the compact-result
+script. Standalone replay supports bounded evidence directly. Load a full raw trace only when the user
 explicitly asks for it or bounded windows cannot answer the question.

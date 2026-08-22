@@ -72,7 +72,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "version",
 			args:     []string{"version"},
-			wantOut:  "echoevm v0.1.0",
+			wantOut:  "echoevm v0.2.0",
 			wantCode: 0,
 		},
 		{
@@ -104,6 +104,24 @@ func TestE2E_Run(t *testing.T) {
 			args:     []string{"run", "--prestate", prestatePath, "--tx", revertTransactionPath},
 			wantOut:  `"reverted": true`,
 			wantCode: 1,
+		},
+		{
+			name:     "standalone replay reads a witness file",
+			args:     []string{"replay", filepath.Join(tempDir, "missing.witness.json")},
+			wantOut:  "open replay witness",
+			wantCode: 1,
+		},
+		{
+			name:     "standalone replay has no RPC option",
+			args:     []string{"replay", filepath.Join(tempDir, "missing.witness.json"), "--rpc-url", "https://example.invalid"},
+			wantOut:  "unknown flag: --rpc-url",
+			wantCode: 1,
+		},
+		{
+			name:     "debug witness importer help is conflict free",
+			args:     []string{"witness", "import-debug", "--help"},
+			wantOut:  "Import prestate through prestateTracer",
+			wantCode: 0,
 		},
 	}
 
@@ -138,7 +156,7 @@ func TestE2E_Run(t *testing.T) {
 
 	t.Run("configured RPC credential is hidden from help output", func(t *testing.T) {
 		const rpcURL = "https://example.invalid/v2/private-token"
-		ps := exec.Command(binPath, "replay", "invalid-reference")
+		ps := exec.Command(binPath, "verify", "invalid-reference")
 		ps.Env = append(os.Environ(), "ECHOEVM_ETHEREUM_RPC="+rpcURL)
 		output, err := ps.CombinedOutput()
 		if err == nil {

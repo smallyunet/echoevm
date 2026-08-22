@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.1.0
+**Current Version**: v0.2.0
 
 ---
 
@@ -76,6 +76,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.44 | Source-aware Solidity inspection and runtime PC mapping for editor execution evidence |
 | v0.0.45 | Mainnet replay causal evidence and shareable transaction explanation flow |
 | v0.1.0 | Prague/Osaka transaction semantics, EIP-7702, fork-aware precompiles, CLZ, and executable EEST conformance |
+| v0.2.0 | Standalone versioned transaction witnesses; RPC/Geth replay comparison moved behind explicit verify/import-debug tooling |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -121,8 +122,8 @@ Tools and integrations for enhanced developer productivity.
 - [ ] **Gas Profiler** - Deferred in favor of per-opcode semantic gas explanations
 - [ ] **Contract Analyzer** - Deferred; EchoEVM provides execution evidence, not scanner claims
 - [x] **Differential Explorer** - Reusable Cancun EchoEVM/Geth engine, CLI, JSON API, and local trace UI
-- [x] **Transaction Replay** - Hash/Etherscan input, RPC prestate hydration, and full call-frame trace comparison
-- [x] **Replay Causal Evidence** - Question-routed, bounded transaction evidence with comparison confidence and shareable Explorer URLs
+- [x] **Transaction Replay** - Self-contained witness input and EchoEVM-only execution with full call-frame evidence
+- [x] **Optional Transaction Verification** - Explicit debug-RPC prestate import and Geth differential verification outside the replay contract
 - [ ] **Export Formats** - Trace export to JSON, CSV, CallGraph
 
 ---
@@ -147,7 +148,7 @@ Full compliance and ecosystem integration.
 **Next Release Priorities:**
 1. Expand executable Prague/Osaka EEST coverage beyond the current core-EIP corpus
 2. Implement block-level Prague system requests and historical `BLOCKHASH` witnesses
-3. Freeze reproducible public-transaction witnesses for a Mainnet evidence benchmark
+3. Add proof-backed standard-RPC witness acquisition and freeze reproducible public-transaction witnesses
 4. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
 5. Preserve `echoevm.trace.v1` as the full diagnostic contract behind bounded evidence
 
@@ -157,11 +158,12 @@ breakpoints, and broad debugger UI expansion no longer gate the roadmap.
 Embedded Geth stays in conformance tests and optional comparison commands; the
 primary product path explains EchoEVM execution without requiring a comparison.
 
-The replay engine intentionally requires a trace-capable RPC and does not
-approximate transaction prestate from the parent block. EchoEVM declares
-transaction and interpreter semantics from Cancun through Osaka. It is not a
-full execution-layer client: block construction, Prague system requests,
-consensus validation, and historical block-hash witnesses remain outside scope.
+The replay engine consumes a self-contained witness and never requires a Geth
+execution result. Debug RPC is confined to optional import/verification tools.
+EchoEVM declares transaction and interpreter semantics from Cancun through
+Osaka. It is not yet a full execution-layer client: proof-backed historical
+state acquisition, block construction, Prague system requests, consensus
+validation, and committing modified state roots remain outside scope.
 
 ---
 

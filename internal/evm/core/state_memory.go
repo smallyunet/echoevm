@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -129,7 +130,8 @@ type MemoryStateDB struct {
 	// Transient Storage (EIP-1153)
 	transientStorage map[common.Address]map[common.Hash]common.Hash
 
-	backend StateBackend
+	backend    StateBackend
+	backendErr error
 }
 
 func NewMemoryStateDB() *MemoryStateDB {
@@ -145,7 +147,12 @@ func NewMemoryStateDB() *MemoryStateDB {
 
 func (db *MemoryStateDB) SetBackend(backend StateBackend) {
 	db.backend = backend
+	db.backendErr = nil
 }
+
+// BackendError reports a state acquisition failure observed by a synchronous
+// StateDB read. Callers must check it before accepting an execution result.
+func (db *MemoryStateDB) BackendError() error { return db.backendErr }
 
 // PrepareTransaction resets state that must not leak between transactions and
 // snapshots the currently loaded storage values for EIP-2200 gas accounting.
@@ -171,26 +178,17 @@ func (db *MemoryStateDB) getAccount(addr common.Address) *Account {
 	}
 	// Try backend
 	if db.backend != nil {
-		acc, _ := db.backend.GetAccount(addr)
+		acc, err := db.backend.GetAccount(addr)
+		if err != nil {
+			db.backendErr = errors.Join(db.backendErr, err)
+			return nil
+		}
 		if acc != nil {
-			// Cache it in memory for future modifications
-			// But we need to make sure we don't treat it as "created" for rollback unless we want to?
-			// Actually, if we just put it in db.accounts, it becomes part of the "access set".
-			// But for reverting, we usually track changes.
-			// Loading from backend isn't a "change".
-			// Ideally we have a separate cache or we flag it.
-			// For simplicity: put in db.accounts.
-			// Note: This implies we copy it to avoid mutating backend state directly if backend returned pointer.
-			// But backend returns *Account which is ours now.
-			// We must ensure Storage map is initialized.
-			if acc.Storage == nil {
-				acc.Storage = make(map[common.Hash]common.Hash)
-			}
-			if acc.OriginalStorage == nil {
-				acc.OriginalStorage = make(map[common.Hash]common.Hash)
-			}
-			db.accounts[addr] = acc
-			return acc
+			// Cache a deep copy so execution cannot mutate the backend snapshot.
+			// Loading state is not journaled as an EVM state change.
+			loaded := cloneAccount(acc)
+			db.accounts[addr] = loaded
+			return loaded
 		}
 	}
 	return nil
@@ -300,17 +298,16 @@ func (db *MemoryStateDB) GetState(addr common.Address, key common.Hash) common.H
 	}
 	// Try backend
 	if db.backend != nil {
-		val, _ := db.backend.GetStorage(addr, key)
-		if (val != common.Hash{}) {
-			acc.Storage[key] = val
-			// Also set original storage if not set?
-			// EIP-2200 requires OriginalStorage to be the value at beginning of transaction.
-			// If we just loaded it, it is original.
-			if _, ok := acc.OriginalStorage[key]; !ok {
-				acc.OriginalStorage[key] = val
-			}
-			return val
+		val, err := db.backend.GetStorage(addr, key)
+		if err != nil {
+			db.backendErr = errors.Join(db.backendErr, err)
+			return common.Hash{}
 		}
+		acc.Storage[key] = val
+		if _, ok := acc.OriginalStorage[key]; !ok {
+			acc.OriginalStorage[key] = val
+		}
+		return val
 	}
 	return common.Hash{}
 }
@@ -324,14 +321,33 @@ func (db *MemoryStateDB) GetOriginalState(addr common.Address, key common.Hash) 
 }
 
 func (db *MemoryStateDB) SetState(addr common.Address, key common.Hash, value common.Hash) {
+	pre := db.GetState(addr, key)
 	acc := db.getOrNewAccount(addr)
-	pre := acc.Storage[key]
 	db.journal = append(db.journal, storageChange{
 		account: addr,
 		key:     key,
 		pre:     pre,
 	})
 	acc.Storage[key] = value
+}
+
+func cloneAccount(account *Account) *Account {
+	cloned := *account
+	cloned.Balance = new(big.Int)
+	if account.Balance != nil {
+		cloned.Balance.Set(account.Balance)
+	}
+	cloned.CodeHash = append([]byte(nil), account.CodeHash...)
+	cloned.Code = append([]byte(nil), account.Code...)
+	cloned.Storage = make(map[common.Hash]common.Hash, len(account.Storage))
+	for key, value := range account.Storage {
+		cloned.Storage[key] = value
+	}
+	cloned.OriginalStorage = make(map[common.Hash]common.Hash, len(account.OriginalStorage))
+	for key, value := range account.OriginalStorage {
+		cloned.OriginalStorage[key] = value
+	}
+	return &cloned
 }
 
 // GetTransientState returns the value from transient storage

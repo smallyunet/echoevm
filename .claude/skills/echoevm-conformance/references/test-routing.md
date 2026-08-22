@@ -11,7 +11,7 @@ Select focused checks from the changed semantic surface, then run the complete c
 | Gas accounting | Affected VM tests plus `make test-differential` |
 | Precompiles | Matching precompile tests plus `make test-differential` |
 | State, journaling, trie | State/core/trie unit tests plus integration tests |
-| Replay | `go test ./internal/replay ./internal/web` plus replay service tests |
+| Replay/witness | `go test ./internal/replay ./internal/web` plus standalone replay and optional verification service tests |
 | Differential normalization | `go test ./internal/differential ./tests/differential` |
 | CLI behavior | `go test ./cmd/echoevm ./tests/e2e` |
 

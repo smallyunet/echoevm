@@ -61,7 +61,7 @@ function renderRecentEmpty(message) {
 function selectRecentTransaction(hash, selected) {
   el('transaction-input').value = hash;
   document.querySelectorAll('.recent-transaction').forEach(button => button.setAttribute('aria-pressed', String(button === selected)));
-  el('request-status').textContent = `Selected ${shortHash(hash)}. Press Replay transaction to run it.`;
+  el('request-status').textContent = `Selected ${shortHash(hash)}. Press Verify & explain to run it.`;
   el('error').hidden = true;
 }
 
@@ -70,7 +70,7 @@ async function replay() {
   if (!input) return showError('Enter a transaction hash or Etherscan URL.');
   resultMode = 'transaction';
   const profile = el('evidence-profile').value;
-  await execute({button: el('replay'), loading: 'Explaining…', status: 'Replaying the transaction and selecting causal evidence', endpoint: '/api/replay', body: {input, profile, limit: 40, maxMemoryBytes: 256}});
+  await execute({button: el('replay'), loading: 'Verifying…', status: 'Executing with EchoEVM and comparing the optional RPC reference', endpoint: '/api/verify', body: {input, profile, limit: 40, maxMemoryBytes: 256}});
 }
 
 async function compare() {
@@ -89,7 +89,7 @@ async function execute({button, loading, status, endpoint, body}) {
     if (resultMode === 'transaction') updateShareURL(data.transaction.hash, data.evidence?.profile || el('evidence-profile').value);
     el('request-status').textContent = resultMode === 'transaction' ? 'Transaction explanation complete' : 'Comparison complete';
   } catch (error) {
-    showError(error.message); el('request-status').textContent = resultMode === 'transaction' ? 'Transaction replay failed' : 'Comparison failed';
+    showError(error.message); el('request-status').textContent = resultMode === 'transaction' ? 'Transaction verification failed' : 'Comparison failed';
   } finally {
     button.disabled = false; button.textContent = original;
   }
@@ -101,7 +101,7 @@ function rawRequest() { return {fork: 'Osaka', bytecode: el('bytecode').value.tr
 function render(result) {
   el('results').hidden = false;
   const evidence = resultMode === 'transaction' ? result.evidence : null;
-  el('result-kind').textContent = evidence ? 'Causal execution evidence' : resultMode === 'transaction' ? 'Transaction replay result' : 'Bytecode comparison result';
+  el('result-kind').textContent = evidence ? 'Verified causal execution evidence' : resultMode === 'transaction' ? 'Transaction verification result' : 'Bytecode comparison result';
   const status = evidence?.execution?.status;
   el('verdict').textContent = evidence ? `${String(status || 'unknown').toUpperCase()} EXPLAINED` : result.match ? 'MATCH' : 'DIVERGENCE';
   el('verdict').className = evidence ? (status === 'success' ? 'match' : 'mismatch') : result.match ? 'match' : 'mismatch';
@@ -145,7 +145,7 @@ function renderEvidence(evidence) {
   const selection = evidence.selection;
   el('evidence-count').textContent = `${selection.selected} selected · ${selection.omitted} omitted${selection.truncated ? ' · bounded' : ''}`;
   if (!evidence.events?.length) {
-    const empty = textNode('p', 'No opcode event matched this profile. The transaction metadata and comparison still describe the execution result.');
+    const empty = textNode('p', 'No opcode event matched this profile. The transaction metadata and optional comparison still describe the execution result.');
     empty.className = 'evidence-empty'; events.append(empty);
   } else {
     evidence.events.forEach(event => {
@@ -251,7 +251,7 @@ function badge(text) { const node = textNode('span', text); node.className = 'ba
 
 async function copyCLI() {
   let command;
-  if (resultMode === 'transaction') command = `echoevm replay ${lastResult.transaction.hash} --format evidence-json --profile ${lastResult.evidence?.profile || 'auto'} --limit 40`;
+  if (resultMode === 'transaction') command = `echoevm verify ${lastResult.transaction.hash} --format evidence-json --profile ${lastResult.evidence?.profile || 'auto'} --limit 40`;
   else { const r = lastResult.request; command = `echoevm diff --code ${r.bytecode} --input ${r.calldata} --gas ${r.gasLimit} --format text`; }
   await navigator.clipboard.writeText(command); el('copy-cli').textContent = 'Copied'; setTimeout(() => el('copy-cli').textContent = 'Copy CLI command', 1200);
 }

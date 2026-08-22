@@ -31,6 +31,7 @@ type Interpreter struct {
 	origin        common.Address
 	callvalue     *big.Int
 	blockNumber   uint64
+	blockHashes   map[uint64]common.Hash
 	timestamp     uint64
 	coinbase      common.Address
 	gasLimit      uint64
@@ -123,6 +124,12 @@ func (i *Interpreter) SetCallData(data []byte) {
 // SetBlockNumber sets the block number used by environment opcodes like NUMBER.
 func (i *Interpreter) SetBlockNumber(num uint64) {
 	i.blockNumber = num
+}
+
+// SetBlockHashes installs the canonical ancestor hashes available to BLOCKHASH.
+// Entries outside the EVM's 256-block lookup window are ignored by the opcode.
+func (i *Interpreter) SetBlockHashes(hashes map[uint64]common.Hash) {
+	i.blockHashes = hashes
 }
 
 func (i *Interpreter) SetTimestamp(ts uint64) {
@@ -422,6 +429,7 @@ func (i *Interpreter) SetTraceDetails(enabled bool) {
 
 func (i *Interpreter) inheritExecutionContext(parent *Interpreter) {
 	i.blockNumber = parent.blockNumber
+	i.blockHashes = parent.blockHashes
 	i.timestamp = parent.timestamp
 	i.coinbase = parent.coinbase
 	i.gasLimit = parent.gasLimit

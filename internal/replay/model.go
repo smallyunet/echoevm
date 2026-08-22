@@ -1,5 +1,6 @@
-// Package replay turns an Ethereum transaction hash into a reproducible
-// EchoEVM execution using transaction prestate supplied by a trace-capable RPC.
+// Package replay executes self-contained transaction witnesses with EchoEVM.
+// Optional RPC verification lives behind VerificationService and is not part
+// of the replay execution contract.
 package replay
 
 import (
@@ -15,7 +16,7 @@ const RecentTransactionLimit = 5
 const DefaultEvidenceLimit = 40
 const DefaultEvidenceMemoryBytes = 256
 
-type Request struct {
+type VerificationRequest struct {
 	Input          string `json:"input"`
 	Profile        string `json:"profile,omitempty"`
 	Limit          int    `json:"limit,omitempty"`
@@ -51,7 +52,7 @@ type TransactionSummary struct {
 	Fork        string  `json:"fork"`
 }
 
-type Result struct {
+type VerificationResult struct {
 	Match           bool                         `json:"match"`
 	StatusMatch     bool                         `json:"statusMatch"`
 	ReturnDataMatch bool                         `json:"returnDataMatch"`
@@ -66,16 +67,39 @@ type Result struct {
 	EchoState       map[string]string            `json:"echoState"`
 	GethState       map[string]string            `json:"gethState"`
 	TraceSemantics  string                       `json:"traceSemantics"`
-	Evidence        *EvidenceResult              `json:"evidence,omitempty"`
+	Evidence        *VerificationEvidenceResult  `json:"evidence,omitempty"`
 }
 
-// EvidenceResult is the compact, replay-specific envelope presented to coding
-// agents. It retains transaction/fork provenance and comparison confidence
-// without duplicating both engines' complete opcode traces.
-type EvidenceResult struct {
+// VerificationEvidenceResult is the compact, RPC-verification envelope. It
+// deliberately remains separate from standalone replay evidence because it
+// contains an optional Geth comparison.
+type VerificationEvidenceResult struct {
 	explaintrace.EvidenceDocument
 	Transaction TransactionSummary `json:"transaction"`
 	Comparison  EvidenceComparison `json:"comparison"`
+	Warnings    []string           `json:"warnings,omitempty"`
+}
+
+type ReplayRequest struct {
+	Witness        Witness
+	Profile        string
+	Limit          int
+	MaxMemoryBytes int
+}
+
+type ReplayResult struct {
+	Transaction TransactionSummary           `json:"transaction"`
+	Execution   differential.ExecutionResult `json:"execution"`
+	State       map[string]string            `json:"state"`
+	Warnings    []string                     `json:"warnings,omitempty"`
+	Witness     WitnessProvenance            `json:"witness"`
+	Evidence    *ReplayEvidenceResult        `json:"evidence,omitempty"`
+}
+
+type ReplayEvidenceResult struct {
+	explaintrace.EvidenceDocument
+	Transaction TransactionSummary `json:"transaction"`
+	Witness     WitnessProvenance  `json:"witness"`
 	Warnings    []string           `json:"warnings,omitempty"`
 }
 
@@ -89,7 +113,7 @@ type EvidenceComparison struct {
 	FirstDivergence *differential.Divergence `json:"firstDivergence,omitempty"`
 }
 
-type Readiness struct {
+type VerificationReadiness struct {
 	Ready          bool   `json:"ready"`
 	ChainID        uint64 `json:"chainId,omitempty"`
 	RPC            bool   `json:"rpc"`

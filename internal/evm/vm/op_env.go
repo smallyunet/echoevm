@@ -258,10 +258,22 @@ func opExtCodeHash(i *Interpreter, _ byte) {
 }
 
 func opBlockHash(i *Interpreter, _ byte) {
-	// BlockHash requires access to historical block data which we don't have
-	// For now, return 0
-	_ = i.stack.PopSafe() // block number
-	i.stack.PushSafe(big.NewInt(0))
+	number := i.stack.PopSafe()
+	if number == nil || !number.IsUint64() {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	requested := number.Uint64()
+	if requested >= i.blockNumber || i.blockNumber-requested > 256 {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	hash, ok := i.blockHashes[requested]
+	if !ok {
+		i.stack.PushSafe(big.NewInt(0))
+		return
+	}
+	i.stack.PushSafe(hash.Big())
 }
 
 func opDifficulty(i *Interpreter, _ byte) {

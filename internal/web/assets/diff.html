@@ -3,24 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EchoEVM Transaction Explainer</title>
+  <title>EchoEVM Transaction Verification</title>
   <link rel="stylesheet" href="/assets/diff.css?v={{ASSET_VERSION}}">
 </head>
 <body>
-  <a class="skip-link" href="#main-content">Skip to replay form</a>
+  <a class="skip-link" href="#main-content">Skip to verification form</a>
   <header class="topbar">
     <div>
       <p class="eyebrow">EchoEVM execution intelligence</p>
-      <h1>Transaction Explainer</h1>
+      <h1>Transaction Verification</h1>
     </div>
-    <div class="environment"><span class="dot"></span>Transaction replay · Prague/Osaka engine</div>
+    <div class="environment"><span class="dot"></span>Optional RPC conformance · Prague/Osaka engine</div>
   </header>
 
   <main id="main-content">
     <section class="hero" aria-labelledby="page-intro">
       <p class="eyebrow">Bounded causal evidence for agents</p>
-      <h2 id="page-intro">Explain what happened inside a real Ethereum transaction</h2>
-      <p>Paste one transaction hash or Etherscan link. EchoEVM replays the exact prestate, selects the execution events that answer your question, and keeps the complete EchoEVM/Geth comparison available on demand.</p>
+      <h2 id="page-intro">Verify an EchoEVM execution against an RPC reference</h2>
+      <p>This development surface imports transaction prestate, executes it with EchoEVM, and compares the result with an RPC trace. Standalone EchoEVM replay uses a self-contained witness and does not require Geth or an RPC.</p>
     </section>
 
     <section class="card input-card" aria-labelledby="input-title">
@@ -41,12 +41,12 @@
             <option value="abi">What data was returned?</option>
             <option value="arithmetic">Which values drove the result?</option>
           </select></label>
-          <button id="replay" class="primary">Explain transaction</button>
+          <button id="replay" class="primary">Verify &amp; explain</button>
         </div>
-        <span class="hint" id="transaction-hint">The configured RPC must support debug_traceTransaction and prestateTracer.</span>
+        <span class="hint" id="transaction-hint">Verification requires debug_traceTransaction and prestateTracer. These APIs are not part of standalone replay.</span>
         <section class="recent-picker" aria-labelledby="recent-title">
           <div class="recent-heading">
-            <div><h3 id="recent-title">Try a recent transaction</h3><p>Select one to fill the input. Explanation starts only when you press the button.</p></div>
+            <div><h3 id="recent-title">Try a recent transaction</h3><p>Select one to fill the input. Verification starts only when you press the button.</p></div>
             <span id="recent-status" role="status" aria-live="polite">Loading latest block…</span>
           </div>
           <div id="recent-transactions" class="recent-list" aria-busy="true">
@@ -101,7 +101,7 @@
       </section>
 
       <details id="comparison-details" class="card comparison-details">
-        <summary><span><strong>Inspect EchoEVM / Geth comparison</strong><small>Full result, first divergence, and normalized opcode trace</small></span></summary>
+        <summary><span><strong>Inspect optional EchoEVM / Geth comparison</strong><small>Conformance result, first divergence, and normalized opcode trace</small></span></summary>
         <div class="comparison-body">
           <div id="summary" class="summary-grid"></div>
           <section id="divergence" class="divergence" hidden>

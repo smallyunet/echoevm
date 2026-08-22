@@ -56,10 +56,10 @@ func (ts *TrieStateBackend) GetAccount(addr common.Address) (*Account, error) {
 	// Load code if code hash is present and not empty hash
 	if len(ta.CodeHash) > 0 && common.BytesToHash(ta.CodeHash) != crypto.Keccak256Hash(nil) {
 		code, err := ts.db.Node(common.BytesToHash(ta.CodeHash))
-		if err == nil {
-			acc.Code = code
+		if err != nil {
+			return nil, err
 		}
-		// If code missing, we just don't set it (maybe error?)
+		acc.Code = code
 	}
 
 	return acc, nil

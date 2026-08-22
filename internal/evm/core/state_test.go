@@ -1,12 +1,20 @@
 package core
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 )
+
+type failingStateBackend struct{ err error }
+
+func (b failingStateBackend) GetAccount(common.Address) (*Account, error) { return nil, b.err }
+func (b failingStateBackend) GetStorage(common.Address, common.Hash) (common.Hash, error) {
+	return common.Hash{}, b.err
+}
 
 func TestMemoryStateDB(t *testing.T) {
 	db := NewMemoryStateDB()
@@ -45,6 +53,16 @@ func TestMemoryStateDB(t *testing.T) {
 	db.SetState(addr, key, val)
 	if db.GetState(addr, key) != val {
 		t.Errorf("expected storage value %v, got %v", val, db.GetState(addr, key))
+	}
+}
+
+func TestMemoryStateDBRecordsBackendFailures(t *testing.T) {
+	db := NewMemoryStateDB()
+	want := errors.New("proof unavailable")
+	db.SetBackend(failingStateBackend{err: want})
+	_ = db.GetBalance(common.HexToAddress("0x1234"))
+	if !errors.Is(db.BackendError(), want) {
+		t.Fatalf("backend error = %v, want %v", db.BackendError(), want)
 	}
 }
 

@@ -25,6 +25,7 @@ type BlockContext struct {
 	ChainID     *big.Int
 	BlobBaseFee *big.Int
 	ChainConfig *core.ChainConfig
+	BlockHashes map[uint64]common.Hash
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database.
@@ -299,6 +300,7 @@ func applyTransactionWithContextAndHook(
 		if ctx.ChainID != nil {
 			intr.SetChainID(ctx.ChainID)
 		}
+		intr.SetBlockHashes(ctx.BlockHashes)
 	}
 
 	if to != nil && IsPrecompiledForRules(*to, rules) {

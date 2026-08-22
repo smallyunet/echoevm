@@ -43,7 +43,7 @@ token-savings number until the complete matrix and auditable artifacts exist.
 
 ## Current status
 
-v0.0.45 provides replay evidence and deterministic local regression tests. No
-external-model Mainnet result is claimed yet because this checkout did not have
-a configured trace-capable Mainnet RPC or authorization to submit new replay
-fixtures to an external model.
+v0.2.0 separates standalone `echoevm.replay-witness.v1` execution from optional
+debug-RPC import and Geth verification. No external-model Mainnet result is
+claimed yet because the complete public frozen-witness matrix has not been run
+with authorization to submit its evidence to an external model.

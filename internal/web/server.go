@@ -38,8 +38,8 @@ type Server struct {
 	control      chan ControlMessage
 	differential *differential.Engine
 	diffSlots    chan struct{}
-	replay       *replay.Service
-	replaySlots  chan struct{}
+	verification *replay.VerificationService
+	verifySlots  chan struct{}
 	recentMu     sync.Mutex
 	recentAt     time.Time
 	recent       replay.RecentTransactions
@@ -47,7 +47,7 @@ type Server struct {
 	recentTTL    time.Duration
 	readinessMu  sync.Mutex
 	readinessAt  time.Time
-	readiness    replay.Readiness
+	readiness    replay.VerificationReadiness
 	readinessErr error
 	readinessTTL time.Duration
 }
@@ -56,12 +56,12 @@ func NewDifferentialServer(addr string, engine *differential.Engine) *Server {
 	s := NewServer(addr)
 	s.differential = engine
 	s.diffSlots = make(chan struct{}, 1)
-	s.replaySlots = make(chan struct{}, 1)
-	service, err := replay.NewService(context.Background(), config.GetRuntimeConfig().EthereumRPC)
+	s.verifySlots = make(chan struct{}, 1)
+	service, err := replay.NewVerificationService(context.Background(), config.GetRuntimeConfig().EthereumRPC)
 	if err != nil {
-		log.Warn().Err(err).Msg("Transaction replay is unavailable")
+		log.Warn().Err(err).Msg("Optional transaction verification is unavailable")
 	} else {
-		s.replay = service
+		s.verification = service
 	}
 	return s
 }
@@ -127,7 +127,7 @@ func (s *Server) Start() error {
 		assets := http.StripPrefix("/assets/", http.FileServer(http.FS(s.assetsDir)))
 		mux.Handle("/assets/", cacheVersionedAsset(assets))
 		mux.HandleFunc("/api/diff", s.serveDiff)
-		mux.HandleFunc("/api/replay", s.serveReplay)
+		mux.HandleFunc("/api/verify", s.serveVerify)
 		mux.HandleFunc("/api/recent-transactions", s.serveRecentTransactions)
 		mux.HandleFunc("/healthz", s.serveHealth)
 		mux.HandleFunc("/readyz", s.serveReady)
@@ -138,7 +138,7 @@ func (s *Server) Start() error {
 
 	name := "Web Debugger"
 	if s.differential != nil {
-		name = "Transaction Explainer"
+		name = "Transaction Verification"
 	}
 	log.Info().Str("addr", s.addr).Str("mode", name).Msg("Starting EchoEVM web UI")
 	return http.ListenAndServe(s.addr, mux)
@@ -150,7 +150,7 @@ func (s *Server) serveRecentTransactions(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.replay == nil {
+	if s.verification == nil {
 		writeJSONError(w, http.StatusServiceUnavailable, "recent transactions are unavailable: configure ECHOEVM_ETHEREUM_RPC")
 		return
 	}
@@ -172,32 +172,32 @@ func (s *Server) loadRecentTransactions(ctx context.Context) (replay.RecentTrans
 	if !s.recentAt.IsZero() && time.Since(s.recentAt) < s.recentTTL {
 		return s.recent, s.recentErr
 	}
-	s.recent, s.recentErr = s.replay.RecentTransactions(ctx)
+	s.recent, s.recentErr = s.verification.RecentTransactions(ctx)
 	s.recentAt = time.Now()
 	return s.recent, s.recentErr
 }
 
-func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {
+func (s *Server) serveVerify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if s.replay == nil {
-		writeJSONError(w, http.StatusServiceUnavailable, "transaction replay is unavailable: configure ECHOEVM_ETHEREUM_RPC with a trace-capable RPC endpoint")
+	if s.verification == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "transaction verification is unavailable: configure ECHOEVM_ETHEREUM_RPC with a trace-capable RPC endpoint")
 		return
 	}
 	select {
-	case s.replaySlots <- struct{}{}:
-		defer func() { <-s.replaySlots }()
+	case s.verifySlots <- struct{}{}:
+		defer func() { <-s.verifySlots }()
 	default:
-		writeJSONError(w, http.StatusTooManyRequests, "another transaction replay is already running")
+		writeJSONError(w, http.StatusTooManyRequests, "another transaction verification is already running")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 16*1024)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	var req replay.Request
+	var req replay.VerificationRequest
 	if err := decoder.Decode(&req); err != nil {
 		writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
 		return
@@ -218,7 +218,7 @@ func (s *Server) serveReplay(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	result, err := s.replay.Replay(ctx, req)
+	result, err := s.verification.Verify(ctx, req)
 	if err != nil {
 		writeJSONError(w, replayHTTPStatus(err), err.Error())
 		return
@@ -257,7 +257,7 @@ func (s *Server) serveHealth(w http.ResponseWriter, r *http.Request) {
 
 type readinessResponse struct {
 	Status string `json:"status"`
-	replay.Readiness
+	replay.VerificationReadiness
 	Error string `json:"error,omitempty"`
 }
 
@@ -270,7 +270,7 @@ func (s *Server) serveReady(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	status, err := s.probeReadiness(ctx)
-	response := readinessResponse{Status: "ready", Readiness: status}
+	response := readinessResponse{Status: "ready", VerificationReadiness: status}
 	code := http.StatusOK
 	if err != nil {
 		response.Status = "not_ready"
@@ -282,17 +282,17 @@ func (s *Server) serveReady(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(response)
 }
 
-func (s *Server) probeReadiness(ctx context.Context) (replay.Readiness, error) {
+func (s *Server) probeReadiness(ctx context.Context) (replay.VerificationReadiness, error) {
 	s.readinessMu.Lock()
 	defer s.readinessMu.Unlock()
 	if !s.readinessAt.IsZero() && time.Since(s.readinessAt) < s.readinessTTL {
 		return s.readiness, s.readinessErr
 	}
-	if s.replay == nil {
-		s.readiness = replay.Readiness{}
-		s.readinessErr = replay.NewError(replay.ErrorUnavailable, errors.New("transaction replay service is not configured"))
+	if s.verification == nil {
+		s.readiness = replay.VerificationReadiness{}
+		s.readinessErr = replay.NewError(replay.ErrorUnavailable, errors.New("transaction verification service is not configured"))
 	} else {
-		s.readiness, s.readinessErr = s.replay.Probe(ctx)
+		s.readiness, s.readinessErr = s.verification.Probe(ctx)
 	}
 	s.readinessAt = time.Now()
 	return s.readiness, s.readinessErr

@@ -83,3 +83,24 @@ func TestNumber(t *testing.T) {
 		t.Fatalf("number wrong")
 	}
 }
+
+func TestBlockHashUsesWitnessAndEnforcesLookupWindow(t *testing.T) {
+	i := newInterp()
+	i.SetBlockNumber(300)
+	want := common.HexToHash("0x1234")
+	i.SetBlockHashes(map[uint64]common.Hash{299: want, 43: common.HexToHash("0xdead")})
+
+	i.stack.PushSafe(big.NewInt(299))
+	opBlockHash(i, 0)
+	if got := common.BigToHash(i.stack.PopSafe()); got != want {
+		t.Fatalf("BLOCKHASH(299) = %s, want %s", got, want)
+	}
+
+	for _, number := range []int64{300, 43} {
+		i.stack.PushSafe(big.NewInt(number))
+		opBlockHash(i, 0)
+		if got := i.stack.PopSafe(); got.Sign() != 0 {
+			t.Fatalf("BLOCKHASH(%d) = %s, want zero", number, got)
+		}
+	}
+}
