@@ -1,0 +1,206 @@
+{
+  "project": {
+    "slug": "echoevm",
+    "name": "EchoEVM",
+    "title": "Explain EVM execution without the opcode flood.",
+    "description": "EchoEVM executes Solidity and EVM bytecode, then emits bounded causal evidence for failures, calls, state, gas, ABI, and arithmetic.",
+    "version": "v0.1.0",
+    "schema": "echoevm.evidence.v1",
+    "accent": "#34d399",
+    "accentSoft": "rgba(52, 211, 153, 0.12)",
+    "repository": "https://github.com/smallyunet/echoevm",
+    "release": "https://github.com/smallyunet/echoevm/releases/latest",
+    "boundary": "These snapshots execute locally in EchoEVM. The static page does not replay arbitrary Mainnet transactions or contact an RPC.",
+    "local": "Run Solidity, bytecode, embedded-Geth comparison, or RPC-backed replay from the CLI."
+  },
+  "cases": [
+    {
+      "id": "arithmetic-value-flow",
+      "title": "Arithmetic value flow",
+      "kicker": "Local raw bytecode",
+      "status": "success",
+      "summary": "ADD produces 3, the value flows into memory, and RETURN exposes the 32-byte result.",
+      "source": "docs/site/fixtures/arithmetic.bin",
+      "command": "echoevm trace --bin-runtime docs/site/fixtures/arithmetic.bin \\\n  --format evidence-json --profile arithmetic --limit 20",
+      "metrics": [
+        {
+          "label": "Gas used",
+          "value": "24"
+        },
+        {
+          "label": "Executed steps",
+          "value": "8"
+        },
+        {
+          "label": "Selected events",
+          "value": "3"
+        }
+      ],
+      "highlights": [
+        "The ADD result is linked to the later MSTORE through an explicit value-flow edge.",
+        "Selection emits 3 relevant events and omits 5 ordinary steps.",
+        "Execution succeeds with return value 0x03."
+      ],
+      "evidence": {
+        "schema": "echoevm.evidence.v1",
+        "profile": "arithmetic",
+        "execution": {
+          "status": "success",
+          "gasUsed": 24,
+          "returnData": "0x0000000000000000000000000000000000000000000000000000000000000003",
+          "totalSteps": 8
+        },
+        "events": [
+          {
+            "step": 2,
+            "pc": 4,
+            "op": "ADD",
+            "stack": {
+              "pop": [
+                "0x2",
+                "0x1"
+              ],
+              "push": [
+                "0x3"
+              ]
+            }
+          },
+          {
+            "step": 4,
+            "pc": 7,
+            "op": "MSTORE",
+            "stack": {
+              "pop": [
+                "0x0",
+                "0x3"
+              ]
+            },
+            "memory": {
+              "sizeBefore": 0,
+              "sizeAfter": 32,
+              "ranges": [
+                {
+                  "offset": 31,
+                  "before": "0x00",
+                  "after": "0x03"
+                }
+              ]
+            }
+          },
+          {
+            "step": 7,
+            "pc": 12,
+            "op": "RETURN",
+            "stack": {
+              "pop": [
+                "0x0",
+                "0x20"
+              ]
+            },
+            "control": {
+              "kind": "return"
+            },
+            "halt": true
+          }
+        ],
+        "links": [
+          {
+            "kind": "value-flow",
+            "from": {
+              "step": 2,
+              "pc": 4,
+              "op": "ADD"
+            },
+            "to": {
+              "step": 4,
+              "pc": 7,
+              "op": "MSTORE"
+            },
+            "input": 1,
+            "value": "0x3"
+          }
+        ],
+        "selection": {
+          "candidates": 3,
+          "selected": 3,
+          "omitted": 5,
+          "truncated": false
+        }
+      }
+    },
+    {
+      "id": "storage-write",
+      "title": "Storage write",
+      "kicker": "Local raw bytecode",
+      "status": "success",
+      "summary": "A single SSTORE writes 0x2a into slot zero and exposes the before/after state.",
+      "source": "docs/site/fixtures/storage-write.bin",
+      "command": "echoevm trace --bin-runtime docs/site/fixtures/storage-write.bin \\\n  --format evidence-json --profile storage --limit 20",
+      "metrics": [
+        {
+          "label": "Gas used",
+          "value": "22106"
+        },
+        {
+          "label": "Executed steps",
+          "value": "4"
+        },
+        {
+          "label": "Selected events",
+          "value": "2"
+        }
+      ],
+      "highlights": [
+        "Slot 0 changes from 0x0 to 0x2a.",
+        "The storage profile keeps the write and terminal STOP.",
+        "Execution still completes even though presentation is bounded."
+      ],
+      "evidence": {
+        "schema": "echoevm.evidence.v1",
+        "profile": "storage",
+        "execution": {
+          "status": "success",
+          "gasUsed": 22106,
+          "returnData": "0x",
+          "totalSteps": 4
+        },
+        "events": [
+          {
+            "step": 2,
+            "pc": 4,
+            "op": "SSTORE",
+            "stack": {
+              "pop": [
+                "0x0",
+                "0x2a"
+              ]
+            },
+            "storage": [
+              {
+                "kind": "write",
+                "slot": "0x0",
+                "before": "0x0",
+                "after": "0x2a"
+              }
+            ]
+          },
+          {
+            "step": 3,
+            "pc": 5,
+            "op": "STOP",
+            "control": {
+              "kind": "stop"
+            },
+            "halt": true
+          }
+        ],
+        "selection": {
+          "candidates": 2,
+          "selected": 2,
+          "omitted": 2,
+          "truncated": false
+        }
+      }
+    }
+  ]
+}

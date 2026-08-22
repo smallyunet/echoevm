@@ -4,17 +4,25 @@
 [![Release](https://img.shields.io/github/v/release/smallyunet/echoevm?style=flat&color=blue)](https://github.com/smallyunet/echoevm/releases)
 [![Go Version](https://img.shields.io/badge/go-1.25+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/live_demo-r.dark20.xyz-orange)](https://r.dark20.xyz/)
+[![Playground](https://img.shields.io/badge/playground-GitHub_Pages-34d399)](https://smallyunet.github.io/echoevm/)
 
-EchoEVM executes Solidity and EVM bytecode and emits bounded causal evidence for
-AI coding agents. It explains nested calls, reverted writes, value flow, storage
-changes, gas usage, and failure causes without flooding the model with a full
-opcode trace.
+**Bounded causal execution evidence for Solidity and EVM bytecode.**
+
+EchoEVM executes Solidity and EVM bytecode and emits compact, machine-readable
+evidence for people, AI coding agents, CI systems, and editors. It explains
+nested calls, reverted writes, value flow, storage changes, gas usage, and
+failure causes without flooding the consumer with a full opcode trace.
 
 Use it to diagnose one execution locally, compare behavior with embedded Geth,
 or replay a confirmed Ethereum Mainnet transaction from RPC prestate.
 
-Try the hosted [Transaction Explainer](https://r.dark20.xyz/).
+[Static playground](https://smallyunet.github.io/echoevm/) ·
+[latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
+[Trace protocol](docs/TRACE_PROTOCOL.md)
+
+> The playground is a static GitHub Pages site backed by committed evidence
+> snapshots. It does not run uploaded code, contact an RPC, or replace the
+> local CLI.
 
 ## Why EchoEVM
 
@@ -238,10 +246,9 @@ state, comparison, and key-opcode evidence in a source-navigable side view.
 The complete opcode table remains available on demand, without starting a
 JSON-RPC node.
 
-Local Solidity source is not sent to the hosted Explorer by these integrations.
-The hosted Transaction Explainer accepts public transaction hashes, exposes
-question-routed evidence first, and keeps the complete differential trace in an
-advanced disclosure. Successful explanations have shareable `/tx/<hash>` URLs.
+The integrations execute locally and do not send Solidity source to a hosted
+service. The repository still includes the optional local Transaction Explainer
+started by `echoevm diff --web`; it is not operated as a public service.
 
 ## Scope and Limitations
 
@@ -298,6 +305,18 @@ make test-skills
 
 See [ROADMAP.md](ROADMAP.md) for delivered versions and current priorities.
 Issues, discussions, and pull requests are welcome.
+
+## Echo family
+
+| Project | Execution domain | Static playground |
+|---|---|---|
+| **EchoEVM** | Solidity and EVM bytecode | [Open](https://smallyunet.github.io/echoevm/) |
+| [EchoSVM](https://github.com/smallyunet/echosvm) | Solana transactions and sBPF | [Open](https://smallyunet.github.io/echosvm/) |
+| [EchoRV](https://github.com/smallyunet/echorv) | RISC-V firmware and traces | [Open](https://smallyunet.github.io/echorv/) |
+| [EchoScript](https://github.com/smallyunet/echoscript) | Bitcoin Tapscript inputs | [Open](https://smallyunet.github.io/echoscript/) |
+
+Each project executes locally, emits a versioned evidence schema, and publishes
+frozen reproducible cases through the same static playground contract.
 
 ## License
 

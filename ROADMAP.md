@@ -137,7 +137,7 @@ Full compliance and ecosystem integration.
 - [ ] **Performance Optimization** - Interpreter speed improvements
 - [ ] **Library API** - Embeddable Go package for programmatic use
 - [ ] **Plugin System** - Custom opcode handlers
-- [x] **Unified Hosted Demo** - Use `https://r.dark20.xyz/` as the single public web entry point
+- [x] **Static Evidence Playground** - Publish reproducible CLI-generated snapshots through GitHub Pages
 - [ ] **Community Guidelines** - Contributing, code of conduct
 
 ---
@@ -151,8 +151,8 @@ Full compliance and ecosystem integration.
 4. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
 5. Preserve `echoevm.trace.v1` as the full diagnostic contract behind bounded evidence
 
-The product is AI-first. The VS Code extension and hosted Explorer remain useful
-demonstration and inspection surfaces, but human onboarding, CodeLens, source-level
+The product is AI-first. The VS Code extension and static evidence playground remain
+useful demonstration and inspection surfaces, but human onboarding, CodeLens, source-level
 breakpoints, and broad debugger UI expansion no longer gate the roadmap.
 Embedded Geth stays in conformance tests and optional comparison commands; the
 primary product path explains EchoEVM execution without requiring a comparison.

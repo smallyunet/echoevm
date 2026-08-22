@@ -1,0 +1,59 @@
+name: Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/site/**
+      - schemas/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate committed evidence
+        run: |
+          test -s docs/site/index.html
+          test -s docs/site/styles.css
+          test -s docs/site/app.js
+          jq -e '
+            (.project.slug | length > 0) and
+            (.project.schema | length > 0) and
+            (.cases | length >= 2) and
+            all(.cases[]; (.title | length > 0) and (.command | length > 0) and (.evidence.schema | length > 0))
+          ' docs/site/cases.json
+
+      - name: Assemble static site
+        run: |
+          mkdir -p _site
+          cp -R docs/site/. _site/
+          if compgen -G "schemas/*.json" > /dev/null; then
+            mkdir -p _site/schemas
+            cp schemas/*.json _site/schemas/
+          fi
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

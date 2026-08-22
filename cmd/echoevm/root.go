@@ -12,8 +12,8 @@ import (
 var (
 	rootCmd = &cobra.Command{
 		Use:   "echoevm",
-		Short: "EchoEVM - explainable EVM execution for AI agents",
-		Long:  "EchoEVM executes EVM bytecode and emits bounded, customizable opcode evidence for AI agents, with optional differential conformance against Geth.",
+		Short: "Bounded causal execution evidence for EVM bytecode",
+		Long:  "EchoEVM executes Solidity and EVM bytecode and emits bounded causal evidence for people, AI coding agents, CI systems, and editors, with optional differential conformance against Geth.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Setup global logger level etc. (can be extended later)
 			lvl, err := zerolog.ParseLevel(globalFlags.logLevel)
