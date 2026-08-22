@@ -1,0 +1,41 @@
+{
+  "schema": "echoevm.protocol-freeze.v1",
+  "source": {
+    "implementation": "go",
+    "commit": "327afd6d52774b30f5ac022bc3f5668e44825f7f",
+    "release": "v0.4.1"
+  },
+  "schemas": {
+    "trace": "echoevm.trace.v1",
+    "evidence": "echoevm.evidence.v1",
+    "witness": "echoevm.replay-witness.v1",
+    "solidity": 1,
+    "summary": 1
+  },
+  "statuses": ["success", "revert", "fault"],
+  "formats": ["text", "json", "jsonl", "summary-json", "evidence-json"],
+  "commands": [
+    "call",
+    "deploy",
+    "disasm",
+    "repl",
+    "replay",
+    "run",
+    "solidity inspect",
+    "solidity run",
+    "trace",
+    "version",
+    "web",
+    "witness import-debug"
+  ],
+  "witnessMaxBytes": 67108864,
+  "declaredForks": ["Cancun", "Prague", "Osaka"],
+  "officialGate": {
+    "release": "tests@v20.0.1",
+    "files": 187,
+    "transactions": 3461,
+    "accepted": 3244,
+    "rejected": 217,
+    "skipped": 0
+  }
+}
