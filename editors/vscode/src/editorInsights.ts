@@ -46,17 +46,9 @@ export class SolidityCodeLensProvider implements vscode.CodeLensProvider {
         tooltip: `Execute ${declaration.name} with EchoEVM`,
         arguments: [target],
       }));
-      lenses.push(new vscode.CodeLens(range, {
-        title: "$(compare-changes) Compare with Geth",
-        command: "echoevm.compareAtFunction",
-        tooltip: `Execute ${declaration.name} and compare with embedded Geth`,
-        arguments: [target],
-      }));
       if (this.lastRun?.target.uri === document.uri.toString() && this.lastRun.target.offset === declaration.offset) {
         const result = this.lastRun.result;
-        const status = result.comparison
-          ? (result.comparison.match ? "MATCH" : "DIVERGENCE")
-          : result.execution.status.toUpperCase();
+        const status = result.execution.status.toUpperCase();
         lenses.push(new vscode.CodeLens(range, {
           title: `$(pulse) Last: ${status} · ${result.execution.gasUsed.toLocaleString("en-US")} gas`,
           command: "echoevm.executionEvidence.focus",
@@ -96,9 +88,7 @@ export class ExecutionDecorationManager implements vscode.Disposable {
     const document = resolved?.document ?? fallbackDocument;
     const range = resolved?.range ?? fallback;
     const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document.uri.toString() === document.uri.toString());
-    const status = result.comparison
-      ? (result.comparison.match ? "MATCH" : "DIVERGENCE")
-      : result.execution.status.toUpperCase();
+    const status = result.execution.status.toUpperCase();
     const message = `EchoEVM: ${status} · ${result.execution.gasUsed.toLocaleString("en-US")} gas`;
     const hover = new vscode.MarkdownString(undefined, true);
     hover.appendMarkdown(`**${message}**\n\n`);

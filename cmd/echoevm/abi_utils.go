@@ -8,9 +8,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
+	ethabi "github.com/umbracle/ethgo/abi"
 )
 
 // buildCallData creates ABI encoded calldata from a function signature and
@@ -48,21 +48,19 @@ func buildCallData(sig, argString string) ([]byte, error) {
 		return nil, fmt.Errorf("argument count mismatch: expected %d, got %d", len(typeNames), len(args))
 	}
 
-	var abiArgs abi.Arguments
+	tuple, err := ethabi.NewType("tuple(" + typesPart + ")")
+	if err != nil {
+		return nil, fmt.Errorf("invalid function signature: %w", err)
+	}
 	values := make([]interface{}, len(args))
-	for i, tname := range typeNames {
-		at, err := abi.NewType(tname, "", nil)
+	for i, element := range tuple.TupleElems() {
+		val, err := parseArg(args[i], element.Elem)
 		if err != nil {
-			return nil, fmt.Errorf("invalid type %q: %w", tname, err)
-		}
-		abiArgs = append(abiArgs, abi.Argument{Type: at})
-		val, err := parseArg(args[i], at)
-		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i, tname, err)
+			return nil, fmt.Errorf("argument %d (%s): %w", i, typeNames[i], err)
 		}
 		values[i] = val
 	}
-	encoded, err := abiArgs.Pack(values...)
+	encoded, err := tuple.Encode(values)
 	if err != nil {
 		return nil, err
 	}
@@ -132,27 +130,27 @@ func splitArgs(s string) []string {
 	return result
 }
 
-func parseArg(val string, typ abi.Type) (interface{}, error) {
+func parseArg(val string, typ *ethabi.Type) (interface{}, error) {
 	// Handle arrays
-	if typ.T == abi.SliceTy {
-		return parseArrayArg(val, *typ.Elem)
+	if typ.Kind() == ethabi.KindSlice {
+		return parseArrayArg(val, typ.Elem())
 	}
 
 	// Handle fixed-size arrays
-	if typ.T == abi.ArrayTy {
-		return parseFixedArrayArg(val, *typ.Elem, typ.Size)
+	if typ.Kind() == ethabi.KindArray {
+		return parseFixedArrayArg(val, typ.Elem(), typ.Size())
 	}
 
-	switch typ.T {
-	case abi.UintTy:
+	switch typ.Kind() {
+	case ethabi.KindUInt:
 		n, err := parseBigInt(val)
 		if err != nil {
 			return nil, err
 		}
 		// Convert to appropriate size
-		return convertToUintType(n, typ.Size)
+		return convertToUintType(n, typ.Size())
 
-	case abi.IntTy:
+	case ethabi.KindInt:
 		n, err := parseBigInt(val)
 		if err != nil {
 			return nil, err
@@ -160,13 +158,13 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 		// For int types, we keep as *big.Int
 		return n, nil
 
-	case abi.BoolTy:
+	case ethabi.KindBool:
 		return strings.ToLower(val) == "true", nil
 
-	case abi.StringTy:
+	case ethabi.KindString:
 		return val, nil
 
-	case abi.AddressTy:
+	case ethabi.KindAddress:
 		if !strings.HasPrefix(val, "0x") {
 			val = "0x" + val
 		}
@@ -175,19 +173,19 @@ func parseArg(val string, typ abi.Type) (interface{}, error) {
 		}
 		return common.HexToAddress(val), nil
 
-	case abi.BytesTy:
+	case ethabi.KindBytes:
 		// Dynamic bytes
 		return parseHexBytes(val)
 
-	case abi.FixedBytesTy:
+	case ethabi.KindFixedBytes:
 		// bytes1, bytes2, ..., bytes32
 		b, err := parseHexBytes(val)
 		if err != nil {
 			return nil, err
 		}
-		return toFixedBytes(b, typ.Size)
+		return toFixedBytes(b, typ.Size())
 
-	case abi.TupleTy:
+	case ethabi.KindTuple:
 		// Tuples are parsed from "(val1,val2,...)" syntax
 		return parseTupleArg(val, typ)
 
@@ -321,7 +319,7 @@ func toFixedBytes(b []byte, size int) (interface{}, error) {
 }
 
 // parseArrayArg parses an array argument like "[1;2;3]" or "[0xabc;0xdef]"
-func parseArrayArg(val string, elemType abi.Type) (interface{}, error) {
+func parseArrayArg(val string, elemType *ethabi.Type) (interface{}, error) {
 	val = strings.TrimSpace(val)
 	if !strings.HasPrefix(val, "[") || !strings.HasSuffix(val, "]") {
 		return nil, fmt.Errorf("array must be enclosed in brackets: %s", val)
@@ -348,8 +346,27 @@ func parseArrayArg(val string, elemType abi.Type) (interface{}, error) {
 	return buildTypedSlice(elements, elemType)
 }
 
+func buildTypedArray(elements []interface{}, size int) (interface{}, error) {
+	if len(elements) != size {
+		return nil, fmt.Errorf("fixed array size mismatch")
+	}
+	if size == 0 {
+		return nil, fmt.Errorf("zero-length fixed arrays are unsupported")
+	}
+	elementType := reflect.TypeOf(elements[0])
+	array := reflect.New(reflect.ArrayOf(size, elementType)).Elem()
+	for index, element := range elements {
+		value := reflect.ValueOf(element)
+		if value.Type() != elementType {
+			return nil, fmt.Errorf("array element type mismatch")
+		}
+		array.Index(index).Set(value)
+	}
+	return array.Interface(), nil
+}
+
 // parseFixedArrayArg parses a fixed-size array
-func parseFixedArrayArg(val string, elemType abi.Type, size int) (interface{}, error) {
+func parseFixedArrayArg(val string, elemType *ethabi.Type, size int) (interface{}, error) {
 	val = strings.TrimSpace(val)
 	if !strings.HasPrefix(val, "[") || !strings.HasSuffix(val, "]") {
 		return nil, fmt.Errorf("array must be enclosed in brackets: %s", val)
@@ -372,7 +389,7 @@ func parseFixedArrayArg(val string, elemType abi.Type, size int) (interface{}, e
 		elements[i] = elem
 	}
 
-	return buildTypedSlice(elements, elemType)
+	return buildTypedArray(elements, size)
 }
 
 // splitArrayArgs splits array arguments by semicolon while respecting nested brackets
@@ -407,11 +424,11 @@ func splitArrayArgs(s string) []string {
 }
 
 // makeEmptySlice creates an empty slice of the appropriate type
-func makeEmptySlice(elemType abi.Type) (interface{}, error) {
-	switch elemType.T {
-	case abi.SliceTy, abi.ArrayTy:
+func makeEmptySlice(elemType *ethabi.Type) (interface{}, error) {
+	switch elemType.Kind() {
+	case ethabi.KindSlice, ethabi.KindArray:
 		// Recursive call to get the element type's empty slice
-		innerSlice, err := makeEmptySlice(*elemType.Elem)
+		innerSlice, err := makeEmptySlice(elemType.Elem())
 		if err != nil {
 			return nil, err
 		}
@@ -422,15 +439,15 @@ func makeEmptySlice(elemType abi.Type) (interface{}, error) {
 		sliceType := reflect.SliceOf(innerType)
 		return reflect.MakeSlice(sliceType, 0, 0).Interface(), nil
 
-	case abi.UintTy, abi.IntTy:
+	case ethabi.KindUInt, ethabi.KindInt:
 		return []*big.Int{}, nil
-	case abi.AddressTy:
+	case ethabi.KindAddress:
 		return []common.Address{}, nil
-	case abi.BoolTy:
+	case ethabi.KindBool:
 		return []bool{}, nil
-	case abi.StringTy:
+	case ethabi.KindString:
 		return []string{}, nil
-	case abi.BytesTy:
+	case ethabi.KindBytes:
 		return [][]byte{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported array element type: %s", elemType.String())
@@ -438,9 +455,9 @@ func makeEmptySlice(elemType abi.Type) (interface{}, error) {
 }
 
 // buildTypedSlice builds a properly typed slice from interface elements
-func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, error) {
-	switch elemType.T {
-	case abi.SliceTy, abi.ArrayTy:
+func buildTypedSlice(elements []interface{}, elemType *ethabi.Type) (interface{}, error) {
+	switch elemType.Kind() {
+	case ethabi.KindSlice, ethabi.KindArray:
 		// Use reflection to create a slice of the correct type
 		// Get an empty slice of the element type to determine the correct Go type
 		emptySlice, err := makeEmptySlice(elemType)
@@ -457,7 +474,7 @@ func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, er
 		}
 		return slice.Interface(), nil
 
-	case abi.UintTy, abi.IntTy:
+	case ethabi.KindUInt, ethabi.KindInt:
 		result := make([]*big.Int, len(elements))
 		for i, e := range elements {
 			switch v := e.(type) {
@@ -477,28 +494,28 @@ func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, er
 		}
 		return result, nil
 
-	case abi.AddressTy:
+	case ethabi.KindAddress:
 		result := make([]common.Address, len(elements))
 		for i, e := range elements {
 			result[i] = e.(common.Address)
 		}
 		return result, nil
 
-	case abi.BoolTy:
+	case ethabi.KindBool:
 		result := make([]bool, len(elements))
 		for i, e := range elements {
 			result[i] = e.(bool)
 		}
 		return result, nil
 
-	case abi.StringTy:
+	case ethabi.KindString:
 		result := make([]string, len(elements))
 		for i, e := range elements {
 			result[i] = e.(string)
 		}
 		return result, nil
 
-	case abi.BytesTy:
+	case ethabi.KindBytes:
 		result := make([][]byte, len(elements))
 		for i, e := range elements {
 			result[i] = e.([]byte)
@@ -512,14 +529,15 @@ func buildTypedSlice(elements []interface{}, elemType abi.Type) (interface{}, er
 
 // parseTupleArg parses a tuple argument like "(100,0xabc...,true)"
 // Tuple fields are separated by commas and enclosed in parentheses.
-func parseTupleArg(val string, typ abi.Type) (interface{}, error) {
+func parseTupleArg(val string, typ *ethabi.Type) (interface{}, error) {
 	val = strings.TrimSpace(val)
 	if !strings.HasPrefix(val, "(") || !strings.HasSuffix(val, ")") {
 		return nil, fmt.Errorf("tuple must be enclosed in parentheses: %s", val)
 	}
 
 	inner := val[1 : len(val)-1]
-	if inner == "" && len(typ.TupleElems) == 0 {
+	elements := typ.TupleElems()
+	if inner == "" && len(elements) == 0 {
 		// Empty tuple
 		return struct{}{}, nil
 	}
@@ -527,20 +545,18 @@ func parseTupleArg(val string, typ abi.Type) (interface{}, error) {
 	// Split by comma, respecting nested parentheses and brackets
 	parts := splitTupleArgs(inner)
 
-	if len(parts) != len(typ.TupleElems) {
-		return nil, fmt.Errorf("tuple field count mismatch: expected %d, got %d", len(typ.TupleElems), len(parts))
+	if len(parts) != len(elements) {
+		return nil, fmt.Errorf("tuple field count mismatch: expected %d, got %d", len(elements), len(parts))
 	}
 
 	// Parse each field
 	fields := make([]interface{}, len(parts))
 	for i, part := range parts {
-		fieldType := typ.TupleElems[i]
-		field, err := parseArg(strings.TrimSpace(part), *fieldType)
+		fieldType := elements[i]
+		field, err := parseArg(strings.TrimSpace(part), fieldType.Elem)
 		if err != nil {
 			fieldName := ""
-			if i < len(typ.TupleRawNames) {
-				fieldName = typ.TupleRawNames[i]
-			}
+			fieldName = fieldType.Name
 			return nil, fmt.Errorf("tuple field %d (%s): %w", i, fieldName, err)
 		}
 		fields[i] = field

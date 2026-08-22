@@ -14,7 +14,7 @@ Report when available:
 - Causal `enters-frame`, `returns-to`, `rolls-back`, and exact `value-flow` links when selected.
 - Declared or transaction fork and replay warnings when applicable.
 - Witness schema and SHA-256 provenance for standalone replay.
-- Geth version, match fields, and first divergence only when `verify` comparison was requested.
+- Pinned fixture release, fork, exact case count, and failure evidence when conformance was requested.
 
 ## Interpretation rules
 

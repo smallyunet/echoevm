@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 

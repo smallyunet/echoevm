@@ -9,13 +9,13 @@ import (
 	"strings"
 	"testing"
 
-	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
+	ethabi "github.com/umbracle/ethgo/abi"
 )
 
 const fakeSolcOutput = `{"contracts":{"Example.sol":{"Answer":{"abi":[{"inputs":[{"name":"left","type":"uint256"},{"name":"right","type":"uint256"}],"name":"add","outputs":[{"name":"","type":"uint256"}],"stateMutability":"pure","type":"function"}],"evm":{"bytecode":{"object":"67602a5f5260205ff360005260086018f3"},"deployedBytecode":{"object":"602a5f5260205ff3","sourceMap":"18:42:0;18:42:0;30:10:0;30:10:0;45:5:0;18:42:0"}}}}},"sources":{"Example.sol":{"id":0,"ast":{"nodeType":"SourceUnit","src":"0:80:0","nodes":[{"nodeType":"ContractDefinition","name":"Answer","src":"0:80:0","nodes":[{"nodeType":"FunctionDefinition","name":"add","functionSelector":"771602f7","src":"18:42:0"}]}]}}}}`
 
-func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
+func TestSolidityRunCompilesAndExecutes(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("fake solc fixture uses a POSIX shell")
 	}
@@ -27,7 +27,7 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
 	flags := &solidityRunFlags{
 		contract: "Answer", function: "add", args: "2,40", solc: compiler,
-		gas: 100_000, format: "json", diff: true,
+		gas: 100_000, format: "json",
 	}
 	var output bytes.Buffer
 	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
@@ -40,9 +40,6 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if result.Contract != "Answer" || result.Function != "add(uint256,uint256)" {
 		t.Fatalf("unexpected selection: contract=%s function=%s", result.Contract, result.Function)
 	}
-	if result.Comparison == nil || !result.Comparison.Match {
-		t.Fatalf("expected a matching differential result: %+v", result.Comparison)
-	}
 	const fortyTwo = "0x000000000000000000000000000000000000000000000000000000000000002a"
 	if result.Execution.ReturnData != fortyTwo {
 		t.Fatalf("return data = %s, want %s", result.Execution.ReturnData, fortyTwo)
@@ -50,7 +47,7 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	if result.SchemaVersion != solidityProtocolVersion {
 		t.Fatalf("schema version = %d", result.SchemaVersion)
 	}
-	if result.Execution.Trace != nil || result.Comparison.Geth.Trace != nil {
+	if result.Execution.Trace != nil {
 		t.Fatal("JSON output included traces without --trace")
 	}
 	if result.SourceMap == nil || len(result.SourceMap.Locations) != 6 || result.SourceMap.Locations[1].PC != 2 {
@@ -58,6 +55,16 @@ func TestSolidityRunCompilesExecutesAndDiffs(t *testing.T) {
 	}
 	if strings.Contains(output.String(), `"bytecode"`) || strings.Contains(output.String(), `"initCode"`) {
 		t.Fatalf("editor JSON leaked full execution request: %s", output.String())
+	}
+}
+
+func TestSolidityInspectPreservesDeclaredMutability(t *testing.T) {
+	mutabilities := parseABIMutabilities(json.RawMessage(`[{
+		"type":"function","name":"read","stateMutability":"pure",
+		"inputs":[{"name":"items","type":"tuple[]","components":[{"name":"value","type":"uint256"}]}]
+	}]`))
+	if got := mutabilities["read((uint256)[])"]; got != "pure" {
+		t.Fatalf("mutability=%q want=pure", got)
 	}
 }
 
@@ -73,7 +80,7 @@ func TestSolidityRunSummaryUsesSeparateDeploymentGas(t *testing.T) {
 	compiler := writeFakeSolc(t, tempDir, successfulFakeSolcBody(""))
 	flags := &solidityRunFlags{
 		contract: "Answer", function: "add", args: "2,40", solc: compiler,
-		gas: 10_000, deployGas: 100_000, format: "summary-json", diff: true,
+		gas: 10_000, deployGas: 100_000, format: "summary-json",
 	}
 	var output bytes.Buffer
 	if err := runSolidity(t.Context(), &output, source, flags); err != nil {
@@ -83,13 +90,10 @@ func TestSolidityRunSummaryUsesSeparateDeploymentGas(t *testing.T) {
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		t.Fatalf("decode summary: %v\n%s", err, output.String())
 	}
-	if result.SchemaVersion != agentSummarySchemaVersion || result.Comparison == nil || !result.Comparison.Match {
+	if result.SchemaVersion != agentSummarySchemaVersion || result.Execution == nil {
 		t.Fatalf("unexpected summary: %+v", result)
 	}
-	if result.Comparison.Request.GasLimit != 10_000 || result.Comparison.Request.DeployGasLimit != 100_000 {
-		t.Fatalf("gas limits not preserved: %+v", result.Comparison.Request)
-	}
-	if result.Execution != nil || result.Comparison.EchoEVM.TraceSteps == 0 || strings.Contains(output.String(), "stackBefore") || strings.Contains(output.String(), `"bytecode":`) {
+	if result.Execution.TraceSteps == 0 || strings.Contains(output.String(), "stackBefore") || strings.Contains(output.String(), `"bytecode":`) {
 		t.Fatalf("summary leaked verbose execution fields: %s", output.String())
 	}
 }
@@ -278,7 +282,7 @@ func TestWriteSolidityErrorUsesVersionedEnvelope(t *testing.T) {
 }
 
 func TestResolveSolidityMethodRequiresSignatureForOverload(t *testing.T) {
-	contractABI, err := gethabi.JSON(strings.NewReader(`[
+	contractABI, err := ethabi.NewABIFromReader(strings.NewReader(`[
       {"type":"function","name":"read","inputs":[{"name":"x","type":"uint256"}],"outputs":[]},
       {"type":"function","name":"read","inputs":[{"name":"x","type":"address"}],"outputs":[]}
     ]`))
@@ -292,13 +296,13 @@ func TestResolveSolidityMethodRequiresSignatureForOverload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if method.Sig != "read(address)" {
-		t.Fatalf("resolved %s", method.Sig)
+	if method.Sig() != "read(address)" {
+		t.Fatalf("resolved %s", method.Sig())
 	}
 }
 
 func TestBuildConstructorDataEncodesArguments(t *testing.T) {
-	contractABI, err := gethabi.JSON(strings.NewReader(`[
+	contractABI, err := ethabi.NewABIFromReader(strings.NewReader(`[
       {"type":"constructor","inputs":[{"name":"initialValue","type":"uint256"}]}
     ]`))
 	if err != nil {

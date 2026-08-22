@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/eth/hexutil"
 	"github.com/smallyunet/echoevm/internal/replay"
 )
 
@@ -64,7 +64,7 @@ func TestRecentTransactionsAPIUsesShortOnDemandCache(t *testing.T) {
 	}
 }
 
-func TestDifferentialAPI(t *testing.T) {
+func TestExecutionAPI(t *testing.T) {
 	server := NewDifferentialServer(":0", differential.DefaultEngine())
 	req := httptest.NewRequest(http.MethodPost, "/api/diff", strings.NewReader(`{"fork":"Cancun","bytecode":"60026003015f5260205ff3","calldata":"0x","gasLimit":1000000}`))
 	recorder := httptest.NewRecorder()
@@ -72,12 +72,12 @@ func TestDifferentialAPI(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
-	var result differential.ComparisonResult
+	var result differential.ExecutionResult
 	if err := json.Unmarshal(recorder.Body.Bytes(), &result); err != nil {
 		t.Fatal(err)
 	}
-	if !result.Match {
-		t.Fatalf("unexpected divergence: %+v", result.FirstDivergence)
+	if result.Status != differential.StatusSuccess {
+		t.Fatalf("unexpected execution: %+v", result)
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 )
 
 func NewAccount() *Account {
@@ -105,6 +105,19 @@ type transientStorageChange struct {
 	hadSlot bool
 }
 
+type createdInTxChange struct {
+	account common.Address
+	pre     bool
+}
+
+func (ch createdInTxChange) revert(db *MemoryStateDB) {
+	if ch.pre {
+		db.createdInTx[ch.account] = struct{}{}
+	} else {
+		delete(db.createdInTx, ch.account)
+	}
+}
+
 func (ch transientStorageChange) revert(db *MemoryStateDB) {
 	if !ch.hadSlot {
 		delete(db.transientStorage[ch.account], ch.key)
@@ -129,6 +142,7 @@ type MemoryStateDB struct {
 
 	// Transient Storage (EIP-1153)
 	transientStorage map[common.Address]map[common.Hash]common.Hash
+	createdInTx      map[common.Address]struct{}
 
 	backend    StateBackend
 	backendErr error
@@ -142,6 +156,7 @@ func NewMemoryStateDB() *MemoryStateDB {
 		accessListAddrs:  make(map[common.Address]struct{}),
 		accessListSlots:  make(map[common.Address]map[common.Hash]struct{}),
 		transientStorage: make(map[common.Address]map[common.Hash]common.Hash),
+		createdInTx:      make(map[common.Address]struct{}),
 	}
 }
 
@@ -162,6 +177,7 @@ func (db *MemoryStateDB) PrepareTransaction() {
 	db.accessListAddrs = make(map[common.Address]struct{})
 	db.accessListSlots = make(map[common.Address]map[common.Hash]struct{})
 	db.transientStorage = make(map[common.Address]map[common.Hash]common.Hash)
+	db.createdInTx = make(map[common.Address]struct{})
 
 	for _, acc := range db.accounts {
 		original := make(map[common.Hash]common.Hash, len(acc.Storage))
@@ -169,6 +185,14 @@ func (db *MemoryStateDB) PrepareTransaction() {
 			original[key] = value
 		}
 		acc.OriginalStorage = original
+	}
+}
+
+func (db *MemoryStateDB) FinalizeTransaction() {
+	for address, account := range db.accounts {
+		if account.Suicided {
+			delete(db.accounts, address)
+		}
 	}
 }
 
@@ -396,10 +420,6 @@ func (db *MemoryStateDB) Suicide(addr common.Address) bool {
 	})
 	acc.Suicided = true
 	acc.Balance = new(big.Int)
-	acc.Nonce = 0
-	acc.Code = nil
-	acc.CodeHash = nil
-	acc.Storage = make(map[common.Hash]common.Hash)
 	return true
 }
 
@@ -412,12 +432,14 @@ func (db *MemoryStateDB) HasSuicided(addr common.Address) bool {
 }
 
 func (db *MemoryStateDB) HasBeenCreatedInCurrentTx(addr common.Address) bool {
-	for _, entry := range db.journal {
-		if ch, ok := entry.(createAccountChange); ok && ch.account == addr {
-			return true
-		}
-	}
-	return false
+	_, ok := db.createdInTx[addr]
+	return ok
+}
+
+func (db *MemoryStateDB) MarkCreatedInCurrentTx(addr common.Address) {
+	_, pre := db.createdInTx[addr]
+	db.journal = append(db.journal, createdInTxChange{account: addr, pre: pre})
+	db.createdInTx[addr] = struct{}{}
 }
 
 func (db *MemoryStateDB) Exist(addr common.Address) bool {

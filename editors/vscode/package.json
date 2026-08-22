@@ -1,7 +1,7 @@
 {
   "name": "echoevm",
   "displayName": "EchoEVM",
-  "description": "Run Solidity functions in place with source-aware execution evidence and Geth comparison.",
+  "description": "Run Solidity functions in place with source-aware EchoEVM execution evidence.",
   "version": "0.1.1",
   "publisher": "smallyu",
   "icon": "images/icon.png",
@@ -42,7 +42,6 @@
   "main": "./dist/extension.js",
   "activationEvents": [
     "onCommand:echoevm.runFunction",
-    "onCommand:echoevm.runAndCompare",
     "onCommand:echoevm.showLastTrace",
     "onCommand:echoevm.setup",
     "onCommand:echoevm.openExample",
@@ -80,11 +79,6 @@
         "icon": "$(play)"
       },
       {
-        "command": "echoevm.runAndCompare",
-        "title": "EchoEVM: Run and Compare with Geth",
-        "icon": "$(compare-changes)"
-      },
-      {
         "command": "echoevm.showLastTrace",
         "title": "EchoEVM: Show Last Trace"
       },
@@ -102,11 +96,6 @@
         "command": "echoevm.runAtFunction",
         "title": "EchoEVM: Run This Function",
         "icon": "$(play)"
-      },
-      {
-        "command": "echoevm.compareAtFunction",
-        "title": "EchoEVM: Compare This Function with Geth",
-        "icon": "$(compare-changes)"
       }
     ],
     "menus": {
@@ -115,11 +104,6 @@
           "command": "echoevm.runFunction",
           "when": "resourceExtname == .sol",
           "group": "navigation@20"
-        },
-        {
-          "command": "echoevm.runAndCompare",
-          "when": "resourceExtname == .sol",
-          "group": "navigation@21"
         }
       ],
       "editor/context": [
@@ -127,11 +111,6 @@
           "command": "echoevm.runFunction",
           "when": "resourceExtname == .sol",
           "group": "navigation@20"
-        },
-        {
-          "command": "echoevm.runAndCompare",
-          "when": "resourceExtname == .sol",
-          "group": "navigation@21"
         }
       ]
     },
@@ -190,7 +169,7 @@
         "echoevm.codeLens": {
           "type": "boolean",
           "default": true,
-          "description": "Show Run and Compare actions above Solidity function declarations."
+          "description": "Show Run actions above Solidity function declarations."
         },
         "echoevm.inlineResults": {
           "type": "boolean",

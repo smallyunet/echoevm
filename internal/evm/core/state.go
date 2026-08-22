@@ -3,7 +3,7 @@ package core
 import (
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 )
 
 // StateDB defines the interface for accessing and modifying the state.
@@ -11,6 +11,9 @@ import (
 type StateDB interface {
 	// PrepareTransaction resets transaction-scoped state before execution.
 	PrepareTransaction()
+	// FinalizeTransaction applies end-of-transaction effects such as deleting
+	// accounts marked by EIP-6780 SELFDESTRUCT.
+	FinalizeTransaction()
 
 	CreateAccount(addr common.Address)
 
@@ -40,6 +43,7 @@ type StateDB interface {
 	HasSuicided(addr common.Address) bool
 	// HasBeenCreatedInCurrentTx checks if the account was created in the current transaction (EIP-6780)
 	HasBeenCreatedInCurrentTx(addr common.Address) bool
+	MarkCreatedInCurrentTx(addr common.Address)
 
 	// Existence
 	Exist(addr common.Address) bool

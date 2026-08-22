@@ -4,13 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
+	"math"
 	"math/big"
+	"math/bits"
 
-	"github.com/ethereum/go-ethereum/common"
-	gethvm "github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/blake2b"
-	"github.com/ethereum/go-ethereum/crypto/bn256"
+	"github.com/consensys/gnark-crypto/ecc/bn254"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
@@ -52,9 +52,9 @@ var PrecompiledContracts = map[common.Address]PrecompiledContract{
 	PrecompileRIPEMD160: &ripemd160hash{},
 	PrecompileIdentity:  &dataCopy{},
 	PrecompileModExp:    &modExp{},
-	PrecompileBN256Add:  &bn256Add{},
-	PrecompileBN256Mul:  &bn256ScalarMul{},
-	PrecompileBN256Pair: &bn256Pairing{},
+	PrecompileBN256Add:  &bn256Add{gas: 150},
+	PrecompileBN256Mul:  &bn256ScalarMul{gas: 6000},
+	PrecompileBN256Pair: &bn256Pairing{baseGas: 45000, perPairGas: 34000},
 	PrecompileBlake2F:   &blake2F{},
 }
 
@@ -80,28 +80,42 @@ func RunPrecompiled(addr common.Address, input []byte, suppliedGas uint64) ([]by
 	return output, suppliedGas - gasCost, err
 }
 
-// precompiledContractsForRules returns the canonical precompile set for an
-// explicitly selected execution fork. EchoEVM keeps its historical local
-// implementations for the compatibility API above, while fork-aware execution
-// uses go-ethereum's consensus implementations for the cryptographic boundary.
-// Official EEST fixtures remain the independent behavior oracle.
-func precompiledContractsForRules(rules core.Rules) gethvm.PrecompiledContracts {
-	switch {
-	case rules.IsOsaka:
-		return gethvm.PrecompiledContractsOsaka
-	case rules.IsPrague:
-		return gethvm.PrecompiledContractsPrague
-	case rules.IsCancun:
-		return gethvm.PrecompiledContractsCancun
-	case rules.IsBerlin:
-		return gethvm.PrecompiledContractsBerlin
-	case rules.IsIstanbul:
-		return gethvm.PrecompiledContractsIstanbul
-	case rules.IsByzantium:
-		return gethvm.PrecompiledContractsByzantium
-	default:
-		return gethvm.PrecompiledContractsHomestead
+// precompiledContractsForRules selects EchoEVM-owned consensus precompiles for
+// the active fork. No execution-client implementation participates here.
+func precompiledContractsForRules(rules core.Rules) map[common.Address]PrecompiledContract {
+	contracts := map[common.Address]PrecompiledContract{
+		PrecompileECRecover: &ecrecover{}, PrecompileSHA256: &sha256hash{},
+		PrecompileRIPEMD160: &ripemd160hash{}, PrecompileIdentity: &dataCopy{},
 	}
+	if rules.IsByzantium {
+		contracts[PrecompileModExp] = &modExp{minimumGas: 200}
+		contracts[PrecompileBN256Add] = &bn256Add{gas: 500}
+		contracts[PrecompileBN256Mul] = &bn256ScalarMul{gas: 40000}
+		contracts[PrecompileBN256Pair] = &bn256Pairing{baseGas: 100000, perPairGas: 80000}
+	}
+	if rules.IsIstanbul {
+		contracts[PrecompileBN256Add] = &bn256Add{gas: 150}
+		contracts[PrecompileBN256Mul] = &bn256ScalarMul{gas: 6000}
+		contracts[PrecompileBN256Pair] = &bn256Pairing{baseGas: 45000, perPairGas: 34000}
+		contracts[PrecompileBlake2F] = &blake2F{}
+	}
+	if rules.IsCancun {
+		contracts[PrecompileKZG] = &kzgPointEvaluation{}
+	}
+	if rules.IsPrague {
+		contracts[PrecompileBLSG1Add] = &blsG1Add{}
+		contracts[PrecompileBLSG1MSM] = &blsG1MSM{}
+		contracts[PrecompileBLSG2Add] = &blsG2Add{}
+		contracts[PrecompileBLSG2MSM] = &blsG2MSM{}
+		contracts[PrecompileBLSPair] = &blsPairing{}
+		contracts[PrecompileBLSMapG1] = &blsMapG1{}
+		contracts[PrecompileBLSMapG2] = &blsMapG2{}
+	}
+	if rules.IsOsaka {
+		contracts[PrecompileModExp] = &modExp{minimumGas: 500}
+		contracts[PrecompileP256] = &p256Verify{}
+	}
+	return contracts
 }
 
 func IsPrecompiledForRules(addr common.Address, rules core.Rules) bool {
@@ -256,12 +270,73 @@ func (c *dataCopy) Run(input []byte) ([]byte, error) {
 // MODEXP (0x05) - Modular Exponentiation
 // =============================================================================
 
-type modExp struct{}
+type modExp struct{ minimumGas uint64 }
 
 func (c *modExp) RequiredGas(input []byte) uint64 {
-	// Semi-arbitrary formula for pedagogical purposes.
-	// EIP-2565 is much more complex.
-	return 200 + uint64(len(input))
+	padded := common.RightPadBytes(input, 96)
+	baseLen := new(big.Int).SetBytes(padded[:32])
+	expLen := new(big.Int).SetBytes(padded[32:64])
+	modLen := new(big.Int).SetBytes(padded[64:96])
+	if !baseLen.IsUint64() || !expLen.IsUint64() || !modLen.IsUint64() {
+		return math.MaxUint64
+	}
+	bLen, eLen, mLen := baseLen.Uint64(), expLen.Uint64(), modLen.Uint64()
+	maxLen := max(bLen, mLen)
+	words, carry := bits.Add64(maxLen, 7, 0)
+	if carry != 0 {
+		return math.MaxUint64
+	}
+	words /= 8
+	carry, complexity := bits.Mul64(words, words)
+	if carry != 0 {
+		return math.MaxUint64
+	}
+	osaka := c.minimumGas >= 500
+	if osaka {
+		if maxLen <= 32 {
+			complexity = 16
+		} else {
+			carry, complexity = bits.Mul64(complexity, 2)
+			if carry != 0 {
+				return math.MaxUint64
+			}
+		}
+	}
+	headLen := min(eLen, 32)
+	head := make([]byte, headLen)
+	if headLen > 0 {
+		start := uint64(96) + bLen
+		if start < uint64(len(input)) {
+			copy(head, input[start:min(start+headLen, uint64(len(input)))])
+		}
+	}
+	iteration := uint64(0)
+	multiplier := uint64(8)
+	if osaka {
+		multiplier = 16
+	}
+	if eLen > 32 {
+		carry, iteration = bits.Mul64(eLen-32, multiplier)
+		if carry != 0 {
+			return math.MaxUint64
+		}
+	}
+	if exponent := new(big.Int).SetBytes(head); exponent.Sign() > 0 {
+		iteration += uint64(exponent.BitLen() - 1)
+	}
+	iteration = max(iteration, 1)
+	if complexity != 0 && iteration > math.MaxUint64/complexity {
+		return math.MaxUint64
+	}
+	gas := complexity * iteration
+	if !osaka {
+		gas /= 3
+	}
+	minimum := c.minimumGas
+	if minimum == 0 {
+		minimum = 200
+	}
+	return max(gas, minimum)
 }
 
 func (c *modExp) Run(input []byte) ([]byte, error) {
@@ -286,7 +361,10 @@ func (c *modExp) Run(input []byte) ([]byte, error) {
 	eLen := expLen.Uint64()
 	mLen := modLen.Uint64()
 
-	// Safety check
+	// EIP-7823 caps every operand length at 1024 bytes in Osaka.
+	if c.minimumGas >= 500 && (baseLen.BitLen() > 64 || expLen.BitLen() > 64 || modLen.BitLen() > 64 || bLen > 1024 || eLen > 1024 || mLen > 1024) {
+		return nil, errors.New("modexp: operand length exceeds Osaka 1024-byte limit")
+	}
 	if bLen > 1024*1024 || eLen > 1024*1024 || mLen > 1024*1024 {
 		return nil, errors.New("modexp: input too large")
 	}
@@ -324,66 +402,68 @@ func (c *modExp) Run(input []byte) ([]byte, error) {
 // BN256ADD (0x06) - Alt_bn128 Addition
 // =============================================================================
 
-type bn256Add struct{}
+type bn256Add struct{ gas uint64 }
 
 func (c *bn256Add) RequiredGas(input []byte) uint64 {
-	return 150
+	return c.gas
 }
 
 func (c *bn256Add) Run(input []byte) ([]byte, error) {
 	input = common.RightPadBytes(input, 128)
 
-	p1 := new(bn256.G1)
-	p2 := new(bn256.G1)
+	p1 := new(bn254.G1Affine)
+	p2 := new(bn254.G1Affine)
 
-	if _, err := p1.Unmarshal(input[0:64]); err != nil {
-		return nil, err
+	if _, err := p1.SetBytes(input[0:64]); err != nil {
+		return nil, errors.New("bn256Add: invalid first point")
 	}
-	if _, err := p2.Unmarshal(input[64:128]); err != nil {
-		return nil, err
+	if _, err := p2.SetBytes(input[64:128]); err != nil {
+		return nil, errors.New("bn256Add: invalid second point")
 	}
 
-	res := new(bn256.G1)
+	res := new(bn254.G1Affine)
 	res.Add(p1, p2)
-
-	return res.Marshal(), nil
+	encoded := res.RawBytes()
+	return encoded[:], nil
 }
 
 // =============================================================================
 // BN256MUL (0x07) - Alt_bn128 Scalar Multiplication
 // =============================================================================
 
-type bn256ScalarMul struct{}
+type bn256ScalarMul struct{ gas uint64 }
 
 func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
-	return 6000
+	return c.gas
 }
 
 func (c *bn256ScalarMul) Run(input []byte) ([]byte, error) {
 	input = common.RightPadBytes(input, 96)
 
-	p := new(bn256.G1)
-	if _, err := p.Unmarshal(input[0:64]); err != nil {
-		return nil, err
+	p := new(bn254.G1Affine)
+	if _, err := p.SetBytes(input[0:64]); err != nil {
+		return nil, errors.New("bn256ScalarMul: invalid point")
 	}
 
 	scalar := new(big.Int).SetBytes(input[64:96])
 
-	res := new(bn256.G1)
-	res.ScalarMult(p, scalar)
-
-	return res.Marshal(), nil
+	res := new(bn254.G1Affine)
+	res.ScalarMultiplication(p, scalar)
+	encoded := res.RawBytes()
+	return encoded[:], nil
 }
 
 // =============================================================================
 // BN256PAIRING (0x08) - Alt_bn128 Pairing Check
 // =============================================================================
 
-type bn256Pairing struct{}
+type bn256Pairing struct {
+	baseGas, perPairGas uint64
+}
 
 func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
 	elementCount := uint64(len(input) / 192)
-	return 45000 + elementCount*34000
+	return c.baseGas + elementCount*c.perPairGas
 }
 
 func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
@@ -393,25 +473,29 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 		return nil, errors.New("bn256Pairing: invalid input length")
 	}
 
-	var points []*bn256.G1
-	var twisted []*bn256.G2
+	var points []bn254.G1Affine
+	var twisted []bn254.G2Affine
 
 	for i := 0; i < len(input); i += 192 {
-		p1 := new(bn256.G1)
-		if _, err := p1.Unmarshal(input[i : i+64]); err != nil {
-			return nil, err
+		p1 := new(bn254.G1Affine)
+		if _, err := p1.SetBytes(input[i : i+64]); err != nil {
+			return nil, errors.New("bn256Pairing: invalid G1 point")
 		}
 
-		p2 := new(bn256.G2)
-		if _, err := p2.Unmarshal(input[i+64 : i+192]); err != nil {
-			return nil, err
+		p2 := new(bn254.G2Affine)
+		if _, err := p2.SetBytes(input[i+64 : i+192]); err != nil {
+			return nil, errors.New("bn256Pairing: invalid G2 point")
 		}
 
-		points = append(points, p1)
-		twisted = append(twisted, p2)
+		points = append(points, *p1)
+		twisted = append(twisted, *p2)
 	}
 
-	if bn256.PairingCheck(points, twisted) {
+	valid, err := bn254.PairingCheck(points, twisted)
+	if err != nil {
+		return nil, err
+	}
+	if valid {
 		return common.LeftPadBytes([]byte{1}, 32), nil
 	}
 	return common.LeftPadBytes([]byte{0}, 32), nil
@@ -453,7 +537,7 @@ func (c *blake2F) Run(input []byte) ([]byte, error) {
 	counter[0] = binary.LittleEndian.Uint64(input[196:204])
 	counter[1] = binary.LittleEndian.Uint64(input[204:212])
 
-	blake2b.F(&h, m, counter, input[212] == 1, rounds)
+	blake2bCompress(&h, m, counter, input[212] == 1, rounds)
 	output := make([]byte, 64)
 	for index, word := range h {
 		binary.LittleEndian.PutUint64(output[index*8:(index+1)*8], word)

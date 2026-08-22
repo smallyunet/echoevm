@@ -35,8 +35,10 @@ jobs:
         run: make test-unit test-integration test-e2e
       - name: Deployment contract
         run: make test-deploy
-      - name: Conformance report (official + geth differential)
+      - name: Curated conformance and execution regressions
         run: make test-conformance
+      - name: Official Osaka state fixtures (zero skip)
+        run: make test-official-fixtures
       - name: Validate portable Agent Skills
         run: make test-skills
 

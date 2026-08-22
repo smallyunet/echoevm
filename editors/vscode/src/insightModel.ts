@@ -36,31 +36,6 @@ export function buildEvidenceModel(result: RunResult): EvidenceNodeModel[] {
       : [{ label: "No observed storage values", icon: "info" }],
   });
 
-  if (result.comparison) {
-    const comparison = result.comparison;
-    const children: EvidenceNodeModel[] = [
-      comparisonField("Status", comparison.statusMatch),
-      comparisonField("Return data", comparison.returnDataMatch),
-      comparisonField("Gas", comparison.gasMatch),
-      comparisonField("Storage", comparison.storageMatch),
-      comparisonField("Trace", comparison.traceMatch),
-    ];
-    if (comparison.firstDivergence) {
-      children.unshift({
-        label: "First divergence",
-        description: comparison.firstDivergence.description,
-        icon: "warning",
-        location: locationForPC(result, comparison.firstDivergence.pc),
-      });
-    }
-    nodes.push({
-      label: comparison.match ? "Geth comparison matched" : "Geth divergence",
-      description: comparison.match ? "MATCH" : "DIVERGENCE",
-      icon: comparison.match ? "pass" : "warning",
-      children,
-    });
-  }
-
   const keySteps = result.execution.trace?.filter(isKeyStep) ?? [];
   nodes.push({
     label: "Key execution steps",
@@ -86,10 +61,6 @@ export function terminalSourceLocation(result: RunResult): SourceLocation | unde
 export function locationForPC(result: RunResult, pc?: number): PCSourceLocation | undefined {
   if (pc === undefined) return undefined;
   return result.sourceMap?.locations.find((location) => location.pc === pc);
-}
-
-function comparisonField(label: string, match: boolean): EvidenceNodeModel {
-  return { label, description: match ? "match" : "different", icon: match ? "pass" : "warning" };
 }
 
 function isKeyStep(step: TraceStep): boolean {

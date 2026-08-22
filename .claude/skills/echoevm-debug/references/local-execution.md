@@ -77,19 +77,10 @@ The trace's stack `popped` values are top-first. Storage writes marked
 `appliedInFrame` can still be rolled back by a later REVERT; include the final
 execution status in the interpretation.
 
-## Optional conformance comparison
+## Conformance investigation
 
-Compare bytecode with embedded Geth only when compatibility, a suspected
-EchoEVM bug, or a differential result is part of the task:
-
-```bash
-echoevm diff \
-  --code <hex-bytecode> \
-  --input <hex-calldata> \
-  --gas 1000000 \
-  --fork Cancun \
-  --format summary-json
-```
+When compatibility or a suspected consensus bug is part of the task, reproduce
+it with a focused EchoEVM test and the pinned official fixture corpus.
 
 Use `initialStorage` only through an MCP tool or a prepared JSON-capable interface; the current CLI flags do not expose that map directly. Do not silently drop requested initial state.
 

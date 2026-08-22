@@ -5,8 +5,8 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
@@ -17,6 +17,16 @@ const (
 	initCodeWordGas    = 2
 	keccak256WordGas   = 6
 )
+
+func callGasOperand(value *big.Int) uint64 {
+	if value == nil || value.Sign() <= 0 {
+		return 0
+	}
+	if !value.IsUint64() {
+		return math.MaxUint64
+	}
+	return value.Uint64()
+}
 
 // opCreate implements the CREATE opcode.
 func opCreate(i *Interpreter, _ byte) {
@@ -128,6 +138,7 @@ func (i *Interpreter) createContract(addr common.Address, value *big.Int, initCo
 
 	snapshot := i.statedb.Snapshot()
 	i.statedb.CreateAccount(addr)
+	i.statedb.MarkCreatedInCurrentTx(addr)
 	i.statedb.SetNonce(addr, 1)
 	i.statedb.SubBalance(i.address, value)
 	i.statedb.AddBalance(addr, value)
@@ -257,7 +268,7 @@ func opCall(i *Interpreter, _ byte) {
 	args := i.memory.Read(argsOffset, argsLength)
 
 	// Handle gas passing (EIP-150)
-	gasLimit := gas.Uint64()
+	gasLimit := callGasOperand(gas)
 	available := i.gas
 	cap := available - available/64
 	if gasLimit > cap {
@@ -432,7 +443,7 @@ func opCallCode(i *Interpreter, _ byte) {
 	contract.SetBlockGasLimit(i.gasLimit)
 
 	// Handle gas passing (EIP-150)
-	gasLimit := gas.Uint64()
+	gasLimit := callGasOperand(gas)
 	available := i.gas
 	cap := available - available/64
 	if gasLimit > cap {
@@ -573,7 +584,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	contract.SetBlockGasLimit(i.gasLimit)
 
 	// Handle gas passing (EIP-150)
-	gasLimit := gas.Uint64()
+	gasLimit := callGasOperand(gas)
 	available := i.gas
 	cap := available - available/64
 	if gasLimit > cap {
@@ -699,7 +710,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 	args := i.memory.Read(argsOffset, argsLength)
 
 	// Handle gas passing (EIP-150)
-	gasLimit := gas.Uint64()
+	gasLimit := callGasOperand(gas)
 	available := i.gas
 	cap := available - available/64
 	if gasLimit > cap {

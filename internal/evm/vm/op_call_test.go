@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 

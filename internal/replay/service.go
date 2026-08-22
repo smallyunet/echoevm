@@ -11,13 +11,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/hexutil"
+	"github.com/smallyunet/echoevm/internal/eth/rpc"
+	"github.com/smallyunet/echoevm/internal/eth/types"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
@@ -497,7 +495,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 	}
 	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID), ChainConfig: core.ChainConfigForMainnetTimestamp(header.Time), BlockHashes: blockHashes}
 	if header.ExcessBlobGas != nil {
-		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(params.MainnetChainConfig, header)
+		ctxBlock.BlobBaseFee = core.CalcBlobFee(*header.ExcessBlobGas)
 	}
 	var output []byte
 	var gasUsed uint64

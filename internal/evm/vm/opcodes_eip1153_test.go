@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
@@ -13,7 +13,7 @@ func TestTransientStorage(t *testing.T) {
 	// PUSH1 0xCC (value) PUSH1 0x01 (key) TSTORE
 	// PUSH1 0x01 (key) TLOAD
 	// Expected stack top: 0xCC
-	
+
 	code := []byte{
 		byte(core.PUSH1), 0xCC,
 		byte(core.PUSH1), 0x01,
@@ -26,18 +26,18 @@ func TestTransientStorage(t *testing.T) {
 	memDB := core.NewMemoryStateDB()
 	interpreter := New(code, memDB, common.Address{})
 	interpreter.SetGas(100000)
-	
+
 	interpreter.Run()
-	
+
 	if interpreter.Err() != nil {
 		t.Fatalf("Execution failed: %v", interpreter.Err())
 	}
-	
+
 	stack := interpreter.Stack()
 	if stack.Len() != 1 {
 		t.Fatalf("Expected stack length 1, got %d", stack.Len())
 	}
-	
+
 	res, _ := stack.Pop()
 	if res.Cmp(big.NewInt(0xCC)) != 0 {
 		t.Errorf("Expected 0xCC, got %x", res)
@@ -51,17 +51,17 @@ func TestTransientStorageIsolation(t *testing.T) {
 		byte(core.TLOAD),
 		byte(core.STOP),
 	}
-	
+
 	memDB := core.NewMemoryStateDB()
 	interpreter := New(code, memDB, common.Address{})
 	interpreter.SetGas(100000)
-	
+
 	interpreter.Run()
-	
+
 	if interpreter.Err() != nil {
 		t.Fatalf("Execution failed: %v", interpreter.Err())
 	}
-	
+
 	res, _ := interpreter.Stack().Pop()
 	if res == nil {
 		t.Fatal("Stack check failed: popped nil")

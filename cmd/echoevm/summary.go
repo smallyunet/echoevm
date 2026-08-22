@@ -25,25 +25,6 @@ type requestSummary struct {
 	InitialStorageSlots int    `json:"initialStorageSlots"`
 }
 
-type comparisonSummary struct {
-	Match           bool                     `json:"match"`
-	StatusMatch     bool                     `json:"statusMatch"`
-	ReturnDataMatch bool                     `json:"returnDataMatch"`
-	GasMatch        bool                     `json:"gasMatch"`
-	StorageMatch    bool                     `json:"storageMatch"`
-	TraceMatch      bool                     `json:"traceMatch"`
-	FirstDivergence *differential.Divergence `json:"firstDivergence,omitempty"`
-	EchoEVM         executionSummary         `json:"echoevm"`
-	Geth            executionSummary         `json:"geth"`
-	Request         requestSummary           `json:"request"`
-	TraceSemantics  string                   `json:"traceSemantics"`
-}
-
-type diffSummaryOutput struct {
-	SchemaVersion int               `json:"schemaVersion"`
-	Comparison    comparisonSummary `json:"comparison"`
-}
-
 func summarizeExecution(result differential.ExecutionResult) executionSummary {
 	return executionSummary{
 		Engine: result.Engine, EngineVersion: result.EngineVersion, Status: result.Status,
@@ -57,16 +38,6 @@ func summarizeRequest(req differential.Request) requestSummary {
 		Fork: req.Fork, GasLimit: req.GasLimit, DeployGasLimit: req.DeployGasLimit,
 		BytecodeBytes: hexByteLength(req.Bytecode), InitCodeBytes: hexByteLength(req.InitCode),
 		CalldataBytes: hexByteLength(req.Calldata), InitialStorageSlots: len(req.InitialStorage),
-	}
-}
-
-func summarizeComparison(result differential.ComparisonResult) comparisonSummary {
-	return comparisonSummary{
-		Match: result.Match, StatusMatch: result.StatusMatch, ReturnDataMatch: result.ReturnDataMatch,
-		GasMatch: result.GasMatch, StorageMatch: result.StorageMatch, TraceMatch: result.TraceMatch,
-		FirstDivergence: result.FirstDivergence, EchoEVM: summarizeExecution(result.EchoEVM),
-		Geth: summarizeExecution(result.Geth), Request: summarizeRequest(result.Request),
-		TraceSemantics: result.TraceSemantics,
 	}
 }
 

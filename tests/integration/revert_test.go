@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 )
 
 func TestSnapshotRevert(t *testing.T) {

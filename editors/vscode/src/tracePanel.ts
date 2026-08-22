@@ -24,13 +24,7 @@ function renderTraceHTML(result: RunResult): string {
       <td>${step.gasBefore}</td>
       <td><code>${escapeHTML(step.stackBefore.join(" "))}</code></td>
     </tr>`).join("");
-  const comparison = result.comparison;
-  const verdict = comparison
-    ? `<span class="badge ${comparison.match ? "match" : "divergence"}">${comparison.match ? "MATCH" : "DIVERGENCE"}</span>`
-    : "";
-  const divergence = comparison?.firstDivergence
-    ? `<section><h2>First divergence</h2><pre>${escapeHTML(JSON.stringify(comparison.firstDivergence, null, 2))}</pre></section>`
-    : "";
+  const verdict = `<span class="badge match">${escapeHTML(result.execution.status.toUpperCase())}</span>`;
   const empty = trace.length === 0 ? "<p>No trace was returned. Run the function again with trace collection enabled.</p>" : "";
   return `<!doctype html>
 <html lang="en">
@@ -58,7 +52,6 @@ function renderTraceHTML(result: RunResult): string {
 <body>
   <h1>${escapeHTML(result.contract)}.${escapeHTML(result.function)} ${verdict}</h1>
   <div class="meta">${escapeHTML(result.execution.engine)} ${escapeHTML(result.execution.engineVersion)} · ${result.execution.status} · ${result.execution.gasUsed} gas · ${result.durationMs} ms</div>
-  ${divergence}
   ${empty}
   ${trace.length > 0 ? `<div class="table-wrap"><table><thead><tr><th>#</th><th>Depth</th><th>PC</th><th>Opcode</th><th>Gas before</th><th>Stack before</th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
 </body>

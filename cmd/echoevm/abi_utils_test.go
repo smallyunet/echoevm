@@ -68,7 +68,7 @@ func TestBuildCallData_NestedArrays(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// We only check if it encodes without error for now.
 			// Ideally we should check the encoded bytes, but that requires manual construction of ABI encoding.
-			// Since we use go-ethereum's Pack, if the input types match what Pack expects, it should be correct.
+			// The ABI encoder receives values in the native type expected by the selected ABI kind.
 			_, err := buildCallData(tt.signature, tt.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildCallData() error = %v, wantErr %v", err, tt.wantErr)

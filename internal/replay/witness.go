@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/hexutil"
+	"github.com/smallyunet/echoevm/internal/eth/types"
 )
 
 const WitnessSchemaVersion = "echoevm.replay-witness.v1"

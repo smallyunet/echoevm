@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smallyunet/echoevm/internal/differential"
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 	"github.com/spf13/cobra"
+	ethabi "github.com/umbracle/ethgo/abi"
 )
 
 const solidityProtocolVersion = 1
@@ -36,7 +36,6 @@ type solidityRunFlags struct {
 	deployGas       uint64
 	format          string
 	trace           bool
-	diff            bool
 	optimize        bool
 	optimizerRuns   uint64
 	viaIR           bool
@@ -52,7 +51,8 @@ type compiledSolidityContract struct {
 	constructorBytecode string
 	runtimeBytecode     string
 	runtimeSourceMap    string
-	abi                 gethabi.ABI
+	abi                 *ethabi.ABI
+	mutabilities        map[string]string
 	functionLocations   map[string]soliditySourceLocation
 	sourceNames         map[int]string
 }
@@ -82,7 +82,6 @@ type solidityRunOutput struct {
 	Compiler      solidityCompilerInfo           `json:"compiler"`
 	DurationMS    int64                          `json:"durationMs"`
 	Execution     differential.ExecutionResult   `json:"execution"`
-	Comparison    *differential.ComparisonResult `json:"-"`
 	Evidence      *explaintrace.EvidenceDocument `json:"-"`
 	SourceMap     *solidityRuntimeSourceMap      `json:"-"`
 }
@@ -100,18 +99,6 @@ type solidityCompilerInfo struct {
 	Version    string `json:"version"`
 }
 
-type solidityComparisonOutput struct {
-	Match           bool                         `json:"match"`
-	StatusMatch     bool                         `json:"statusMatch"`
-	ReturnDataMatch bool                         `json:"returnDataMatch"`
-	GasMatch        bool                         `json:"gasMatch"`
-	StorageMatch    bool                         `json:"storageMatch"`
-	TraceMatch      bool                         `json:"traceMatch"`
-	FirstDivergence *differential.Divergence     `json:"firstDivergence,omitempty"`
-	Geth            differential.ExecutionResult `json:"geth"`
-	TraceSemantics  string                       `json:"traceSemantics"`
-}
-
 type solidityRunJSONOutput struct {
 	SchemaVersion int                          `json:"schemaVersion"`
 	Source        string                       `json:"source"`
@@ -120,7 +107,6 @@ type solidityRunJSONOutput struct {
 	Compiler      solidityCompilerInfo         `json:"compiler"`
 	DurationMS    int64                        `json:"durationMs"`
 	Execution     differential.ExecutionResult `json:"execution"`
-	Comparison    *solidityComparisonOutput    `json:"comparison,omitempty"`
 	SourceMap     *solidityRuntimeSourceMap    `json:"sourceMap,omitempty"`
 }
 
@@ -132,7 +118,6 @@ type solidityRunSummaryJSONOutput struct {
 	Compiler      solidityCompilerInfo `json:"compiler"`
 	DurationMS    int64                `json:"durationMs"`
 	Execution     *executionSummary    `json:"execution,omitempty"`
-	Comparison    *comparisonSummary   `json:"comparison,omitempty"`
 }
 
 type solidityParameterOutput struct {
@@ -200,7 +185,7 @@ func newSolidityRunCmd() *cobra.Command {
 		Use:     "run <source.sol>",
 		Short:   "Compile a Solidity contract and execute one function",
 		Args:    cobra.ExactArgs(1),
-		Example: "echoevm solidity run Counter.sol --contract Counter --function 'add(uint256,uint256)' --args 2,40 --diff",
+		Example: "echoevm solidity run Counter.sol --contract Counter --function 'add(uint256,uint256)' --args 2,40",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := runSolidity(cmd.Context(), cmd.OutOrStdout(), args[0], flags)
 			if err != nil && (flags.format == "json" || flags.format == "summary-json" || flags.format == "evidence-json") {
@@ -223,7 +208,6 @@ func newSolidityRunCmd() *cobra.Command {
 	cmd.Flags().Uint64Var(&flags.deployGas, "deploy-gas", 0, "constructor deployment gas limit (defaults to --gas)")
 	cmd.Flags().StringVar(&flags.format, "format", "text", "output format (text|json|summary-json|evidence-json)")
 	cmd.Flags().BoolVar(&flags.trace, "trace", false, "include the EchoEVM opcode trace")
-	cmd.Flags().BoolVar(&flags.diff, "diff", false, "compare EchoEVM execution with embedded Geth")
 	cmd.Flags().BoolVar(&flags.optimize, "optimize", false, "enable the Solidity optimizer")
 	cmd.Flags().Uint64Var(&flags.optimizerRuns, "optimizer-runs", 0, "Solidity optimizer runs (Foundry auto-detected when omitted)")
 	cmd.Flags().BoolVar(&flags.viaIR, "via-ir", false, "compile through the Solidity IR pipeline")
@@ -266,9 +250,6 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 		return fmt.Errorf("unsupported format %q: use text, json, summary-json, or evidence-json", flags.format)
 	}
 	if flags.format == "evidence-json" {
-		if flags.diff {
-			return fmt.Errorf("evidence-json cannot be combined with --diff; run a separate summary comparison")
-		}
 		if flags.limit < 0 || flags.maxMemoryBytes < 0 {
 			return fmt.Errorf("evidence limits must be non-negative")
 		}
@@ -288,9 +269,9 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	if err != nil {
 		return err
 	}
-	calldata, err := buildCallData(method.Sig, flags.args)
+	calldata, err := buildCallData(method.Sig(), flags.args)
 	if err != nil {
-		return fmt.Errorf("encode %s arguments: %w", method.Sig, err)
+		return fmt.Errorf("encode %s arguments: %w", method.Sig(), err)
 	}
 	initcode, err := buildConstructorData(contract, flags.constructorArgs)
 	if err != nil {
@@ -305,7 +286,7 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 	engine := differential.DefaultEngine()
 	result := solidityRunOutput{
 		SchemaVersion: solidityProtocolVersion,
-		Source:        source, Contract: contract.name, Function: method.Sig,
+		Source:        source, Contract: contract.name, Function: method.Sig(),
 		Compiler:  solidityCompilerInfo{Executable: flags.solc, Version: solidityCompilerVersion(ctx, flags.solc, flags.solcArgs)},
 		SourceMap: buildRuntimeSourceMap(contract),
 	}
@@ -324,13 +305,6 @@ func runSolidity(ctx context.Context, out io.Writer, source string, flags *solid
 			return evidenceErr
 		}
 		result.Evidence = &document
-	} else if flags.diff {
-		comparison, compareErr := engine.Compare(ctx, req)
-		if compareErr != nil {
-			return compareErr
-		}
-		result.Execution = comparison.EchoEVM
-		result.Comparison = &comparison
 	} else {
 		execution, runErr := engine.RunEcho(ctx, req)
 		if runErr != nil {
@@ -367,19 +341,19 @@ func runSolidityInspect(ctx context.Context, out io.Writer, source string, flags
 	for _, contract := range compiled {
 		item := solidityContractOutput{
 			Key: contract.key, Name: contract.name,
-			Constructor: solidityParameters(contract.abi.Constructor.Inputs),
+			Constructor: solidityParameters(constructorInputs(contract.abi)),
 		}
 		for _, method := range contract.abi.Methods {
-			location := contract.functionLocations[fmt.Sprintf("%x", method.ID)]
+			location := contract.functionLocations[fmt.Sprintf("%x", method.ID())]
 			var sourceLocation *soliditySourceLocation
 			if location.File != "" {
 				copy := location
 				sourceLocation = &copy
 			}
 			item.Functions = append(item.Functions, solidityFunctionOutput{
-				Name: method.RawName, Signature: method.Sig,
+				Name: method.Name, Signature: method.Sig(),
 				Inputs: solidityParameters(method.Inputs), Outputs: solidityParameters(method.Outputs),
-				StateMutability: method.StateMutability,
+				StateMutability: solidityMutability(method, contract.mutabilities[method.Sig()]),
 				SourceLocation:  sourceLocation,
 			})
 		}
@@ -561,6 +535,7 @@ func compileSolidity(ctx context.Context, source string, flags *solidityRunFlags
 				runtimeBytecode:  "0x" + artifact.EVM.DeployedBytecode.Object,
 				runtimeSourceMap: artifact.EVM.DeployedBytecode.SourceMap,
 				abi:              parsedABI, sourceNames: sourceNames,
+				mutabilities:      parseABIMutabilities(artifact.ABI),
 				functionLocations: solidityFunctionLocations(compiledOutput.Sources[sourceName].AST, contractName, sourceNames),
 			})
 		}
@@ -662,18 +637,18 @@ func solidityInstructionPCs(code []byte) []uint64 {
 	return pcs
 }
 
-func parseCombinedJSONABI(raw json.RawMessage) (gethabi.ABI, error) {
+func parseCombinedJSONABI(raw json.RawMessage) (*ethabi.ABI, error) {
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
-		return gethabi.ABI{}, fmt.Errorf("missing ABI")
+		return nil, fmt.Errorf("missing ABI")
 	}
 	if raw[0] == '"' {
 		var encoded string
 		if err := json.Unmarshal(raw, &encoded); err != nil {
-			return gethabi.ABI{}, err
+			return nil, err
 		}
 		raw = []byte(encoded)
 	}
-	return gethabi.JSON(bytes.NewReader(raw))
+	return ethabi.NewABIFromReader(bytes.NewReader(raw))
 }
 
 func selectCompiledContract(contracts []compiledSolidityContract, requested string) (compiledSolidityContract, error) {
@@ -710,14 +685,14 @@ func compiledContractNames(contracts []compiledSolidityContract) string {
 	return strings.Join(names, ", ")
 }
 
-func resolveSolidityMethod(contractABI gethabi.ABI, requested string) (gethabi.Method, error) {
+func resolveSolidityMethod(contractABI *ethabi.ABI, requested string) (*ethabi.Method, error) {
 	requested = strings.TrimSpace(requested)
 	if requested == "" {
 		requested = "run"
 	}
-	var matches []gethabi.Method
+	var matches []*ethabi.Method
 	for _, method := range contractABI.Methods {
-		if method.Sig == requested || (!strings.Contains(requested, "(") && method.RawName == requested) {
+		if method.Sig() == requested || (!strings.Contains(requested, "(") && method.Name == requested) {
 			matches = append(matches, method)
 		}
 	}
@@ -727,55 +702,125 @@ func resolveSolidityMethod(contractABI gethabi.ABI, requested string) (gethabi.M
 	if len(matches) > 1 {
 		signatures := make([]string, len(matches))
 		for i, method := range matches {
-			signatures[i] = method.Sig
+			signatures[i] = method.Sig()
 		}
 		sort.Strings(signatures)
-		return gethabi.Method{}, fmt.Errorf("function %q is overloaded; use a canonical signature: %s", requested, strings.Join(signatures, ", "))
+		return nil, fmt.Errorf("function %q is overloaded; use a canonical signature: %s", requested, strings.Join(signatures, ", "))
 	}
-	return gethabi.Method{}, fmt.Errorf("function %q not found in contract ABI", requested)
+	return nil, fmt.Errorf("function %q not found in contract ABI", requested)
 }
 
 func buildConstructorData(contract compiledSolidityContract, argString string) (string, error) {
 	if contract.constructorBytecode == "" || contract.constructorBytecode == "0x" {
 		return "", fmt.Errorf("contract %s has no deployable constructor bytecode", contract.name)
 	}
-	arguments := contract.abi.Constructor.Inputs
+	arguments := constructorInputs(contract.abi)
 	values, err := parseABIArguments(arguments, argString)
 	if err != nil {
 		return "", fmt.Errorf("encode constructor arguments: %w", err)
 	}
-	encoded, err := arguments.Pack(values...)
+	encoded, err := arguments.Encode(values)
 	if err != nil {
 		return "", fmt.Errorf("encode constructor arguments: %w", err)
 	}
 	return contract.constructorBytecode + fmt.Sprintf("%x", encoded), nil
 }
 
-func parseABIArguments(arguments gethabi.Arguments, argString string) ([]interface{}, error) {
+func parseABIArguments(arguments *ethabi.Type, argString string) ([]interface{}, error) {
 	valuesText := []string{}
 	if argString != "" {
 		valuesText = splitArgs(argString)
 	}
-	if len(arguments) != len(valuesText) {
-		return nil, fmt.Errorf("argument count mismatch: expected %d, got %d", len(arguments), len(valuesText))
+	elements := arguments.TupleElems()
+	if len(elements) != len(valuesText) {
+		return nil, fmt.Errorf("argument count mismatch: expected %d, got %d", len(elements), len(valuesText))
 	}
-	values := make([]interface{}, len(arguments))
-	for i, argument := range arguments {
-		value, err := parseArg(valuesText[i], argument.Type)
+	values := make([]interface{}, len(elements))
+	for i, argument := range elements {
+		value, err := parseArg(valuesText[i], argument.Elem)
 		if err != nil {
-			return nil, fmt.Errorf("argument %d (%s): %w", i, argument.Type.String(), err)
+			return nil, fmt.Errorf("argument %d (%s): %w", i, argument.Elem.String(), err)
 		}
 		values[i] = value
 	}
 	return values, nil
 }
 
-func solidityParameters(arguments gethabi.Arguments) []solidityParameterOutput {
-	parameters := make([]solidityParameterOutput, len(arguments))
-	for i, argument := range arguments {
-		parameters[i] = solidityParameterOutput{Name: argument.Name, Type: argument.Type.String()}
+func solidityParameters(arguments *ethabi.Type) []solidityParameterOutput {
+	elements := arguments.TupleElems()
+	parameters := make([]solidityParameterOutput, len(elements))
+	for i, argument := range elements {
+		parameters[i] = solidityParameterOutput{Name: argument.Name, Type: argument.Elem.String()}
 	}
 	return parameters
+}
+
+func constructorInputs(contractABI *ethabi.ABI) *ethabi.Type {
+	if contractABI.Constructor != nil {
+		return contractABI.Constructor.Inputs
+	}
+	t, _ := ethabi.NewType("tuple()")
+	return t
+}
+
+func solidityMutability(method *ethabi.Method, declared string) string {
+	if declared != "" {
+		return declared
+	}
+	if method.Const {
+		return "view"
+	}
+	return "nonpayable"
+}
+
+type abiJSONArgument struct {
+	Type       string            `json:"type"`
+	Components []abiJSONArgument `json:"components"`
+}
+
+func parseABIMutabilities(raw json.RawMessage) map[string]string {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil
+	}
+	if raw[0] == '"' {
+		var encoded string
+		if json.Unmarshal(raw, &encoded) != nil {
+			return nil
+		}
+		raw = []byte(encoded)
+	}
+	var fields []struct {
+		Type            string            `json:"type"`
+		Name            string            `json:"name"`
+		StateMutability string            `json:"stateMutability"`
+		Inputs          []abiJSONArgument `json:"inputs"`
+	}
+	if json.Unmarshal(raw, &fields) != nil {
+		return nil
+	}
+	result := make(map[string]string)
+	for _, field := range fields {
+		if field.Type != "function" && field.Type != "" {
+			continue
+		}
+		parts := make([]string, len(field.Inputs))
+		for index, input := range field.Inputs {
+			parts[index] = canonicalABIJSONType(input)
+		}
+		result[field.Name+"("+strings.Join(parts, ",")+")"] = field.StateMutability
+	}
+	return result
+}
+
+func canonicalABIJSONType(argument abiJSONArgument) string {
+	if !strings.HasPrefix(argument.Type, "tuple") {
+		return argument.Type
+	}
+	parts := make([]string, len(argument.Components))
+	for index, component := range argument.Components {
+		parts[index] = canonicalABIJSONType(component)
+	}
+	return "(" + strings.Join(parts, ",") + ")" + strings.TrimPrefix(argument.Type, "tuple")
 }
 
 func solidityCompilerVersion(ctx context.Context, executable string, prefixArgs []string) string {
@@ -837,13 +882,8 @@ func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *soli
 			Source:        result.Source, Contract: result.Contract, Function: result.Function,
 			Compiler: result.Compiler, DurationMS: result.DurationMS,
 		}
-		if result.Comparison != nil {
-			comparison := summarizeComparison(*result.Comparison)
-			jsonResult.Comparison = &comparison
-		} else {
-			execution := summarizeExecution(result.Execution)
-			jsonResult.Execution = &execution
-		}
+		execution := summarizeExecution(result.Execution)
+		jsonResult.Execution = &execution
 		encoder := json.NewEncoder(out)
 		encoder.SetIndent("", "  ")
 		return encoder.Encode(jsonResult)
@@ -851,29 +891,12 @@ func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *soli
 	if flags.format == "json" {
 		if !flags.trace {
 			result.Execution.Trace = nil
-			if result.Comparison != nil {
-				result.Comparison.EchoEVM.Trace = nil
-				result.Comparison.Geth.Trace = nil
-			}
 		}
 		jsonResult := solidityRunJSONOutput{
 			SchemaVersion: result.SchemaVersion,
 			Source:        result.Source, Contract: result.Contract, Function: result.Function,
 			Compiler: result.Compiler, DurationMS: result.DurationMS, Execution: result.Execution,
 			SourceMap: result.SourceMap,
-		}
-		if result.Comparison != nil {
-			jsonResult.Comparison = &solidityComparisonOutput{
-				Match:           result.Comparison.Match,
-				StatusMatch:     result.Comparison.StatusMatch,
-				ReturnDataMatch: result.Comparison.ReturnDataMatch,
-				GasMatch:        result.Comparison.GasMatch,
-				StorageMatch:    result.Comparison.StorageMatch,
-				TraceMatch:      result.Comparison.TraceMatch,
-				FirstDivergence: result.Comparison.FirstDivergence,
-				Geth:            result.Comparison.Geth,
-				TraceSemantics:  result.Comparison.TraceSemantics,
-			}
 		}
 		encoder := json.NewEncoder(out)
 		encoder.SetIndent("", "  ")
@@ -882,11 +905,7 @@ func writeSolidityRunOutput(out io.Writer, result solidityRunOutput, flags *soli
 	if _, err := fmt.Fprintf(out, "EchoEVM Solidity run — %s:%s %s\n", result.Source, result.Contract, result.Function); err != nil {
 		return err
 	}
-	if result.Comparison != nil {
-		if err := writeDiffText(out, *result.Comparison); err != nil {
-			return err
-		}
-	} else if _, err := fmt.Fprintf(out, "status=%s return=%s gas=%d storage=%d\n", result.Execution.Status, result.Execution.ReturnData, result.Execution.GasUsed, len(result.Execution.Storage)); err != nil {
+	if _, err := fmt.Fprintf(out, "status=%s return=%s gas=%d storage=%d\n", result.Execution.Status, result.Execution.ReturnData, result.Execution.GasUsed, len(result.Execution.Storage)); err != nil {
 		return err
 	}
 	if flags.trace {

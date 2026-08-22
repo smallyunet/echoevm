@@ -5,11 +5,10 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/crypto/kzg4844"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/params"
+	"github.com/smallyunet/echoevm/internal/eth/types"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
@@ -128,7 +127,7 @@ func applyTransactionWithContextAndHook(
 			return nil, 0, false, fmt.Errorf("blob transaction exceeds Osaka per-transaction limit: have %d, max %d", len(blobHashes), params.BlobTxMaxBlobs)
 		}
 		for index, hash := range blobHashes {
-			if !kzg4844.IsValidVersionedHash(hash[:]) {
+			if hash[0] != 0x01 {
 				return nil, 0, false, fmt.Errorf("blob %d has invalid versioned hash", index)
 			}
 		}
@@ -141,6 +140,13 @@ func applyTransactionWithContextAndHook(
 		if _, delegated := types.ParseDelegation(code); len(code) != 0 && !delegated {
 			return nil, 0, false, fmt.Errorf("sender has non-delegation code")
 		}
+	}
+	feeCap := tx.GasFeeCap()
+	if ctx.BaseFee != nil && feeCap.Cmp(ctx.BaseFee) < 0 {
+		return nil, 0, false, fmt.Errorf("gas fee cap below block base fee")
+	}
+	if tx.Type() >= types.DynamicFeeTxType && tx.GasTipCap().Cmp(feeCap) > 0 {
+		return nil, 0, false, fmt.Errorf("gas tip cap exceeds gas fee cap")
 	}
 
 	gas := tx.Gas()
@@ -257,6 +263,14 @@ func applyTransactionWithContextAndHook(
 			statedb.AddAddressToAccessList(target)
 		}
 	}
+	if to == nil {
+		// Transaction creation follows the same state lifecycle as CREATE: the
+		// account and its initial nonce are inside the execution snapshot, while
+		// the sender nonce and gas purchase above survive a failed initcode run.
+		statedb.CreateAccount(contractAddr)
+		statedb.MarkCreatedInCurrentTx(contractAddr)
+		statedb.SetNonce(contractAddr, 1)
+	}
 
 	// Transfer value
 	if value.Sign() > 0 {
@@ -325,7 +339,25 @@ func applyTransactionWithContextAndHook(
 		if executionErr != nil || reverted {
 			statedb.RevertToSnapshot(snapshot)
 		} else {
-			statedb.SetCode(contractAddr, ret)
+			if len(ret) > params.MaxCodeSize {
+				executionErr = fmt.Errorf("deployed code exceeds maximum size")
+				reverted = true
+				gasRemaining = 0
+				statedb.RevertToSnapshot(snapshot)
+			} else if len(ret) > 0 && ret[0] == 0xef {
+				executionErr = fmt.Errorf("deployed code starts with forbidden 0xef prefix")
+				reverted = true
+				gasRemaining = 0
+				statedb.RevertToSnapshot(snapshot)
+			} else if depositGas := uint64(len(ret)) * params.CreateDataGas; depositGas > gasRemaining {
+				executionErr = fmt.Errorf("insufficient gas for code deposit")
+				reverted = true
+				gasRemaining = 0
+				statedb.RevertToSnapshot(snapshot)
+			} else {
+				gasRemaining -= depositGas
+				statedb.SetCode(contractAddr, ret)
+			}
 		}
 	} else {
 		// Call
@@ -382,6 +414,7 @@ func applyTransactionWithContextAndHook(
 
 	minerReward := new(big.Int).Mul(new(big.Int).SetUint64(gasUsed), effectiveTip)
 	statedb.AddBalance(ctx.Coinbase, minerReward)
+	statedb.FinalizeTransaction()
 
 	return ret, gasUsed, reverted, executionErr
 }

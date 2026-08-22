@@ -6,11 +6,11 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/holiman/uint256"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/params"
+	"github.com/smallyunet/echoevm/internal/eth/types"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
@@ -183,6 +183,20 @@ func TestApplyTransactionUsesDynamicFeeEffectiveGasPrice(t *testing.T) {
 	}
 }
 
+func TestApplyTransactionRejectsFeeCapBelowBaseFeeWithoutMutation(t *testing.T) {
+	state, sender, recipient, ctx := newTransitionTestState(nil)
+	ctx.BaseFee = big.NewInt(11)
+	tx := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(1), GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(10), Gas: 21_000, To: &recipient})
+	before := new(big.Int).Set(state.GetBalance(sender))
+
+	if _, _, _, err := ApplyTransactionWithContext(state, tx, sender, ctx); err == nil {
+		t.Fatal("expected fee-cap rejection")
+	}
+	if state.GetNonce(sender) != 0 || state.GetBalance(sender).Cmp(before) != 0 {
+		t.Fatal("fee validation mutated sender state")
+	}
+}
+
 func TestApplyTransactionChargesInitCodeWordGas(t *testing.T) {
 	state, sender, _, ctx := newTransitionTestState(nil)
 	tx := types.NewContractCreation(0, big.NewInt(0), 100_000, big.NewInt(1), []byte{core.STOP})
@@ -196,6 +210,20 @@ func TestApplyTransactionChargesInitCodeWordGas(t *testing.T) {
 	}
 }
 
+func TestApplyTransactionRejectsForbiddenRuntimeCodePrefix(t *testing.T) {
+	state, sender, _, ctx := newTransitionTestState(nil)
+	initCode := []byte{core.PUSH1, 0xef, core.PUSH0, core.MSTORE, core.PUSH1, 0x01, core.PUSH1, 0x1f, core.RETURN}
+	tx := types.NewContractCreation(0, big.NewInt(0), 100_000, big.NewInt(1), initCode)
+
+	_, gasUsed, reverted, err := ApplyTransactionWithContext(state, tx, sender, ctx)
+	if err == nil || !reverted {
+		t.Fatalf("reverted=%v err=%v, want forbidden-prefix rejection", reverted, err)
+	}
+	if gasUsed != tx.Gas() {
+		t.Fatalf("gas used=%d want=%d", gasUsed, tx.Gas())
+	}
+}
+
 func TestApplyPragueSetCodeTransaction(t *testing.T) {
 	senderKey := mustTestKey(t)
 	authorityKey := mustTestKey(t)
@@ -206,7 +234,6 @@ func TestApplyPragueSetCodeTransaction(t *testing.T) {
 	state := core.NewMemoryStateDB()
 	state.CreateAccount(sender)
 	state.AddBalance(sender, big.NewInt(1_000_000))
-	state.CreateAccount(authority)
 	state.SetCode(target, []byte{core.PUSH1, 0x2a, core.PUSH0, core.MSTORE, core.PUSH1, 0x20, core.PUSH0, core.RETURN})
 
 	auth, err := types.SignSetCode(authorityKey, types.SetCodeAuthorization{ChainID: *uint256.NewInt(1), Address: target})

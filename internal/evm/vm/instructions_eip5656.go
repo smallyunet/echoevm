@@ -33,7 +33,7 @@ func opMcopy(i *Interpreter, op byte) {
 	if lenVal == 0 {
 		return
 	}
-	
+
 	// Dynamic gas: 3 * words
 	words := (lenVal + 31) / 32
 	cost := core.GasCopy * words
@@ -47,14 +47,14 @@ func opMcopy(i *Interpreter, op byte) {
 	// Memory expansion
 	destVal := dest.Uint64()
 	srcVal := src.Uint64()
-	
+
 	// Max offset is the greater of (dest+len) or (src+len)
 	// Actually we need to check expansion for receiving area and reading area?
 	// MCOPY reads from memory and writes to memory. So we need to ensure both ranges are within bounds?
 	// Actually standard MCOPY only charges expansion for "written" memory usually?
 	// Wait, MLOAD expands memory too. So reading also expands.
 	// We need to expand to cover max(dest+len, src+len)
-	
+
 	maxOffset := destVal
 	if srcVal > maxOffset {
 		maxOffset = srcVal

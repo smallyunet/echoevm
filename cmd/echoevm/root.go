@@ -12,7 +12,7 @@ var (
 	rootCmd = &cobra.Command{
 		Use:   "echoevm",
 		Short: "Bounded causal execution evidence for EVM bytecode",
-		Long:  "EchoEVM executes Solidity and EVM bytecode and emits bounded causal evidence for people, AI coding agents, CI systems, and editors, with optional differential conformance against Geth.",
+		Long:  "EchoEVM independently executes Solidity and EVM bytecode and emits bounded causal evidence for people, AI coding agents, CI systems, and editors.",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Setup global logger level etc. (can be extended later)
 			lvl, err := zerolog.ParseLevel(globalFlags.logLevel)
@@ -42,9 +42,7 @@ func addSubCommands() {
 	rootCmd.AddCommand(newCallCmd())
 	rootCmd.AddCommand(newDeployCmd())
 	rootCmd.AddCommand(newDisasmCmd())
-	rootCmd.AddCommand(newDiffCmd())
 	rootCmd.AddCommand(newTraceCmd())
-	rootCmd.AddCommand(newVerifyCmd())
 	rootCmd.AddCommand(newVersionCmd())
 	rootCmd.AddCommand(newReplCmd())
 	rootCmd.AddCommand(newReplayCmd())

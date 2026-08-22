@@ -12,8 +12,8 @@ Download, verify, and atomically install the release under
 make setup-official-fixtures
 ```
 
-Audit every JSON fixture file and case in the release, then execute the fixed
-Prague/Osaka core-EIP corpus against EchoEVM:
+Audit every JSON fixture file and case in the release, then execute every
+official state fixture authored for Prague or Osaka under current Osaka rules:
 
 ```sh
 make test-official-fixtures
@@ -31,8 +31,9 @@ The full-release audit verifies acquisition integrity, `.meta/index.json`, JSON
 decoding, the index's declared case count, and bidirectional coverage between
 indexed paths and fixture files. Engine-X `pre_alloc` JSON files are decoded and
 reported separately because the official index treats them as shared auxiliary
-state rather than test cases. The executable corpus currently covers 26 pinned
-state-test files for Prague/Osaka core EIPs, with exact transaction and skip
-counts printed by the test. It covers EIP-2537, EIP-7594, EIP-7623, EIP-7702,
-EIP-7823, EIP-7825, EIP-7883, EIP-7939, and EIP-7951 with zero skipped cases.
+state rather than test cases. The executable current-mainnet corpus covers 187
+Prague- and Osaka-authored state-test files and 3,461 cases in the pinned
+release: 3,244 accepted transactions, 217 consensus-invalid rejections, and
+zero skipped cases. It covers EIP-7702 alongside EIP-7594, EIP-7823, EIP-7825,
+EIP-7883, EIP-7939, and EIP-7951.
 It does not claim that EchoEVM executes all 239,839 indexed fixtures yet.

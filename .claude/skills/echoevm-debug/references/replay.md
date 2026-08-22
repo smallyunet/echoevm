@@ -1,8 +1,7 @@
 # Transaction witness replay
 
 Use standalone replay for a self-contained `echoevm.replay-witness.v1` file.
-Use online verification only when the task explicitly asks to compare EchoEVM
-with a Geth-compatible RPC for conformance.
+Use the pinned official fixtures when the task asks for conformance evidence.
 
 ## Standalone replay
 
@@ -40,23 +39,6 @@ Keep credentials in `ECHOEVM_ETHEREUM_RPC` or a user-supplied `--rpc-url` and
 never print credential-bearing URLs. The importer is a data-acquisition adapter;
 the generated witness must replay later without RPC access.
 
-## Optional engine verification
-
-Use this only when comparison was requested:
-
-```bash
-echoevm verify <transaction-hash-or-etherscan-url> \
-  --format evidence-json \
-  --profile auto \
-  --limit 40
-```
-
-Verification requires Mainnet `debug_traceTransaction`, `debug_traceCall`,
-`prestateTracer`, and opcode tracing. Distinguish transaction status, return
-data, gas, post-state, and trace mismatches. Treat missing transaction, pending
-transaction, upstream RPC failure, missing tracer support, and timeout as
-different failure classes.
-
 ## Interpretation
 
 - Verify the witness or online transaction chain, block, and fork provenance.
@@ -64,5 +46,5 @@ different failure classes.
   from the Mainnet block timestamp.
 - Preserve compatibility warnings for pre-Cancun execution and absent
   historical BLOCKHASH entries.
-- Report Geth version, match fields, and first divergence only for `verify`.
+- Report the pinned fixture release and exact case evidence for conformance work.
 - Never describe a debug-RPC reference as part of EchoEVM standalone execution.

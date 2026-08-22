@@ -6,9 +6,9 @@ import (
 	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/params"
+	"github.com/smallyunet/echoevm/internal/eth/types"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 

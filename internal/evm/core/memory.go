@@ -80,7 +80,7 @@ func (m *Memory) Copy(dest, src, length uint64) {
 		maxEnd = src + length
 	}
 	m.Resize(maxEnd)
-	
+
 	// Use copy built-in which handles overlap correctly
 	copy(m.data[dest:dest+length], m.data[src:src+length])
 }

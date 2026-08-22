@@ -50,19 +50,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand("echoevm.openExample", () => openExample(context)),
     vscode.commands.registerCommand("echoevm.runFunction", async () => {
-      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, false);
-      await refreshStatus();
-    }),
-    vscode.commands.registerCommand("echoevm.runAndCompare", async () => {
-      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, true);
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations);
       await refreshStatus();
     }),
     vscode.commands.registerCommand("echoevm.runAtFunction", async (target: FunctionTarget) => {
-      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, false, target);
-      await refreshStatus();
-    }),
-    vscode.commands.registerCommand("echoevm.compareAtFunction", async (target: FunctionTarget) => {
-      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, true, target);
+      await executeActiveFunction(output, toolchain, evidence, codeLens, decorations, target);
       await refreshStatus();
     }),
     vscode.commands.registerCommand("echoevm.revealEvidenceLocation", revealEvidenceLocation),
@@ -96,7 +88,6 @@ async function executeActiveFunction(
   evidence: EvidenceTreeProvider,
   codeLens: SolidityCodeLensProvider,
   decorations: ExecutionDecorationManager,
-  diff: boolean,
   requestedTarget?: FunctionTarget,
 ): Promise<void> {
   const document = requestedTarget
@@ -166,7 +157,6 @@ async function executeActiveFunction(
         constructorArgs,
         functionArgs,
         gasLimit,
-        diff,
         trace: true,
       }, cwd, token),
     );
@@ -177,7 +167,7 @@ async function executeActiveFunction(
     codeLens.update(runTarget, result);
     await decorations.update(result, cwd, runTarget);
     await vscode.commands.executeCommand("echoevm.executionEvidence.focus");
-    const verdict = result.comparison ? (result.comparison.match ? "MATCH" : "DIVERGENCE") : result.execution.status.toUpperCase();
+    const verdict = result.execution.status.toUpperCase();
     const action = await vscode.window.showInformationMessage(
       `EchoEVM ${verdict}: ${result.contract}.${result.function} used ${result.execution.gasUsed} gas.`,
       "Show Evidence",
@@ -364,13 +354,6 @@ function writeResult(output: vscode.LogOutputChannel, result: RunResult): void {
   const storageEntries = Object.entries(result.execution.storage);
   if (storageEntries.length > 0) {
     output.info(`Storage: ${storageEntries.map(([key, value]) => `${key}=${value}`).join(" ")}`);
-  }
-  if (result.comparison) {
-    output.info(`Geth: status=${result.comparison.geth.status} gas=${result.comparison.geth.gasUsed} return=${result.comparison.geth.returnData}`);
-    output.info(`Comparison: ${result.comparison.match ? "MATCH" : "DIVERGENCE"} status=${result.comparison.statusMatch} return=${result.comparison.returnDataMatch} gas=${result.comparison.gasMatch} storage=${result.comparison.storageMatch} trace=${result.comparison.traceMatch}`);
-    if (result.comparison.firstDivergence) {
-      output.warn(`First divergence: ${JSON.stringify(result.comparison.firstDivergence)}`);
-    }
   }
   output.info(`Trace steps: ${result.execution.trace?.length ?? 0}; completed in ${result.durationMs} ms`);
 }

@@ -341,7 +341,7 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) {
 	case s.diffSlots <- struct{}{}:
 		defer func() { <-s.diffSlots }()
 	default:
-		writeJSONError(w, http.StatusTooManyRequests, "too many concurrent comparisons")
+		writeJSONError(w, http.StatusTooManyRequests, "too many concurrent executions")
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 512*1024)
@@ -358,7 +358,7 @@ func (s *Server) serveDiff(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	result, err := s.differential.Compare(ctx, req)
+	result, err := s.differential.RunEcho(ctx, req)
 	if err != nil {
 		writeJSONError(w, http.StatusBadRequest, err.Error())
 		return

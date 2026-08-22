@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.3.0
+**Current Version**: v0.4.0
 
 ---
 
@@ -79,6 +79,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.2.0 | Standalone versioned transaction witnesses; RPC/Geth replay comparison moved behind explicit verify/import-debug tooling |
 | v0.2.1 | Release hardening for standalone witness file output and loading |
 | v0.3.0 | Manifest V3 Chrome extension with packaged EchoEVM Wasm and local Etherscan witness replay |
+| v0.4.0 | Independent Ethereum primitives and native precompiles, no go-ethereum dependency, and zero-skip Osaka official state-fixture conformance |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -148,7 +149,7 @@ Full compliance and ecosystem integration.
 ## 🎯 Current Focus
 
 **Next Release Priorities:**
-1. Expand executable Prague/Osaka EEST coverage beyond the current core-EIP corpus
+1. Expand zero-skip EEST execution from current Prague/Osaka-authored fixtures into historical fork corpora
 2. Implement block-level Prague system requests and historical `BLOCKHASH` witnesses
 3. Add proof-backed standard-RPC witness acquisition and freeze reproducible public-transaction witnesses
 4. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
@@ -157,11 +158,12 @@ Full compliance and ecosystem integration.
 The product is AI-first. The VS Code extension and static evidence playground remain
 useful demonstration and inspection surfaces, but human onboarding, CodeLens, source-level
 breakpoints, and broad debugger UI expansion no longer gate the roadmap.
-Embedded Geth stays in conformance tests and optional comparison commands; the
-primary product path explains EchoEVM execution without requiring a comparison.
+Official EEST fixtures are the release conformance oracle. EchoEVM has no
+go-ethereum module dependency or embedded execution-client comparison command.
 
 The replay engine consumes a self-contained witness and never requires a Geth
-execution result. Debug RPC is confined to optional import/verification tools.
+execution result. Debug RPC is confined to an optional fixture-development
+prestate importer.
 EchoEVM declares transaction and interpreter semantics from Cancun through
 Osaka. It is not yet a full execution-layer client: proof-backed historical
 state acquisition, block construction, Prague system requests, consensus

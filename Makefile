@@ -3,10 +3,10 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.3.0
+VERSION    ?= v0.4.0
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
-.PHONY: install build build-chrome run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-chrome test-compliance test-official-fixtures test-differential test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
+.PHONY: install build build-chrome run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-chrome test-compliance test-official-fixtures test-regression test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -51,13 +51,13 @@ test-chrome: ## Validate Chrome UI helpers and the packaged Wasm engine
 test-compliance: ## Run compliance tests
 	go test -v ./tests/compliance/...
 
-test-official-fixtures: setup-official-fixtures ## Audit the release and execute the Prague/Osaka conformance corpus
+test-official-fixtures: setup-official-fixtures ## Audit the release and execute Prague/Osaka fixtures under current Osaka rules
 	ECHOEVM_OFFICIAL_FIXTURES=$(CURDIR)/tests/official/fixtures go test -v ./tests/official/...
 
-test-differential: ## Compare fork-selected execution results with go-ethereum
+test-regression: ## Run EchoEVM fork and execution regression vectors
 	go test -v ./tests/differential/...
 
-test-conformance: test-compliance test-differential ## Run official fixtures and geth differential tests
+test-conformance: test-compliance test-regression ## Run curated conformance and independent execution regressions
 
 test-conformance-full: test-conformance test-official-fixtures ## Run normal conformance plus the full official fixture audit
 

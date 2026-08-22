@@ -6,7 +6,7 @@ description: Explain EVM-sensitive Solidity, bytecode, or confirmed Ethereum Mai
 # EchoEVM Debug
 
 Use EchoEVM as the deterministic execution microscope. Prefer its explainable
-opcode process over a Geth comparison; compare engines only when the task asks
+opcode process over any external comparison; use official fixtures for conformance
 about compatibility or EchoEVM correctness.
 
 ## Resolve capabilities
@@ -29,10 +29,10 @@ about compatibility or EchoEVM correctness.
 
 - Use only paths within the user's authorized workspace.
 - Do not send local Solidity source, compiler inputs, or workspace files to a hosted service.
-- Treat standalone witness replay as local and read-only. It must not contact an RPC. Use `verify` only when the task explicitly requests an online Geth/RPC comparison; `witness import-debug` is an optional acquisition adapter, not an execution backend.
+- Treat standalone witness replay as local and read-only. It must not contact an RPC. `witness import-debug` is an optional fixture-development acquisition adapter, not an execution backend.
 - Route evidence with `auto`, `revert`, `storage`, `call`, `abi`, `arithmetic`, or `gas`; use full trace fields, opcode/depth filters, and windows only when compact evidence is insufficient.
 - If the trace result is truncated, request a deterministic `--around-step` window; do not load the whole trace by default.
-- Request standalone replay evidence directly from the witness. Write only full `verify` differential JSON results to a temporary file, then run `python3 <skill-dir>/scripts/compact_result.py <result.json>` before loading them into model context.
+- Request standalone replay evidence directly from the witness. Compact large evidence JSON before loading it into model context.
 - Start with one representative input. Add at most one branch-distinct input before a mismatch; use the project's existing tests for broad input coverage.
 
 ## Report the result

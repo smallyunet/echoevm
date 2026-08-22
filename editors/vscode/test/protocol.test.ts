@@ -33,7 +33,7 @@ test("buildInspectArguments keeps paths as individual process arguments", () => 
   ]);
 });
 
-test("buildRunArguments includes selected ABI call and optional comparison flags", () => {
+test("buildRunArguments includes selected ABI call and trace flag", () => {
   const args = buildRunArguments({
     source: "/workspace/Counter.sol",
     solcPath: "solc",
@@ -48,7 +48,6 @@ test("buildRunArguments includes selected ABI call and optional comparison flags
     constructorArgs: "7",
     functionArgs: "2,40",
     gasLimit: 1_000_000,
-    diff: true,
     trace: true,
   });
   assert.deepEqual(args, [
@@ -59,7 +58,7 @@ test("buildRunArguments includes selected ABI call and optional comparison flags
     "--gas", "1000000",
     "--constructor-args", "7",
     "--args", "2,40",
-    "--diff", "--trace",
+    "--trace",
   ]);
 });
 

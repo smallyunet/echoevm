@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -72,7 +71,7 @@ func TestE2E_Run(t *testing.T) {
 		{
 			name:     "version",
 			args:     []string{"version"},
-			wantOut:  "echoevm v0.3.0",
+			wantOut:  "echoevm v0.4.0",
 			wantCode: 0,
 		},
 		{
@@ -154,19 +153,4 @@ func TestE2E_Run(t *testing.T) {
 		})
 	}
 
-	t.Run("configured RPC credential is hidden from help output", func(t *testing.T) {
-		const rpcURL = "https://example.invalid/v2/private-token"
-		ps := exec.Command(binPath, "verify", "invalid-reference")
-		ps.Env = append(os.Environ(), "ECHOEVM_ETHEREUM_RPC="+rpcURL)
-		output, err := ps.CombinedOutput()
-		if err == nil {
-			t.Fatal("expected invalid transaction reference to fail")
-		}
-		if strings.Contains(string(output), rpcURL) {
-			t.Fatalf("help output leaked configured RPC URL: %s", output)
-		}
-		if !strings.Contains(string(output), `(default "<configured>")`) {
-			t.Fatalf("help output did not mark the RPC as configured: %s", output)
-		}
-	})
 }

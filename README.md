@@ -13,9 +13,8 @@ evidence for people, AI coding agents, CI systems, and editors. It explains
 nested calls, reverted writes, value flow, storage changes, gas usage, and
 failure causes without flooding the consumer with a full opcode trace.
 
-Use it to diagnose one execution locally, compare behavior with embedded Geth,
-or replay a self-contained Ethereum transaction witness without another
-execution engine.
+Use it to diagnose one execution locally or replay a self-contained Ethereum
+transaction witness without another execution engine.
 
 [Static playground](https://smallyunet.github.io/echoevm/) ·
 [latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
@@ -34,8 +33,9 @@ execution engine.
   `value-flow` connect effects across nested frames and stack transformations.
 - **Full execution, bounded output** — filters and limits reduce presentation;
   they do not stop execution early or change its result.
-- **Optional Geth comparison** — differential execution is a conformance tool,
-  not a prerequisite for the primary explain-one-input workflow.
+- **Independent execution kernel** — protocol primitives, transaction and RLP
+  handling, fork rules, and native precompiles are owned by EchoEVM. The module
+  graph contains no execution-client dependency.
 - **Standalone transaction replay** — execute a versioned witness without an
   RPC, Geth process, or foreign execution result in the product path.
 
@@ -142,28 +142,6 @@ echoevm trace \
 See [Trace Protocol](docs/TRACE_PROTOCOL.md) for schema semantics, selection
 behavior, and the recommended agent workflow.
 
-### Compare with embedded Geth
-
-```bash
-echoevm diff \
-  --code 60026003015f5260205ff3 \
-  --input 0x \
-  --gas 1000000 \
-  --fork Osaka
-
-echoevm diff --code 00 --format summary-json
-```
-
-Both engines run under the selected ruleset from Frontier through Osaka; Osaka
-is the default. A `MATCH` applies only to the tested input and environment; it
-is not a claim of complete EVM compatibility.
-
-Start the local Transaction Explainer with:
-
-```bash
-echoevm diff --web --addr :8080
-```
-
 ### Replay a transaction witness
 
 Replay consumes `echoevm.replay-witness.v1` and does not contact an RPC or run
@@ -176,8 +154,8 @@ echoevm replay ./transaction.witness.json \
   --limit 40
 ```
 
-For migration and conformance work, a trace-capable RPC can be used explicitly
-to import prestate into a standalone witness:
+For fixture development and migration work, a trace-capable RPC adapter can be
+used explicitly to import prestate into a standalone witness:
 
 ```bash
 echoevm witness import-debug 0x0123... \
@@ -186,15 +164,7 @@ echoevm witness import-debug 0x0123... \
 ```
 
 The importer is not an execution backend: after capture, `replay` reads only the
-witness. For an explicit online Geth comparison, use the separate conformance
-command:
-
-```bash
-echoevm verify 0x0123... \
-  --rpc-url https://your-trace-rpc.example \
-  --format evidence-json \
-  --profile revert
-```
+witness. It is not part of the standalone execution contract.
 
 Replay evidence uses the same profiles, causal links, and presentation limits
 as local source execution. It carries transaction, fork, witness schema, and
@@ -219,7 +189,7 @@ echoevm run --debug 6001600201
 | Format | Use it for |
 |---|---|
 | `evidence-json` | Bounded causal evidence for diagnosis and agent context |
-| `summary-json` | Compact execution or differential verdicts without opcode arrays |
+| `summary-json` | Compact execution results without opcode arrays |
 | `json` | Complete structured command output |
 | `jsonl` | Streaming full opcode events from `trace` |
 | `text` | Human-readable terminal output |
@@ -235,9 +205,7 @@ counts so consumers can distinguish complete execution from partial display.
 | `solidity inspect` | List deployable contracts and ABI functions as versioned JSON |
 | `solidity run` | Compile, deploy, and call one Solidity function |
 | `trace` | Emit explainable, filterable opcode or causal evidence |
-| `diff` | Compare EchoEVM with embedded Geth |
 | `replay` | Execute a self-contained transaction witness with EchoEVM |
-| `verify` | Optionally compare a transaction execution with a debug RPC |
 | `witness import-debug` | Import RPC prestate into a standalone witness |
 | `run` | Execute raw bytecode or a transaction fixture |
 | `deploy` | Execute constructor bytecode and extract runtime code |
@@ -254,33 +222,31 @@ Run `echoevm <command> --help` for the authoritative flags and examples.
 The repository includes two read-only Agent Skills:
 
 - [`echoevm-debug`](.agents/skills/echoevm-debug/SKILL.md) compiles and executes
-  Solidity, replays transaction witnesses, and optionally verifies confirmed
-  Mainnet transactions against an RPC reference.
+  Solidity and replays transaction witnesses.
 - [`echoevm-conformance`](.agents/skills/echoevm-conformance/SKILL.md) validates
   interpreter changes with focused tests, pinned official fixtures, and
-  differential vectors.
+  independent regression vectors.
 
 Codex and Gemini CLI discover the canonical Skills under `.agents/skills`.
 Claude Code uses the synchronized copies under `.claude/skills`. Tagged GitHub
 releases also include installable `.skill` archives.
 
-The [VS Code extension](editors/vscode/README.md) adds Run and Compare CodeLens
+The [VS Code extension](editors/vscode/README.md) adds Run CodeLens
 actions above Solidity functions, shows the latest status and gas result beside
 the source, reports concrete execution failures in Problems, and organizes
-state, comparison, and key-opcode evidence in a source-navigable side view.
+state and key-opcode evidence in a source-navigable side view.
 The complete opcode table remains available on demand, without starting a
 JSON-RPC node.
 
 The integrations execute locally and do not send Solidity source to a hosted
-service. The repository still includes the optional local Transaction Explainer
-started by `echoevm diff --web`; it is not operated as a public service.
+service.
 
 ## Scope and Limitations
 
 - Transaction and interpreter semantics are declared from Cancun through Osaka;
   Prague system requests, full block validation, consensus networking, and
   historical `BLOCKHASH` witnesses are not implemented.
-- A matching differential result proves only the tested input and environment.
+- Passing fixtures proves only the exact pinned corpus and fork scope.
 - Evidence is execution diagnostics, not a security audit or formal
   verification result.
 - Solidity execution does not implement Foundry cheatcodes, RPC forking,
@@ -323,7 +289,7 @@ Focused validation commands:
 make test-unit
 make test-integration
 make test-compliance
-make test-differential
+make test-regression
 make test-conformance
 make test-conformance-full
 make test-skills

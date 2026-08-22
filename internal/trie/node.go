@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/smallyunet/echoevm/internal/eth/rlp"
 )
 
 // Node is the interface that all trie nodes must implement.

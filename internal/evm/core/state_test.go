@@ -5,8 +5,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 )
 
 type failingStateBackend struct{ err error }
@@ -113,5 +113,42 @@ func TestPrepareTransactionResetsTransactionScopedState(t *testing.T) {
 	}
 	if db.HasBeenCreatedInCurrentTx(addr) {
 		t.Fatal("journal entries leaked into the new transaction")
+	}
+}
+
+func TestCreatedInCurrentTransactionIsExplicitAndRevertible(t *testing.T) {
+	db := NewMemoryStateDB()
+	addr := common.HexToAddress("0x1234")
+	db.PrepareTransaction()
+	db.CreateAccount(addr)
+	if db.HasBeenCreatedInCurrentTx(addr) {
+		t.Fatal("ordinary account materialization must not trigger EIP-6780 deletion semantics")
+	}
+	snapshot := db.Snapshot()
+	db.MarkCreatedInCurrentTx(addr)
+	if !db.HasBeenCreatedInCurrentTx(addr) {
+		t.Fatal("explicit CREATE marker was not recorded")
+	}
+	db.RevertToSnapshot(snapshot)
+	if db.HasBeenCreatedInCurrentTx(addr) {
+		t.Fatal("CREATE marker survived snapshot revert")
+	}
+}
+
+func TestSelfDestructDeletionIsDeferredUntilTransactionFinalization(t *testing.T) {
+	db := NewMemoryStateDB()
+	addr := common.HexToAddress("0x1234")
+	code := []byte{0x60, 0x00}
+	db.SetNonce(addr, 1)
+	db.SetCode(addr, code)
+	db.PrepareTransaction()
+	db.MarkCreatedInCurrentTx(addr)
+	db.Suicide(addr)
+	if got := db.GetCode(addr); len(got) != len(code) {
+		t.Fatalf("code was cleared during execution: %x", got)
+	}
+	db.FinalizeTransaction()
+	if db.Exist(addr) {
+		t.Fatal("self-destructed account survived transaction finalization")
 	}
 }

@@ -10,13 +10,13 @@ import (
 const traceSemantics = "top-level pre-op PC/opcode/gas/stack; post-op gas and non-terminal stack derived at the next top-level opcode; terminal stack and memory are not compared"
 
 type Engine struct {
-	echo Runner
-	geth Runner
+	echo      Runner
+	reference Runner
 }
 
-func NewEngine(echo, geth Runner) *Engine { return &Engine{echo: echo, geth: geth} }
+func NewEngine(echo, reference Runner) *Engine { return &Engine{echo: echo, reference: reference} }
 
-func DefaultEngine() *Engine { return NewEngine(EchoRunner{}, GethRunner{}) }
+func DefaultEngine() *Engine { return NewEngine(EchoRunner{}, nil) }
 
 // RunEcho executes a request with EchoEVM only while preserving the same
 // validation and normalization contract used by Compare.
@@ -59,8 +59,8 @@ func (e *Engine) RunEchoExplain(ctx context.Context, req Request, maxMemoryBytes
 }
 
 func (e *Engine) Compare(ctx context.Context, req Request) (ComparisonResult, error) {
-	if e == nil || e.echo == nil || e.geth == nil {
-		return ComparisonResult{}, fmt.Errorf("differential engine requires both runners")
+	if e == nil || e.echo == nil || e.reference == nil {
+		return ComparisonResult{}, fmt.Errorf("comparison requires an explicit independent reference runner")
 	}
 	normalized, err := normalizeRequest(req)
 	if err != nil {
@@ -70,11 +70,11 @@ func (e *Engine) Compare(ctx context.Context, req Request) (ComparisonResult, er
 	if err != nil {
 		return ComparisonResult{}, fmt.Errorf("EchoEVM runner: %w", err)
 	}
-	geth, err := e.geth.Run(ctx, normalized)
+	reference, err := e.reference.Run(ctx, normalized)
 	if err != nil {
-		return ComparisonResult{}, fmt.Errorf("geth runner: %w", err)
+		return ComparisonResult{}, fmt.Errorf("reference runner: %w", err)
 	}
-	result := CompareResults(normalized, echo, geth)
+	result := CompareResults(normalized, echo, reference)
 	result.TraceSemantics = traceSemantics
 	return result, nil
 }

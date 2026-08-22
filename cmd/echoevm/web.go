@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 	"github.com/smallyunet/echoevm/internal/config"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	webui "github.com/smallyunet/echoevm/internal/web"

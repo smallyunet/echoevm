@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/smallyunet/echoevm/internal/config"
 	"github.com/smallyunet/echoevm/internal/replay"
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,13 @@ func newWitnessCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newWitnessImportDebugCmd())
 	return cmd
+}
+
+func addVerificationRPCFlag(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&globalFlags.RPCURL, "rpc-url", config.GetRuntimeConfig().EthereumRPC, "Ethereum Mainnet RPC endpoint for fixture-development prestate import")
+	if os.Getenv(config.EnvEthereumRPC) != "" {
+		cmd.Flags().Lookup("rpc-url").DefValue = "<configured>"
+	}
 }
 
 func newWitnessImportDebugCmd() *cobra.Command {

@@ -73,29 +73,6 @@ export interface ExecutionResult {
   error?: string;
 }
 
-export interface Divergence {
-  kind: string;
-  step?: number;
-  pc?: number;
-  opcode?: string;
-  field: string;
-  echoevm: unknown;
-  geth: unknown;
-  description: string;
-}
-
-export interface ComparisonResult {
-  match: boolean;
-  statusMatch: boolean;
-  returnDataMatch: boolean;
-  gasMatch: boolean;
-  storageMatch: boolean;
-  traceMatch: boolean;
-  firstDivergence?: Divergence;
-  geth: ExecutionResult;
-  traceSemantics: string;
-}
-
 export interface RunResult {
   schemaVersion: number;
   source: string;
@@ -104,7 +81,6 @@ export interface RunResult {
   compiler: CompilerInfo;
   durationMs: number;
   execution: ExecutionResult;
-  comparison?: ComparisonResult;
   sourceMap?: RuntimeSourceMap;
 }
 
@@ -134,7 +110,6 @@ export interface RunCommandOptions extends CommonCommandOptions {
   constructorArgs?: string;
   functionArgs?: string;
   gasLimit: number;
-  diff: boolean;
   trace: boolean;
 }
 
@@ -179,9 +154,6 @@ export function buildRunArguments(options: RunCommandOptions): string[] {
   }
   if (options.functionArgs) {
     args.push("--args", options.functionArgs);
-  }
-  if (options.diff) {
-    args.push("--diff");
   }
   if (options.trace) {
     args.push("--trace");

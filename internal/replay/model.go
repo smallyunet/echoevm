@@ -6,8 +6,8 @@ package replay
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smallyunet/echoevm/internal/differential"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
 )
 

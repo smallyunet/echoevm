@@ -6,8 +6,8 @@ import (
 	"math/big"
 	"math/bits"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 

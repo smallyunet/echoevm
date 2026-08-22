@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
-	gethvm "github.com/ethereum/go-ethereum/core/vm"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/eth/common"
+	"github.com/smallyunet/echoevm/internal/eth/crypto"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 	"github.com/smallyunet/echoevm/internal/evm/vm"
 	explaintrace "github.com/smallyunet/echoevm/internal/trace"
@@ -119,7 +118,7 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 			}
 			step := NormalizedStep{
 				Index: len(trace), Depth: 0, PC: raw.PC,
-				Opcode: fmt.Sprintf("0x%02x", raw.Opcode), OpcodeName: gethvm.OpCode(raw.Opcode).String(),
+				Opcode: fmt.Sprintf("0x%02x", raw.Opcode), OpcodeName: core.OpcodeName(raw.Opcode),
 				GasBefore: raw.Gas, StackBefore: canonicalStack(raw.Stack),
 			}
 			trace = append(trace, step)

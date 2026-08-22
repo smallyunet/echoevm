@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/smallyunet/echoevm/internal/eth/common"
 )
 
 const ethereumMainnetChainID uint64 = 1
