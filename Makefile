@@ -3,7 +3,7 @@ BIN_DIR ?= bin
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 BUILD_DATE := $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-VERSION    ?= v0.0.45
+VERSION    ?= v0.1.0
 LDFLAGS    := -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE) -X main.Version=$(VERSION)
 
 .PHONY: install build run test setup-tests setup-official-fixtures test-unit test-integration test-e2e test-compliance test-official-fixtures test-differential test-conformance test-conformance-full test-deploy test-skills package-skills coverage clean help
@@ -28,7 +28,7 @@ setup-tests: ## Show bundled and full official fixture locations
 	@echo "Curated fixtures: tests/compliance/fixtures"
 	@echo "Full official EEST release: make setup-official-fixtures"
 
-setup-official-fixtures: ## Download and verify the pinned official EEST release (~381 MiB)
+setup-official-fixtures: ## Download and verify the pinned official EEST release (~404 MiB)
 	go run ./tests/official/cmd/fetch-fixtures
 
 test-unit: ## Run Go unit tests
@@ -43,10 +43,10 @@ test-e2e: ## Run CLI end-to-end tests
 test-compliance: ## Run compliance tests
 	go test -v ./tests/compliance/...
 
-test-official-fixtures: setup-official-fixtures ## Audit every JSON file in the pinned official EEST release
+test-official-fixtures: setup-official-fixtures ## Audit the release and execute the Prague/Osaka conformance corpus
 	ECHOEVM_OFFICIAL_FIXTURES=$(CURDIR)/tests/official/fixtures go test -v ./tests/official/...
 
-test-differential: ## Compare Cancun execution results with go-ethereum
+test-differential: ## Compare fork-selected execution results with go-ethereum
 	go test -v ./tests/differential/...
 
 test-conformance: test-compliance test-differential ## Run official fixtures and geth differential tests

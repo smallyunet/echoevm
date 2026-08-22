@@ -96,7 +96,7 @@ async function execute({button, loading, status, endpoint, body}) {
 }
 
 function showError(message) { el('error').textContent = message; el('error').hidden = false; }
-function rawRequest() { return {fork: 'Cancun', bytecode: el('bytecode').value.trim(), calldata: el('calldata').value.trim(), gasLimit: Number(el('gas').value)}; }
+function rawRequest() { return {fork: 'Osaka', bytecode: el('bytecode').value.trim(), calldata: el('calldata').value.trim(), gasLimit: Number(el('gas').value)}; }
 
 function render(result) {
   el('results').hidden = false;

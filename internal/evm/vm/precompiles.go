@@ -7,9 +7,11 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	gethvm "github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/blake2b"
 	"github.com/ethereum/go-ethereum/crypto/bn256"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
 
@@ -32,6 +34,15 @@ var (
 	PrecompileBN256Mul  = common.BytesToAddress([]byte{0x07})
 	PrecompileBN256Pair = common.BytesToAddress([]byte{0x08})
 	PrecompileBlake2F   = common.BytesToAddress([]byte{0x09})
+	PrecompileKZG       = common.BytesToAddress([]byte{0x0a})
+	PrecompileBLSG1Add  = common.BytesToAddress([]byte{0x0b})
+	PrecompileBLSG1MSM  = common.BytesToAddress([]byte{0x0c})
+	PrecompileBLSG2Add  = common.BytesToAddress([]byte{0x0d})
+	PrecompileBLSG2MSM  = common.BytesToAddress([]byte{0x0e})
+	PrecompileBLSPair   = common.BytesToAddress([]byte{0x0f})
+	PrecompileBLSMapG1  = common.BytesToAddress([]byte{0x10})
+	PrecompileBLSMapG2  = common.BytesToAddress([]byte{0x11})
+	PrecompileP256      = common.BytesToAddress([]byte{0x01, 0x00})
 )
 
 // PrecompiledContracts maps addresses to their precompiled contract implementations.
@@ -67,6 +78,57 @@ func RunPrecompiled(addr common.Address, input []byte, suppliedGas uint64) ([]by
 
 	output, err := p.Run(input)
 	return output, suppliedGas - gasCost, err
+}
+
+// precompiledContractsForRules returns the canonical precompile set for an
+// explicitly selected execution fork. EchoEVM keeps its historical local
+// implementations for the compatibility API above, while fork-aware execution
+// uses go-ethereum's consensus implementations for the cryptographic boundary.
+// Official EEST fixtures remain the independent behavior oracle.
+func precompiledContractsForRules(rules core.Rules) gethvm.PrecompiledContracts {
+	switch {
+	case rules.IsOsaka:
+		return gethvm.PrecompiledContractsOsaka
+	case rules.IsPrague:
+		return gethvm.PrecompiledContractsPrague
+	case rules.IsCancun:
+		return gethvm.PrecompiledContractsCancun
+	case rules.IsBerlin:
+		return gethvm.PrecompiledContractsBerlin
+	case rules.IsIstanbul:
+		return gethvm.PrecompiledContractsIstanbul
+	case rules.IsByzantium:
+		return gethvm.PrecompiledContractsByzantium
+	default:
+		return gethvm.PrecompiledContractsHomestead
+	}
+}
+
+func IsPrecompiledForRules(addr common.Address, rules core.Rules) bool {
+	_, ok := precompiledContractsForRules(rules)[addr]
+	return ok
+}
+
+func RunPrecompiledForRules(addr common.Address, input []byte, suppliedGas uint64, rules core.Rules) ([]byte, uint64, error) {
+	p, ok := precompiledContractsForRules(rules)[addr]
+	if !ok {
+		return nil, suppliedGas, errors.New("precompiled contract not found")
+	}
+	gasCost := p.RequiredGas(input)
+	if suppliedGas < gasCost {
+		return nil, 0, errors.New("out of gas")
+	}
+	output, err := p.Run(input)
+	return output, suppliedGas - gasCost, err
+}
+
+func ActivePrecompilesForRules(rules core.Rules) []common.Address {
+	contracts := precompiledContractsForRules(rules)
+	addresses := make([]common.Address, 0, len(contracts))
+	for address := range contracts {
+		addresses = append(addresses, address)
+	}
+	return addresses
 }
 
 // =============================================================================

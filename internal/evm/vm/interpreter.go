@@ -546,7 +546,7 @@ func (i *Interpreter) run(hook func(step TraceStep) bool) {
 }
 
 func (i *Interpreter) opcodeEnabled(op byte) bool {
-	rules := i.chainConfig.Rules(new(big.Int).SetUint64(i.blockNumber))
+	rules := i.rules()
 	switch op {
 	case core.DELEGATECALL:
 		return rules.IsHomestead

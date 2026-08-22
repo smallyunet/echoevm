@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smallyunet/echoevm/internal/evm/core"
 	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
 
@@ -299,5 +301,44 @@ func TestPrecompileBN256Add_Stub(t *testing.T) {
 		// For G1, unmarshalling 0,0 usually works as infinity or fails depending on impl.
 		// We accept error or success, just checking for panic/crash.
 		_ = err
+	}
+}
+
+func TestForkAwarePrecompileActivation(t *testing.T) {
+	cancun, _ := core.ChainConfigForFork(core.ForkCancun)
+	prague, _ := core.ChainConfigForFork(core.ForkPrague)
+	osaka, _ := core.ChainConfigForFork(core.ForkOsaka)
+	block := new(big.Int)
+
+	if !IsPrecompiledForRules(PrecompileKZG, cancun.Rules(block)) {
+		t.Fatal("KZG precompile must be active in Cancun")
+	}
+	if IsPrecompiledForRules(PrecompileBLSG1Add, cancun.Rules(block)) {
+		t.Fatal("BLS12-381 precompiles must not be active before Prague")
+	}
+	if !IsPrecompiledForRules(PrecompileBLSG1Add, prague.Rules(block)) {
+		t.Fatal("BLS12-381 precompiles must be active in Prague")
+	}
+	if IsPrecompiledForRules(PrecompileP256, prague.Rules(block)) {
+		t.Fatal("P-256 precompile must not be active before Osaka")
+	}
+	if !IsPrecompiledForRules(PrecompileP256, osaka.Rules(block)) {
+		t.Fatal("P-256 precompile must be active in Osaka")
+	}
+}
+
+func TestForkAwareModExpGas(t *testing.T) {
+	input := make([]byte, 99)
+	input[31], input[63], input[95] = 1, 1, 1
+	input[96], input[97], input[98] = 3, 2, 5
+	block := new(big.Int)
+	cancun, _ := core.ChainConfigForFork(core.ForkCancun)
+	osaka, _ := core.ChainConfigForFork(core.ForkOsaka)
+
+	if _, remaining, err := RunPrecompiledForRules(PrecompileModExp, input, 200, cancun.Rules(block)); err != nil || remaining != 0 {
+		t.Fatalf("Cancun MODEXP gas mismatch: remaining=%d err=%v", remaining, err)
+	}
+	if _, _, err := RunPrecompiledForRules(PrecompileModExp, input, 499, osaka.Rules(block)); err == nil {
+		t.Fatal("Osaka MODEXP must apply the EIP-7883 minimum gas cost")
 	}
 }

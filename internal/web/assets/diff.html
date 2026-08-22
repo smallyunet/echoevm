@@ -13,7 +13,7 @@
       <p class="eyebrow">EchoEVM execution intelligence</p>
       <h1>Transaction Explainer</h1>
     </div>
-    <div class="environment"><span class="dot"></span>Transaction replay · Cancun engine</div>
+    <div class="environment"><span class="dot"></span>Transaction replay · Prague/Osaka engine</div>
   </header>
 
   <main id="main-content">
@@ -64,13 +64,13 @@
       <details class="advanced">
         <summary>Advanced: compare isolated bytecode</summary>
         <div class="advanced-head">
-          <p>Run the original isolated-memory Cancun differential engine.</p>
+          <p>Run the isolated-memory differential engine under current Osaka rules.</p>
           <label class="preset-label">Preset<select id="preset" aria-label="Differential vector preset"></select></label>
         </div>
         <div class="form-grid">
           <label class="field code-field">Bytecode<textarea id="bytecode" rows="4" spellcheck="false" autocomplete="off"></textarea><span class="hint">Hex, with or without 0x</span></label>
           <label class="field">Calldata<textarea id="calldata" rows="4" spellcheck="false" autocomplete="off">0x</textarea><span class="hint">Maximum 128 KiB</span></label>
-          <label class="field compact">Fork<input value="Cancun" disabled></label>
+          <label class="field compact">Fork<input value="Osaka" disabled></label>
           <label class="field compact">Gas limit<input id="gas" type="number" min="1" max="30000000" value="1000000"></label>
         </div>
         <button id="compare" class="secondary">Compare raw bytecode</button>

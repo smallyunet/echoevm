@@ -114,7 +114,7 @@ func (s *Service) Replay(ctx context.Context, req Request) (Result, error) {
 	}
 	result.Transaction = summarize(tx, meta, &receipt, &header, chainID)
 	result.TraceSemantics = traceSemantics
-	result.Warnings = replayWarnings(header.Time, tx, echo)
+	result.Warnings = replayWarnings(header.Time, echo)
 	if req.Profile != "" {
 		document, evidenceErr := explaintrace.BuildEvidence(explaintrace.ExecutionResult{
 			Status: string(echo.Status), GasLimit: tx.Gas(), GasUsed: echo.GasUsed,
@@ -436,7 +436,7 @@ func runEcho(ctx context.Context, tx *types.Transaction, sender common.Address, 
 		}
 		return true
 	}
-	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID)}
+	ctxBlock := &vm.BlockContext{BlockNumber: header.Number, Timestamp: header.Time, Coinbase: header.Coinbase, GasLimit: header.GasLimit, BaseFee: header.BaseFee, Difficulty: header.Difficulty, Random: new(big.Int).SetBytes(header.MixDigest[:]), ChainID: new(big.Int).SetUint64(chainID), ChainConfig: core.ChainConfigForMainnetTimestamp(header.Time)}
 	if header.ExcessBlobGas != nil {
 		ctxBlock.BlobBaseFee = eip4844.CalcBlobFee(params.MainnetChainConfig, header)
 	}
@@ -552,26 +552,22 @@ func explorerURL(hash common.Hash) string {
 }
 
 func forkName(timestamp uint64) string {
-	cancun, prague, osaka := uint64(1710338135), uint64(1746612311), uint64(1764798551)
 	switch {
-	case timestamp >= osaka:
-		return "Osaka"
-	case timestamp >= prague:
-		return "Prague"
-	case timestamp >= cancun:
-		return "Cancun"
+	case timestamp >= core.MainnetOsakaTime:
+		return core.ForkOsaka
+	case timestamp >= core.MainnetPragueTime:
+		return core.ForkPrague
+	case timestamp >= core.MainnetCancunTime:
+		return core.ForkCancun
 	default:
 		return "Pre-Cancun"
 	}
 }
 
-func replayWarnings(timestamp uint64, tx *types.Transaction, echo differential.ExecutionResult) []string {
+func replayWarnings(timestamp uint64, echo differential.ExecutionResult) []string {
 	warnings := make([]string, 0, 3)
-	if forkName(timestamp) != "Cancun" {
-		warnings = append(warnings, "EchoEVM currently executes Cancun rules; this transaction belongs to "+forkName(timestamp)+", so a divergence may reflect unsupported fork semantics.")
-	}
-	if tx.Type() == types.SetCodeTxType {
-		warnings = append(warnings, "EIP-7702 set-code transaction semantics are not implemented by EchoEVM.")
+	if timestamp < core.MainnetCancunTime {
+		warnings = append(warnings, "EchoEVM replay declares Mainnet transaction semantics from Cancun through Osaka; this pre-Cancun transaction is executed with the Cancun baseline, so a divergence may reflect unsupported historical fork semantics.")
 	}
 	for _, step := range echo.Trace {
 		if step.OpcodeName == "BLOCKHASH" {

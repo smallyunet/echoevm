@@ -139,5 +139,6 @@ echoevm trace -r ./runtime.bin -d 0x1234 \
 The explainable protocol fronts the standalone `trace` command for runtime
 bytecode and artifact input, `solidity run` for one compiled deploy/call, and
 confirmed Ethereum Mainnet transaction replay backed by exact RPC prestate.
-Cancun remains EchoEVM's only fully declared ruleset; replay preserves the
-actual transaction fork and explicit compatibility warnings.
+Replay selects declared Mainnet transaction/interpreter rules from Cancun
+through Osaka and preserves explicit warnings for pre-Cancun transactions and
+missing historical `BLOCKHASH` witnesses.

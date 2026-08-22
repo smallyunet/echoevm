@@ -2,11 +2,14 @@ package vm
 
 import (
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
 
@@ -21,6 +24,7 @@ type BlockContext struct {
 	Random      *big.Int // PREVRANDAO for post-merge
 	ChainID     *big.Int
 	BlobBaseFee *big.Int
+	ChainConfig *core.ChainConfig
 }
 
 // ApplyTransaction attempts to apply a transaction to the given state database.
@@ -88,10 +92,54 @@ func applyTransactionWithContextAndHook(
 	hook func(TraceStep) bool,
 	traceDetails bool,
 ) ([]byte, uint64, bool, error) {
+	chainConfig := ctx.ChainConfig
+	if chainConfig == nil {
+		chainConfig = core.ChainConfigForMainnetTimestamp(ctx.Timestamp)
+	}
+	blockNumber := ctx.BlockNumber
+	if blockNumber == nil {
+		blockNumber = new(big.Int)
+	}
+	rules := chainConfig.Rules(blockNumber)
+
 	// Validate the transaction before mutating state.
 	nonce := statedb.GetNonce(sender)
 	if nonce != tx.Nonce() {
 		return nil, 0, false, fmt.Errorf("nonce mismatch: expected %d, got %d", nonce, tx.Nonce())
+	}
+	if rules.IsOsaka && tx.Gas() > params.MaxTxGas {
+		return nil, 0, false, fmt.Errorf("transaction gas limit exceeds Osaka cap: have %d, max %d", tx.Gas(), params.MaxTxGas)
+	}
+	if tx.Type() == types.SetCodeTxType {
+		if !rules.IsPrague {
+			return nil, 0, false, fmt.Errorf("set-code transaction is not active before Prague")
+		}
+		if tx.To() == nil || len(tx.SetCodeAuthorizations()) == 0 {
+			return nil, 0, false, fmt.Errorf("set-code transaction requires a destination and non-empty authorization list")
+		}
+	}
+	if tx.Type() == types.BlobTxType {
+		blobHashes := tx.BlobHashes()
+		if len(blobHashes) == 0 {
+			return nil, 0, false, fmt.Errorf("blob transaction requires at least one versioned hash")
+		}
+		if rules.IsOsaka && len(blobHashes) > params.BlobTxMaxBlobs {
+			return nil, 0, false, fmt.Errorf("blob transaction exceeds Osaka per-transaction limit: have %d, max %d", len(blobHashes), params.BlobTxMaxBlobs)
+		}
+		for index, hash := range blobHashes {
+			if !kzg4844.IsValidVersionedHash(hash[:]) {
+				return nil, 0, false, fmt.Errorf("blob %d has invalid versioned hash", index)
+			}
+		}
+		if ctx.BlobBaseFee != nil && tx.BlobGasFeeCap().Cmp(ctx.BlobBaseFee) < 0 {
+			return nil, 0, false, fmt.Errorf("blob fee cap below block blob base fee")
+		}
+	}
+	if rules.IsPrague {
+		code := statedb.GetCode(sender)
+		if _, delegated := types.ParseDelegation(code); len(code) != 0 && !delegated {
+			return nil, 0, false, fmt.Errorf("sender has non-delegation code")
+		}
 	}
 
 	gas := tx.Gas()
@@ -124,6 +172,24 @@ func applyTransactionWithContextAndHook(
 			intrinsicGas += uint64(len(entry.StorageKeys)) * 1900
 		}
 	}
+	if auths := tx.SetCodeAuthorizations(); auths != nil {
+		if uint64(len(auths)) > (math.MaxUint64-intrinsicGas)/params.CallNewAccountGas {
+			return nil, 0, false, fmt.Errorf("intrinsic gas overflow")
+		}
+		intrinsicGas += uint64(len(auths)) * params.CallNewAccountGas
+	}
+
+	floorDataGas := uint64(0)
+	if rules.IsPrague {
+		var err error
+		floorDataGas, err = pragueFloorDataGas(data)
+		if err != nil {
+			return nil, 0, false, err
+		}
+		if gas < floorDataGas {
+			return nil, 0, false, fmt.Errorf("calldata floor gas too low: have %d, want %d", gas, floorDataGas)
+		}
+	}
 
 	if gas < intrinsicGas {
 		return nil, 0, false, fmt.Errorf("intrinsic gas too low: have %d, want %d", gas, intrinsicGas)
@@ -146,6 +212,9 @@ func applyTransactionWithContextAndHook(
 		statedb.SubBalance(sender, blobCost)
 	}
 	statedb.SetNonce(sender, nonce+1)
+	if rules.IsPrague {
+		applySetCodeAuthorizations(statedb, tx.SetCodeAuthorizations(), rules, ctx.ChainID)
+	}
 
 	// Gas purchase and nonce increment survive execution failure. State changes
 	// after this snapshot are reverted on REVERT or exceptional halt.
@@ -170,9 +239,8 @@ func applyTransactionWithContextAndHook(
 	} else {
 		statedb.AddAddressToAccessList(contractAddr)
 	}
-	// Precompiles (0x01 - 0x09) + 0x0A (Cancun)
-	for i := 1; i <= 10; i++ {
-		statedb.AddAddressToAccessList(common.BytesToAddress([]byte{byte(i)}))
+	for _, address := range ActivePrecompilesForRules(rules) {
+		statedb.AddAddressToAccessList(address)
 	}
 	// Add explicit Access List
 	if accessList := tx.AccessList(); accessList != nil {
@@ -181,6 +249,11 @@ func applyTransactionWithContextAndHook(
 			for _, key := range entry.StorageKeys {
 				statedb.AddSlotToAccessList(entry.Address, key)
 			}
+		}
+	}
+	if to != nil && rules.IsPrague {
+		if target, ok := types.ParseDelegation(statedb.GetCode(*to)); ok {
+			statedb.AddAddressToAccessList(target)
 		}
 	}
 
@@ -196,6 +269,7 @@ func applyTransactionWithContextAndHook(
 
 	// Helper to configure interpreter with block context
 	configureInterpreter := func(intr *Interpreter) {
+		intr.SetChainConfig(chainConfig)
 		if ctx.BlockNumber != nil {
 			intr.SetBlockNumber(ctx.BlockNumber.Uint64())
 		}
@@ -227,8 +301,8 @@ func applyTransactionWithContextAndHook(
 		}
 	}
 
-	if to != nil && IsPrecompiled(*to) {
-		ret, gasRemaining, executionErr = RunPrecompiled(*to, tx.Data(), gasRemaining)
+	if to != nil && IsPrecompiledForRules(*to, rules) {
+		ret, gasRemaining, executionErr = RunPrecompiledForRules(*to, tx.Data(), gasRemaining, rules)
 		if executionErr != nil {
 			reverted = true
 			gasRemaining = 0
@@ -253,7 +327,7 @@ func applyTransactionWithContextAndHook(
 		}
 	} else {
 		// Call
-		code := statedb.GetCode(*to)
+		code := resolveCodeForRules(statedb, *to, rules)
 		intr := NewWithCallData(code, tx.Data(), statedb, *to)
 		configureInterpreter(intr)
 
@@ -281,6 +355,14 @@ func applyTransactionWithContextAndHook(
 	}
 	gasRemaining += refund
 	gasUsed -= refund
+	if rules.IsPrague && gasUsed < floorDataGas {
+		difference := floorDataGas - gasUsed
+		if difference > gasRemaining {
+			return nil, 0, false, fmt.Errorf("calldata floor gas exceeds remaining gas")
+		}
+		gasRemaining -= difference
+		gasUsed = floorDataGas
+	}
 
 	// Refund unused gas
 	refundEth := new(big.Int).Mul(new(big.Int).SetUint64(gasRemaining), gasPrice)

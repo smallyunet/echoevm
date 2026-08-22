@@ -1,14 +1,27 @@
 package vm
 
 import (
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/smallyunet/echoevm/internal/evm/core"
 )
+
+func mustTestKey(t *testing.T) *ecdsa.PrivateKey {
+	t.Helper()
+	key, err := crypto.GenerateKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
+}
 
 func newTransitionTestState(code []byte) (*core.MemoryStateDB, common.Address, common.Address, *BlockContext) {
 	state := core.NewMemoryStateDB()
@@ -180,5 +193,84 @@ func TestApplyTransactionChargesInitCodeWordGas(t *testing.T) {
 	}
 	if gasUsed != 53_006 {
 		t.Fatalf("gas used=%d want=53006", gasUsed)
+	}
+}
+
+func TestApplyPragueSetCodeTransaction(t *testing.T) {
+	senderKey := mustTestKey(t)
+	authorityKey := mustTestKey(t)
+	sender := crypto.PubkeyToAddress(senderKey.PublicKey)
+	authority := crypto.PubkeyToAddress(authorityKey.PublicKey)
+	target := common.HexToAddress("0x1000000000000000000000000000000000000001")
+
+	state := core.NewMemoryStateDB()
+	state.CreateAccount(sender)
+	state.AddBalance(sender, big.NewInt(1_000_000))
+	state.CreateAccount(authority)
+	state.SetCode(target, []byte{core.PUSH1, 0x2a, core.PUSH0, core.MSTORE, core.PUSH1, 0x20, core.PUSH0, core.RETURN})
+
+	auth, err := types.SignSetCode(authorityKey, types.SetCodeAuthorization{ChainID: *uint256.NewInt(1), Address: target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx := types.NewTx(&types.SetCodeTx{
+		ChainID:   uint256.NewInt(1),
+		GasTipCap: uint256.NewInt(1),
+		GasFeeCap: uint256.NewInt(1),
+		Gas:       200_000,
+		To:        authority,
+		Value:     uint256.NewInt(0),
+		AuthList:  []types.SetCodeAuthorization{auth},
+	})
+	config, _ := core.ChainConfigForFork(core.ForkPrague)
+	ctx := &BlockContext{BlockNumber: new(big.Int), GasLimit: 30_000_000, ChainID: big.NewInt(1), ChainConfig: config}
+
+	ret, _, reverted, err := ApplyTransactionWithContext(state, tx, sender, ctx)
+	if err != nil || reverted {
+		t.Fatalf("Prague set-code execution failed: reverted=%v err=%v", reverted, err)
+	}
+	if len(ret) != 32 || ret[31] != 0x2a {
+		t.Fatalf("delegated return data = %x", ret)
+	}
+	if delegated, ok := types.ParseDelegation(state.GetCode(authority)); !ok || delegated != target {
+		t.Fatalf("authority delegation = %s, active=%v", delegated, ok)
+	}
+	if state.GetNonce(authority) != 1 {
+		t.Fatalf("authority nonce = %d, want 1", state.GetNonce(authority))
+	}
+}
+
+func TestApplyOsakaRejectsTransactionAboveGasCap(t *testing.T) {
+	sender := common.HexToAddress("0x100")
+	recipient := common.HexToAddress("0x200")
+	state := core.NewMemoryStateDB()
+	state.CreateAccount(sender)
+	state.AddBalance(sender, new(big.Int).Lsh(big.NewInt(1), 100))
+	tx := types.NewTransaction(0, recipient, new(big.Int), params.MaxTxGas+1, big.NewInt(1), nil)
+	config, _ := core.ChainConfigForFork(core.ForkOsaka)
+	ctx := &BlockContext{BlockNumber: new(big.Int), GasLimit: 60_000_000, ChainID: big.NewInt(1), ChainConfig: config}
+	if _, _, _, err := ApplyTransactionWithContext(state, tx, sender, ctx); err == nil {
+		t.Fatal("expected Osaka transaction gas-cap rejection")
+	}
+}
+
+func TestApplyOsakaRejectsTooManyBlobs(t *testing.T) {
+	sender := common.HexToAddress("0x100")
+	recipient := common.HexToAddress("0x200")
+	state := core.NewMemoryStateDB()
+	state.CreateAccount(sender)
+	state.AddBalance(sender, new(big.Int).Lsh(big.NewInt(1), 100))
+	hashes := make([]common.Hash, params.BlobTxMaxBlobs+1)
+	for index := range hashes {
+		hashes[index][0] = 0x01
+	}
+	tx := types.NewTx(&types.BlobTx{
+		ChainID: uint256.NewInt(1), GasTipCap: uint256.NewInt(1), GasFeeCap: uint256.NewInt(1),
+		Gas: 100_000, To: recipient, Value: uint256.NewInt(0), BlobFeeCap: uint256.NewInt(1), BlobHashes: hashes,
+	})
+	config, _ := core.ChainConfigForFork(core.ForkOsaka)
+	ctx := &BlockContext{BlockNumber: new(big.Int), GasLimit: 60_000_000, ChainID: big.NewInt(1), ChainConfig: config, BlobBaseFee: big.NewInt(1)}
+	if _, _, _, err := ApplyTransactionWithContext(state, tx, sender, ctx); err == nil {
+		t.Fatal("expected Osaka blob-count rejection")
 	}
 }

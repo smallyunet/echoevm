@@ -304,6 +304,46 @@ func TestForkOpcodeActivationAgainstGeth(t *testing.T) {
 	}
 }
 
+func TestPragueOsakaPrecompilesAgainstGeth(t *testing.T) {
+	tests := []struct {
+		name string
+		fork string
+		code string
+	}{
+		{
+			name: "Prague-BLS12-G1-add-infinity",
+			fork: differential.ForkPrague,
+			// CALL 0x0b with 256 zero bytes and return the success flag.
+			code: "60805f6101005f5f600b61fffff15f5260205ff3",
+		},
+		{
+			name: "Osaka-P256-invalid-signature",
+			fork: differential.ForkOsaka,
+			// CALL 0x100 with the 160-byte all-zero verification input.
+			code: "5f5f60a05f5f61010061fffff15f5260205ff3",
+		},
+		{
+			name: "Cancun-KZG-malformed-input",
+			fork: differential.ForkCancun,
+			// A malformed point-evaluation input must fail the child call.
+			code: "5f5f5f5f5f600a61fffff15f5260205ff3",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result, err := differential.DefaultEngine().Compare(context.Background(), differential.Request{
+				Fork: test.fork, Bytecode: test.code, GasLimit: differentialGasLimit,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !result.Match {
+				t.Fatalf("first divergence: %+v", result.FirstDivergence)
+			}
+		})
+	}
+}
+
 func TestDifferentialCoverageContract(t *testing.T) {
 	const minimumVectors = 34
 	if len(vectors) < minimumVectors {

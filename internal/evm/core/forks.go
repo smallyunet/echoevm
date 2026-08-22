@@ -23,6 +23,10 @@ const (
 	ForkCancun         = "Cancun"
 	ForkPrague         = "Prague"
 	ForkOsaka          = "Osaka"
+
+	MainnetCancunTime uint64 = 1710338135
+	MainnetPragueTime uint64 = 1746612311
+	MainnetOsakaTime  uint64 = 1764798551
 )
 
 var SupportedForks = []string{
@@ -175,4 +179,26 @@ func ChainConfigForFork(name string) (*ChainConfig, error) {
 	set(ForkPrague, &config.PragueBlock)
 	set(ForkOsaka, &config.OsakaBlock)
 	return config, nil
+}
+
+// MainnetForkAtTimestamp returns the active named execution fork for replay.
+// Pre-Cancun timestamps remain explicit because EchoEVM's replay witness path
+// currently starts at Cancun.
+func MainnetForkAtTimestamp(timestamp uint64) string {
+	switch {
+	case timestamp >= MainnetOsakaTime:
+		return ForkOsaka
+	case timestamp >= MainnetPragueTime:
+		return ForkPrague
+	default:
+		return ForkCancun
+	}
+}
+
+func ChainConfigForMainnetTimestamp(timestamp uint64) *ChainConfig {
+	config, err := ChainConfigForFork(MainnetForkAtTimestamp(timestamp))
+	if err != nil {
+		panic(err)
+	}
+	return config
 }

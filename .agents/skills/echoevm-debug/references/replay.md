@@ -36,7 +36,7 @@ Use `--rpc-url` only when the user explicitly supplies a safe endpoint and the c
 
 - Verify chain ID 1 and confirmed block metadata.
 - Report the transaction's actual fork label.
-- EchoEVM executes Cancun semantics. For transactions from other fork eras, preserve the compatibility warning and do not call the replay exact.
+- EchoEVM selects Cancun, Prague, or Osaka transaction/interpreter semantics from the Mainnet block timestamp. Preserve compatibility warnings for pre-Cancun execution and missing historical block hashes.
 - Distinguish transaction status, return data, gas, post-state, and trace mismatches.
 - Treat missing transaction, pending transaction, upstream RPC failure, missing tracer support, and timeout as different failure classes.
 - Never approximate prestate from the parent block when the required tracer is unavailable.

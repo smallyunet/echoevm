@@ -28,7 +28,7 @@ func TestPinnedOfficialManifest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if manifest.Repository != "ethereum/execution-specs" || manifest.Release != "tests@v20.0.0" || manifest.LatestFork != "Osaka" {
+	if manifest.Repository != "ethereum/execution-specs" || manifest.Release != "tests@v20.0.1" || manifest.LatestFork != "Osaka" {
 		t.Fatalf("unexpected official fixture pin: %+v", manifest)
 	}
 }
@@ -128,7 +128,7 @@ func TestOfficialFixtureInventory(t *testing.T) {
 			t.Fatalf("official index path %s is missing from fixture shard %d/%d", path, shard, shards)
 		}
 	}
-	t.Logf("OFFICIAL FIXTURE INVENTORY release=tests@v20.0.0 shard=%d/%d fixtureFiles=%d auxiliaryFiles=%d jsonEntries=%d indexedCases=%d formats=%s indexForks=%s", shard, shards, files, auxiliaryFiles, cases, index.TestCount, formatCounts(formats), strings.Join(index.Forks, ","))
+	t.Logf("OFFICIAL FIXTURE INVENTORY release=tests@v20.0.1 shard=%d/%d fixtureFiles=%d auxiliaryFiles=%d jsonEntries=%d indexedCases=%d formats=%s indexForks=%s", shard, shards, files, auxiliaryFiles, cases, index.TestCount, formatCounts(formats), strings.Join(index.Forks, ","))
 }
 
 func fixtureShard(t *testing.T) (int, int) {

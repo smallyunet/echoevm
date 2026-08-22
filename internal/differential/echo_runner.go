@@ -50,8 +50,8 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 		state.PrepareTransaction()
 		state.AddAddressToAccessList(common.Address{})
 		state.AddAddressToAccessList(executionAddress)
-		for address := 1; address <= 10; address++ {
-			state.AddAddressToAccessList(common.BytesToAddress([]byte{byte(address)}))
+		for _, address := range vm.ActivePrecompilesForRules(chainConfig.Rules(new(big.Int))) {
+			state.AddAddressToAccessList(address)
 		}
 		constructor := vm.New(initcode, state, executionAddress)
 		configureEchoFork(constructor, chainConfig)
@@ -75,6 +75,9 @@ func (EchoRunner) run(ctx context.Context, req Request, collector *explaintrace.
 	}
 	state.PrepareTransaction()
 	state.AddAddressToAccessList(executionAddress)
+	for _, address := range vm.ActivePrecompilesForRules(chainConfig.Rules(new(big.Int))) {
+		state.AddAddressToAccessList(address)
+	}
 	executionSnapshot := state.Snapshot()
 	intr := vm.NewWithCallData(code, input, state, executionAddress)
 	configureEchoFork(intr, chainConfig)

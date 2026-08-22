@@ -2,7 +2,7 @@
 
 This document outlines the development roadmap for EchoEVM, a minimal Ethereum Virtual Machine implementation in Go.
 
-**Current Version**: v0.0.45
+**Current Version**: v0.1.0
 
 ---
 
@@ -75,6 +75,7 @@ Expanded opcode support, EIP compliance, and testing infrastructure.
 | v0.0.43 | CI-clean compatibility release |
 | v0.0.44 | Source-aware Solidity inspection and runtime PC mapping for editor execution evidence |
 | v0.0.45 | Mainnet replay causal evidence and shareable transaction explanation flow |
+| v0.1.0 | Prague/Osaka transaction semantics, EIP-7702, fork-aware precompiles, CLZ, and executable EEST conformance |
 
 **Key Features Delivered:**
 - EIP-1153: TLOAD/TSTORE (Transient Storage)
@@ -97,7 +98,7 @@ Enhanced ABI support and fork-specific opcode behavior.
 - [x] **Tuple ABI Support** - Encode/decode struct types
 - [x] **Nested Array Support** - Multi-dimensional arrays (`uint256[][]`)
 - [x] **Fork-Specific Behavior** - Pre/post merge opcode differences
-- [x] **Cancun Opcodes** - BLOBHASH, BLOBBASEFEE (EIP-4844)
+- [x] **Cancun through Osaka bytecode** - BLOBHASH/BLOBBASEFEE, Prague BLS precompiles and EIP-7702, Osaka CLZ/MODEXP/P256
 - [x] **State Trie** - Merkle Patricia Trie implementation
 - [x] **Compliance Baseline** - Run pinned official Ethereum vectors without optional downloads
 - [x] **Complete Precompiled Contracts** - 0x01-0x09 execute, including EIP-152 BLAKE2F
@@ -144,10 +145,10 @@ Full compliance and ecosystem integration.
 ## 🎯 Current Focus
 
 **Next Release Priorities:**
-1. Freeze reproducible public-transaction witnesses for a Mainnet evidence benchmark
-2. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
-3. Add richer account, log, return-data, and semantic dynamic-gas evidence when benchmark cases require it
-4. Expand the compiled-Solidity benchmark across contracts, compiler settings, and held-out failure classes
+1. Expand executable Prague/Osaka EEST coverage beyond the current core-EIP corpus
+2. Implement block-level Prague system requests and historical `BLOCKHASH` witnesses
+3. Freeze reproducible public-transaction witnesses for a Mainnet evidence benchmark
+4. Validate real-transaction diagnosis accuracy and fresh-token use against broad traces
 5. Preserve `echoevm.trace.v1` as the full diagnostic contract behind bounded evidence
 
 The product is AI-first. The VS Code extension and hosted Explorer remain useful
@@ -157,9 +158,10 @@ Embedded Geth stays in conformance tests and optional comparison commands; the
 primary product path explains EchoEVM execution without requiring a comparison.
 
 The replay engine intentionally requires a trace-capable RPC and does not
-approximate transaction prestate from the parent block. Cancun remains the only
-fully declared EchoEVM ruleset; other fork eras are labeled instead of silently
-claiming exact compatibility.
+approximate transaction prestate from the parent block. EchoEVM declares
+transaction and interpreter semantics from Cancun through Osaka. It is not a
+full execution-layer client: block construction, Prague system requests,
+consensus validation, and historical block-hash witnesses remain outside scope.
 
 ---
 

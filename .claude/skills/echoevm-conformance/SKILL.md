@@ -12,7 +12,7 @@ Validate execution-semantics changes with the narrowest reliable evidence first,
 1. Read the changed files and relevant tests before running commands.
 2. Preserve unrelated worktree changes.
 3. Read [references/test-routing.md](references/test-routing.md) and select focused packages and vectors.
-4. Treat Cancun as the only fully declared EchoEVM ruleset unless the current code explicitly says otherwise.
+4. Treat Cancun through Osaka as declared transaction/interpreter rulesets; keep block-level and pre-Cancun boundaries explicit.
 
 ## Validate progressively
 

@@ -48,7 +48,7 @@ func TestFetchVerifiesAndInstallsFixtureRoot(t *testing.T) {
 	defer server.Close()
 
 	dir := t.TempDir()
-	manifest := Manifest{Repository: "ethereum/execution-specs", Release: "tests@v20.0.0", Asset: "fixtures.tar.gz", URL: server.URL, Size: int64(len(archive)), SHA256: hex.EncodeToString(digest[:]), LatestFork: "Osaka"}
+	manifest := Manifest{Repository: "ethereum/execution-specs", Release: "tests@v20.0.1", Asset: "fixtures.tar.gz", URL: server.URL, Size: int64(len(archive)), SHA256: hex.EncodeToString(digest[:]), LatestFork: "Osaka"}
 	destination := filepath.Join(dir, "fixtures")
 	if err := Fetch(context.Background(), server.Client(), manifest, filepath.Join(dir, "cache", "fixtures.tar.gz"), destination); err != nil {
 		t.Fatal(err)

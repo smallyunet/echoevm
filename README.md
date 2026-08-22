@@ -72,7 +72,7 @@ echoevm solidity run ./editors/vscode/examples/Counter.sol \
 
 ### Diagnose Solidity source
 
-Compile, deploy, and call one contract function in an isolated Cancun state:
+Compile, deploy, and call one contract function in an isolated Osaka state:
 
 ```bash
 echoevm solidity run ./Contract.sol \
@@ -129,14 +129,15 @@ behavior, and the recommended agent workflow.
 echoevm diff \
   --code 60026003015f5260205ff3 \
   --input 0x \
-  --gas 1000000
+  --gas 1000000 \
+  --fork Osaka
 
 echoevm diff --code 00 --format summary-json
 ```
 
-Both engines run under Cancun rules with isolated in-memory state. A `MATCH`
-applies only to the tested input and environment; it is not a claim of complete
-EVM compatibility.
+Both engines run under the selected ruleset from Frontier through Osaka; Osaka
+is the default. A `MATCH` applies only to the tested input and environment; it
+is not a claim of complete EVM compatibility.
 
 Start the local Transaction Explainer with:
 
@@ -168,9 +169,9 @@ EchoEVM/Geth comparison confidence, and compatibility warnings without
 duplicating both engines' complete traces. Use `--format json` when the full
 differential replay is required.
 
-EchoEVM recognizes confirmed Ethereum Mainnet transactions. Cancun is the only
-fully declared execution ruleset; transactions from other fork eras are marked
-with a compatibility warning.
+EchoEVM recognizes confirmed Ethereum Mainnet transactions and selects Cancun,
+Prague, or Osaka transaction/interpreter rules from the block timestamp.
+Pre-Cancun transactions retain an explicit compatibility warning.
 
 ### Run raw bytecode
 
@@ -244,7 +245,9 @@ advanced disclosure. Successful explanations have shareable `/tx/<hash>` URLs.
 
 ## Scope and Limitations
 
-- Cancun is the only fully declared EchoEVM execution ruleset.
+- Transaction and interpreter semantics are declared from Cancun through Osaka;
+  Prague system requests, full block validation, consensus networking, and
+  historical `BLOCKHASH` witnesses are not implemented.
 - A matching differential result proves only the tested input and environment.
 - Evidence is execution diagnostics, not a security audit or formal
   verification result.
@@ -289,6 +292,7 @@ make test-integration
 make test-compliance
 make test-differential
 make test-conformance
+make test-conformance-full
 make test-skills
 ```
 

@@ -223,6 +223,9 @@ func opCall(i *Interpreter, _ byte) {
 		return
 	}
 	i.gas -= callCost
+	if !i.chargeDelegationResolution(addr) {
+		return
+	}
 
 	// 1. Snapshot state before call
 	snapshot := i.statedb.Snapshot()
@@ -239,7 +242,7 @@ func opCall(i *Interpreter, _ byte) {
 	}
 
 	// 3. Get code
-	code := i.statedb.GetCode(addr)
+	code := i.resolveCode(addr)
 
 	if !i.consumeMemoryExpansion(argsOffset, argsLength) {
 		i.statedb.RevertToSnapshot(snapshot)
@@ -268,15 +271,16 @@ func opCall(i *Interpreter, _ byte) {
 	}
 
 	// 5. Check for precompiled contracts
-	if IsPrecompiled(addr) {
-		ret, remainingGas, err := RunPrecompiled(addr, args, gasLimit)
+	rules := i.rules()
+	if IsPrecompiledForRules(addr, rules) {
+		ret, remainingGas, err := RunPrecompiledForRules(addr, args, gasLimit, rules)
 		i.returnData = ret
-		i.gas += remainingGas
 
 		if err != nil {
 			i.statedb.RevertToSnapshot(snapshot)
 			i.stack.PushSafe(big.NewInt(0))
 		} else {
+			i.gas += remainingGas
 			// Copy return data to memory
 			toCopy := uint64(len(ret))
 			if toCopy > retLength {
@@ -394,6 +398,9 @@ func opCallCode(i *Interpreter, _ byte) {
 		return
 	}
 	i.gas -= callCost
+	if !i.chargeDelegationResolution(addr) {
+		return
+	}
 
 	// Snapshot state before call
 	snapshot := i.statedb.Snapshot()
@@ -413,7 +420,7 @@ func opCallCode(i *Interpreter, _ byte) {
 	}
 
 	// Get code from target address but execute in caller's context
-	code := i.statedb.GetCode(addr)
+	code := i.resolveCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
 
 	// Execute in caller's context (address stays as i.address)
@@ -439,6 +446,9 @@ func opCallCode(i *Interpreter, _ byte) {
 	}
 
 	contract.SetGas(gasLimit)
+	if i.runCallPrecompile(addr, args, retOffset, retLength, gasLimit, snapshot) {
+		return
+	}
 
 	contract.SetCaller(i.address)
 	contract.SetOrigin(i.origin)
@@ -529,6 +539,9 @@ func opDelegateCall(i *Interpreter, _ byte) {
 		return
 	}
 	i.gas -= callCost
+	if !i.chargeDelegationResolution(addr) {
+		return
+	}
 
 	// Snapshot state before call
 	snapshot := i.statedb.Snapshot()
@@ -548,7 +561,7 @@ func opDelegateCall(i *Interpreter, _ byte) {
 	}
 
 	// Get code from target address but execute in caller's context
-	code := i.statedb.GetCode(addr)
+	code := i.resolveCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
 
 	// Execute in caller's context, preserving caller and value
@@ -567,6 +580,9 @@ func opDelegateCall(i *Interpreter, _ byte) {
 		gasLimit = cap
 	}
 	i.gas -= gasLimit
+	if i.runCallPrecompile(addr, args, retOffset, retLength, gasLimit, snapshot) {
+		return
+	}
 	contract.SetGas(gasLimit)
 
 	contract.SetCaller(i.caller) // Preserve original caller
@@ -658,6 +674,9 @@ func opStaticCall(i *Interpreter, _ byte) {
 		return
 	}
 	i.gas -= callCost
+	if !i.chargeDelegationResolution(addr) {
+		return
+	}
 
 	// Snapshot state before call
 	snapshot := i.statedb.Snapshot()
@@ -676,7 +695,7 @@ func opStaticCall(i *Interpreter, _ byte) {
 		}
 	}
 
-	code := i.statedb.GetCode(addr)
+	code := i.resolveCode(addr)
 	args := i.memory.Read(argsOffset, argsLength)
 
 	// Handle gas passing (EIP-150)
@@ -689,15 +708,16 @@ func opStaticCall(i *Interpreter, _ byte) {
 	i.gas -= gasLimit
 
 	// Check for precompiled contracts
-	if IsPrecompiled(addr) {
-		ret, remainingGas, err := RunPrecompiled(addr, args, gasLimit)
+	rules := i.rules()
+	if IsPrecompiledForRules(addr, rules) {
+		ret, remainingGas, err := RunPrecompiledForRules(addr, args, gasLimit, rules)
 		i.returnData = ret
-		i.gas += remainingGas
 
 		if err != nil {
 			i.statedb.RevertToSnapshot(snapshot)
 			i.stack.PushSafe(big.NewInt(0))
 		} else {
+			i.gas += remainingGas
 			// Copy return data to memory
 			toCopy := uint64(len(ret))
 			if toCopy > retLength {
