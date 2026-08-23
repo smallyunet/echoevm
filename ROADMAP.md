@@ -1,6 +1,14 @@
 # EchoEVM roadmap
 
-**Current release: v1.0.0 — Rust engine and protocol v1**
+**Current release: v1.1.0 — multi-fork bytecode conformance**
+
+## Delivered in v1.1.0
+
+- Pinned `tests@v20.0.1` official gates for Cancun, Prague, and Osaka: 384 files,
+  7,112 transactions, zero skip.
+- Machine-readable native/Wasm bytecode contract: 15 exact vectors across 11
+  semantic categories and three declared forks, with a frozen 154-opcode
+  registration inventory.
 
 ## Delivered in v1.0.0
 
@@ -14,12 +22,13 @@
 - Browser-safe Rust Wasm and a Manifest V3 Chrome extension without a local CLI.
 - VS Code client protocol, native release binaries, Docker/GHCR, Homebrew, and
   GitHub release packaging.
-- Pinned `tests@v20.0.1` official gate: 187 files, 3,461 transactions, zero skip.
 
 ## Next
 
-- Expand the frozen official corpus to later execution-spec releases without
-  shrinking the current gate.
+- Expand the frozen official corpus to transaction and block fixture families,
+  then later execution-spec releases, without shrinking the current gates.
+- Grow the bytecode matrix around call/create rollback, warm/cold access,
+  precompiles, logs, memory overflow, and transaction-type boundaries.
 - Add complete historical `BLOCKHASH` acquisition and proof-backed witness
   construction independent of debug namespaces.
 - Add Prague request/system-call and full block transition conformance.

@@ -1,8 +1,8 @@
 BINARY_NAME ?= echoevm
 BIN_DIR ?= bin
-VERSION ?= v1.0.0
+VERSION ?= v1.1.0
 
-.PHONY: help install build build-chrome run clean setup-official-fixtures test-unit test-integration test-e2e test-chrome test-official-fixtures test-conformance test-conformance-full test-deploy test-skills package-skills test
+.PHONY: help install build build-chrome run clean setup-official-fixtures test-unit test-bytecode-conformance test-integration test-e2e test-chrome test-official-fixtures test-conformance test-conformance-full test-deploy test-skills package-skills test
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-25s\033[0m %s\n", $$1, $$2}'
@@ -31,6 +31,9 @@ setup-official-fixtures: ## Download and verify pinned EEST fixtures (~404 MiB)
 test-unit: ## Run Rust unit and integration tests
 	cargo test --workspace --locked
 
+test-bytecode-conformance: ## Run exact multi-fork bytecode regression vectors
+	bash scripts/test-bytecode-conformance.sh
+
 test-integration: ## Exercise CLI and Solidity editor protocol
 	cargo build --locked -p echoevm
 	ECHOEVM_TEST_BINARY=$(CURDIR)/target/debug/echoevm npm --prefix editors/vscode run test:integration
@@ -42,10 +45,10 @@ test-chrome: ## Validate and smoke-test the packaged Rust Wasm extension
 	node --test extensions/chrome/test/*.test.cjs
 	bash extensions/chrome/scripts/build.sh
 
-test-official-fixtures: setup-official-fixtures ## Execute pinned Osaka fixtures with zero skip
+test-official-fixtures: setup-official-fixtures ## Execute pinned multi-fork fixtures with zero skip
 	bash scripts/test-official-fixtures.sh
 
-test-conformance: test-unit test-e2e ## Run focused native conformance gates
+test-conformance: test-unit test-bytecode-conformance test-e2e ## Run focused native conformance gates
 
 test-conformance-full: test-conformance test-official-fixtures ## Add the full official corpus
 

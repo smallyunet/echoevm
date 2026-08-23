@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+- Add exact Cancun, Prague, and Osaka bytecode conformance gates.
+- Validate native and Wasm engines against the shared 15-vector compatibility matrix.
+- Keep the frozen protocol v1 and EchoEVM CLI v1.0 minimum compatibility.
+
 ## 1.0.0
 
 - Require the EchoEVM v1.0 Rust CLI and frozen Solidity protocol v1.

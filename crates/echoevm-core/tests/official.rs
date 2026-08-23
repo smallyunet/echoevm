@@ -1,3 +1,5 @@
+#![cfg(feature = "official-fixtures")]
+
 use revm::{
     Context, DatabaseCommit, ExecuteEvm, MainBuilder, MainContext,
     context::CfgEnv,
@@ -5,6 +7,51 @@ use revm::{
     primitives::{AddressMap, hardfork::SpecId},
     statetest_types::{AccountInfo as ExpectedAccount, SpecName, TestSuite},
 };
+
+#[derive(Clone, Copy)]
+struct Gate {
+    fork: &'static str,
+    target: &'static str,
+    authored: &'static [&'static str],
+    spec_id: SpecId,
+    expected_files: usize,
+    expected_transactions: usize,
+    expected_accepted: usize,
+    expected_rejected: usize,
+}
+
+const GATES: [Gate; 3] = [
+    Gate {
+        fork: "Cancun",
+        target: "for_cancun",
+        authored: &["cancun"],
+        spec_id: SpecId::CANCUN,
+        expected_files: 63,
+        expected_transactions: 1_456,
+        expected_accepted: 1_303,
+        expected_rejected: 153,
+    },
+    Gate {
+        fork: "Prague",
+        target: "for_prague",
+        authored: &["prague"],
+        spec_id: SpecId::PRAGUE,
+        expected_files: 134,
+        expected_transactions: 2_195,
+        expected_accepted: 1_998,
+        expected_rejected: 197,
+    },
+    Gate {
+        fork: "Osaka",
+        target: "for_osaka",
+        authored: &["prague", "osaka"],
+        spec_id: SpecId::OSAKA,
+        expected_files: 187,
+        expected_transactions: 3_461,
+        expected_accepted: 3_244,
+        expected_rejected: 217,
+    },
+];
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
@@ -27,28 +74,41 @@ struct ExpectedPost {
 }
 
 #[test]
-fn official_osaka_state_fixtures_zero_skip() {
-    let Some(mut root) = std::env::var_os("ECHOEVM_OFFICIAL_FIXTURES").map(PathBuf::from) else {
-        eprintln!("official fixtures not configured; use scripts/test-official-fixtures.sh");
-        return;
-    };
+fn official_state_fixtures_by_declared_fork_zero_skip() {
+    let mut root = std::env::var_os("ECHOEVM_OFFICIAL_FIXTURES")
+        .map(PathBuf::from)
+        .expect("ECHOEVM_OFFICIAL_FIXTURES is required when official-fixtures is enabled");
     if root.is_relative() {
         root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .join(root);
     }
+    for gate in GATES {
+        run_gate(&root, gate);
+    }
+}
+
+fn run_gate(root: &Path, gate: Gate) {
+    let spec_name = match gate.fork {
+        "Cancun" => SpecName::Cancun,
+        "Prague" => SpecName::Prague,
+        "Osaka" => SpecName::Osaka,
+        other => panic!("unsupported official fixture gate {other}"),
+    };
     let mut files = Vec::new();
-    for authored in ["prague", "osaka"] {
+    for authored in gate.authored {
         collect_json(
-            &root.join("state_tests/for_osaka").join(authored),
+            &root.join("state_tests").join(gate.target).join(authored),
+            gate.fork,
             &mut files,
         );
     }
     files.sort();
-    assert!(
-        files.len() >= 180,
-        "official corpus shrank: {} files",
-        files.len()
+    assert_eq!(
+        files.len(),
+        gate.expected_files,
+        "{} official file inventory changed; review the pinned corpus before updating the gate",
+        gate.fork
     );
 
     let mut transactions = 0usize;
@@ -64,14 +124,19 @@ fn official_osaka_state_fixtures_zero_skip() {
             if name.starts_with('_') {
                 continue;
             }
-            let Some(cases) = unit.post.get(&SpecName::Osaka) else {
+            let Some(cases) = unit.post.get(&spec_name) else {
                 continue;
             };
             let expected_cases = expected
                 .get(name)
-                .and_then(|unit| unit.post.get("Osaka"))
-                .unwrap_or_else(|| panic!("{name} has no Osaka expected states"));
-            assert_eq!(cases.len(), expected_cases.len(), "{name} Osaka case count");
+                .and_then(|unit| unit.post.get(gate.fork))
+                .unwrap_or_else(|| panic!("{name} has no {} expected states", gate.fork));
+            assert_eq!(
+                cases.len(),
+                expected_cases.len(),
+                "{name} {} case count",
+                gate.fork
+            );
             for (index, (case, expected_case)) in cases.iter().zip(expected_cases).enumerate() {
                 transactions += 1;
                 let expected_exception = case
@@ -94,7 +159,7 @@ fn official_osaka_state_fixtures_zero_skip() {
                     .unwrap_or(revm::primitives::U256::from(1))
                     .try_into()
                     .unwrap_or(u64::MAX);
-                cfg.set_spec_and_mainnet_gas_params(SpecId::OSAKA);
+                cfg.set_spec_and_mainnet_gas_params(gate.spec_id);
                 cfg.set_max_blobs_per_tx(6);
                 let block = unit.block_env(&mut cfg);
                 let mut state = State::builder().with_cached_prestate(unit.state()).build();
@@ -128,34 +193,48 @@ fn official_osaka_state_fixtures_zero_skip() {
             }
         }
     }
-    assert!(
-        transactions >= 3_000,
-        "official corpus shrank: {transactions} transactions"
+    assert_eq!(
+        transactions, gate.expected_transactions,
+        "{} official transaction inventory changed; review the pinned corpus before updating the gate",
+        gate.fork
+    );
+    assert_eq!(
+        rejected, gate.expected_rejected,
+        "{} rejected count",
+        gate.fork
+    );
+    assert_eq!(
+        transactions - rejected,
+        gate.expected_accepted,
+        "{} accepted count",
+        gate.fork
     );
     println!(
-        "OFFICIAL EXECUTION SUMMARY release=tests@v20.0.1 files={} transactions={} accepted={} rejected={} fork=Osaka skipped=0",
+        "OFFICIAL EXECUTION SUMMARY release=tests@v20.0.1 files={} transactions={} accepted={} rejected={} fork={} skipped=0",
         files.len(),
         transactions,
         transactions - rejected,
-        rejected
+        rejected,
+        gate.fork,
     );
 }
 
-fn collect_json(root: &Path, output: &mut Vec<PathBuf>) {
+fn collect_json(root: &Path, fork: &str, output: &mut Vec<PathBuf>) {
     for entry in
         fs::read_dir(root).unwrap_or_else(|error| panic!("read {}: {error}", root.display()))
     {
         let path = entry.expect("read fixture entry").path();
         if path.is_dir() {
-            collect_json(&path, output);
+            collect_json(&path, fork, output);
         } else if path
             .extension()
             .is_some_and(|extension| extension == "json")
         {
             let bytes = fs::read(&path).expect("read fixture for fork inventory");
+            let marker = format!("\"{fork}\"");
             if bytes
-                .windows(b"\"Osaka\"".len())
-                .any(|window| window == b"\"Osaka\"")
+                .windows(marker.len())
+                .any(|window| window == marker.as_bytes())
             {
                 output.push(path);
             }

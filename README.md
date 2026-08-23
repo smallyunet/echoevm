@@ -30,7 +30,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.0.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.1.0.zip`.
 
 ## Execute locally
 
@@ -92,11 +92,14 @@ The stable wire boundary is frozen under [`protocol/v1`](protocol/v1/README.md):
 - `echoevm.replay-witness.v1`
 - Solidity/editor protocol version 1
 
-The release gate pins Ethereum execution-spec fixtures at `tests@v20.0.1` and
-executes the authored Prague and Osaka suites under Osaka rules. The required
-summary is exactly 187 files, 3,461 transactions, 3,244 accepted, 217 rejected,
-and zero skipped. Official fixtures are the oracle; the archived Go
-implementation is not.
+The current `main` gate pins Ethereum execution-spec fixtures at
+`tests@v20.0.1` and executes exact zero-skip state-test corpora under matching
+Cancun, Prague, and Osaka rules: 63/1,456, 134/2,195, and 187/3,461
+files/transactions respectively.
+A shared native/Wasm bytecode matrix adds 15 exact vectors across 11 semantic
+categories and freezes the pinned engine's 154 registered opcode bytes. See the
+[`bytecode compatibility contract`](docs/BYTECODE_COMPATIBILITY.md). Official
+fixtures are the oracle; the archived Go implementation is not.
 
 Supported transaction/interpreter scope is Cancun through Osaka. Pre-Cancun
 replay, full block validation, consensus networking, and Prague request
@@ -120,6 +123,7 @@ branch. `main` contains only the Rust implementation.
 ```bash
 make build
 make test
+make test-bytecode-conformance
 make test-conformance-full
 ```
 

@@ -14,6 +14,7 @@ fi
 
 staging_dir="${repo_dir}/build/chrome-extension"
 fixture_path="${repo_dir}/build/chrome-wasm-test-witness.json"
+conformance_path="${repo_dir}/tests/conformance/bytecode-vectors.json"
 asset_path="${repo_dir}/dist/echoevm-chrome-${manifest_version}.zip"
 rm -rf "${staging_dir}"
 mkdir -p "${staging_dir}/wasm" "${staging_dir}/icons" "${repo_dir}/dist"
@@ -31,7 +32,7 @@ wasm-bindgen \
 
 node "${extension_dir}/scripts/validate.mjs" "${staging_dir}"
 cargo run -q -p echoevm-core --example generate-witness -- "${fixture_path}"
-node "${extension_dir}/scripts/smoke-wasm.mjs" "${staging_dir}" "${fixture_path}"
+node "${extension_dir}/scripts/smoke-wasm.mjs" "${staging_dir}" "${fixture_path}" "${conformance_path}"
 
 rm -f "${asset_path}"
 (

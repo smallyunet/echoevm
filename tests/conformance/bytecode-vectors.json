@@ -1,0 +1,185 @@
+{
+  "schema": "echoevm.bytecode-conformance.v1",
+  "engineDependency": {
+    "name": "revm",
+    "version": "42.0.1",
+    "registeredOpcodeBytes": 154,
+    "registeredOpcodeSha256": "789d3b3a058aad124fc737ee13224b1a3fef95cc334e3fdd0f765e88c385ebe4"
+  },
+  "declaredForks": ["Cancun", "Prague", "Osaka"],
+  "vectors": [
+    {
+      "name": "arithmetic-return-cancun",
+      "category": "arithmetic",
+      "fork": "Cancun",
+      "bytecode": "60016002015f5260205ff3",
+      "status": "success",
+      "returnData": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "gasUsed": 21022,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "PUSH1", "ADD", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "RETURN"]
+    },
+    {
+      "name": "arithmetic-return-prague",
+      "category": "arithmetic",
+      "fork": "Prague",
+      "bytecode": "60016002015f5260205ff3",
+      "status": "success",
+      "returnData": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "gasUsed": 21022,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "PUSH1", "ADD", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "RETURN"]
+    },
+    {
+      "name": "arithmetic-return-osaka",
+      "category": "arithmetic",
+      "fork": "Osaka",
+      "bytecode": "60016002015f5260205ff3",
+      "status": "success",
+      "returnData": "0x0000000000000000000000000000000000000000000000000000000000000003",
+      "gasUsed": 21022,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "PUSH1", "ADD", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "RETURN"]
+    },
+    {
+      "name": "revert-data",
+      "category": "revert",
+      "fork": "Osaka",
+      "bytecode": "63deadbeef5f526004601cfd",
+      "status": "revert",
+      "returnData": "0xdeadbeef",
+      "gasUsed": 21017,
+      "haltClass": "Revert",
+      "traceOpcodes": ["PUSH4", "PUSH0", "MSTORE", "PUSH1", "PUSH1", "REVERT"]
+    },
+    {
+      "name": "invalid-fe-opcode",
+      "category": "invalid-opcode",
+      "fork": "Osaka",
+      "bytecode": "fe",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "InvalidFEOpcode",
+      "haltClass": "InvalidFEOpcode",
+      "traceOpcodes": ["INVALID"]
+    },
+    {
+      "name": "stack-underflow",
+      "category": "stack",
+      "fork": "Osaka",
+      "bytecode": "01",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "StackUnderflow",
+      "haltClass": "StackUnderflow",
+      "traceOpcodes": ["ADD"]
+    },
+    {
+      "name": "invalid-jump-destination",
+      "category": "control-flow",
+      "fork": "Osaka",
+      "bytecode": "600356",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "InvalidJump",
+      "haltClass": "InvalidJump",
+      "traceOpcodes": ["PUSH1", "JUMP"]
+    },
+    {
+      "name": "returndatacopy-out-of-bounds",
+      "category": "returndata",
+      "fork": "Osaka",
+      "bytecode": "6001600060003e00",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "OutOfOffset",
+      "haltClass": "OutOfOffset",
+      "traceOpcodes": ["PUSH1", "PUSH1", "PUSH1", "RETURNDATACOPY"]
+    },
+    {
+      "name": "clz-before-osaka-cancun",
+      "category": "fork-activation",
+      "fork": "Cancun",
+      "bytecode": "60011e5f5260205ff3",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "NotActivated",
+      "haltClass": "NotActivated",
+      "traceOpcodes": ["PUSH1", "CLZ"]
+    },
+    {
+      "name": "clz-before-osaka-prague",
+      "category": "fork-activation",
+      "fork": "Prague",
+      "bytecode": "60011e5f5260205ff3",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "NotActivated",
+      "haltClass": "NotActivated",
+      "traceOpcodes": ["PUSH1", "CLZ"]
+    },
+    {
+      "name": "clz-at-osaka",
+      "category": "fork-activation",
+      "fork": "Osaka",
+      "bytecode": "60011e5f5260205ff3",
+      "status": "success",
+      "returnData": "0x00000000000000000000000000000000000000000000000000000000000000ff",
+      "gasUsed": 21021,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "CLZ", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "RETURN"]
+    },
+    {
+      "name": "transient-storage-roundtrip",
+      "category": "transient-storage",
+      "fork": "Cancun",
+      "bytecode": "602a60015d60015c5f5260205ff3",
+      "status": "success",
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "gasUsed": 21222,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "PUSH1", "TSTORE", "PUSH1", "TLOAD", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "RETURN"]
+    },
+    {
+      "name": "eof-dupn-not-active-in-legacy-bytecode",
+      "category": "eof-boundary",
+      "fork": "Osaka",
+      "bytecode": "e600",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "NotActivated",
+      "haltClass": "NotActivated",
+      "traceOpcodes": ["DUPN"]
+    },
+    {
+      "name": "slotnum-not-active-at-osaka",
+      "category": "future-opcode-boundary",
+      "fork": "Osaka",
+      "bytecode": "4b00",
+      "status": "fault",
+      "returnData": "0x",
+      "gasUsed": 15000000,
+      "error": "NotActivated",
+      "haltClass": "NotActivated",
+      "traceOpcodes": ["SLOTNUM"]
+    },
+    {
+      "name": "identity-precompile",
+      "category": "precompile",
+      "fork": "Osaka",
+      "bytecode": "602a5f5260205f60205f60045afa5060205ff3",
+      "status": "success",
+      "returnData": "0x000000000000000000000000000000000000000000000000000000000000002a",
+      "gasUsed": 21151,
+      "haltClass": "Return",
+      "traceOpcodes": ["PUSH1", "PUSH0", "MSTORE", "PUSH1", "PUSH0", "PUSH1", "PUSH0", "PUSH1", "GAS", "STATICCALL", "POP", "PUSH1", "PUSH0", "RETURN"]
+    }
+  ]
+}

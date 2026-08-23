@@ -1,4 +1,4 @@
-use echoevm_core::{ExecuteRequest, decode_hex, execute, replay_witness};
+use echoevm_core::{ExecuteRequest, Fork, decode_hex, execute, replay_witness};
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
 
@@ -10,10 +10,16 @@ struct BrowserRequest {
     calldata: String,
     #[serde(default = "default_gas")]
     gas_limit: u64,
+    #[serde(default = "default_fork")]
+    fork: String,
 }
 
 const fn default_gas() -> u64 {
     echoevm_core::DEFAULT_GAS_LIMIT
+}
+
+fn default_fork() -> String {
+    "Osaka".into()
 }
 
 #[wasm_bindgen(js_name = executeBytecode)]
@@ -23,10 +29,21 @@ pub fn execute_json(input: &str) -> Result<String, JsValue> {
         bytecode: decode_hex(&request.bytecode).map_err(js_error)?,
         calldata: decode_hex(&request.calldata).map_err(js_error)?,
         gas_limit: request.gas_limit,
-        ..Default::default()
+        fork: parse_fork(&request.fork).map_err(js_error)?,
     })
     .map_err(js_error)?;
     serde_json::to_string(&result).map_err(js_error)
+}
+
+fn parse_fork(value: &str) -> Result<Fork, String> {
+    match value.to_ascii_lowercase().as_str() {
+        "cancun" => Ok(Fork::Cancun),
+        "prague" => Ok(Fork::Prague),
+        "osaka" => Ok(Fork::Osaka),
+        _ => Err(format!(
+            "unsupported fork {value:?}; expected Cancun, Prague, or Osaka"
+        )),
+    }
 }
 
 #[wasm_bindgen(js_name = replay)]
