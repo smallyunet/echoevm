@@ -1,6 +1,15 @@
 # EchoEVM roadmap
 
-**Current release: v1.2.0 — independent Rust EVM engine**
+**Current release: v1.3.0 — Etherscan Contract Lens**
+
+## Delivered in v1.3.0
+
+- Add Contract Lens to verified Etherscan address pages using the displayed ABI
+  and deployed bytecode without remote code execution or source recompilation.
+- ABI-encode and execute functions marked `pure` inside the packaged EchoEVM
+  Wasm engine, with decoded output, gas, trace, and bounded causal evidence.
+- Keep proxy, storage, external-contract, and Mainnet-state boundaries explicit;
+  stateful historical execution continues to require a replay witness.
 
 ## Delivered in v1.2.0
 

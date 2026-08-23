@@ -1,17 +1,30 @@
 "use strict";
 
-import initEchoEVM, { replay } from "./wasm/engine.js";
+import initEchoEVM, { executeContract, replay } from "./wasm/engine.js";
 
 const maxWitnessCharacters = 64 * 1024 * 1024;
 const enginePromise = bootEngine();
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "echoevm-engine-status") return false;
-  enginePromise.then(
-    () => sendResponse({ ready: true }),
-    (error) => sendResponse({ ready: false, error: normalizeError(error) })
-  );
-  return true;
+  if (message?.type === "echoevm-engine-status") {
+    enginePromise.then(
+      () => sendResponse({ ready: true }),
+      (error) => sendResponse({ ready: false, error: normalizeError(error) })
+    );
+    return true;
+  }
+  if (message?.type === "echoevm-contract-execute") {
+    enginePromise.then(() => {
+      try {
+        const encoded = executeContract(JSON.stringify(message.request || {}));
+        sendResponse(JSON.parse(encoded));
+      } catch (error) {
+        sendResponse({ ok: false, error: normalizeError(error) });
+      }
+    }, (error) => sendResponse({ ok: false, error: normalizeError(error) }));
+    return true;
+  }
+  return false;
 });
 
 chrome.runtime.onConnect.addListener((port) => {

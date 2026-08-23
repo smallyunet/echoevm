@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+
+- Keep the VS Code package aligned with the EchoEVM 1.3.0 execution engine and
+  browser Contract Lens release.
+
 ## 1.2.0
 
 - Replace the third-party EVM backend with EchoEVM's independent Rust opcode,

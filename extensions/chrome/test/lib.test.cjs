@@ -9,6 +9,22 @@ test("extractTransactionHash accepts only an Etherscan transaction path", () => 
   assert.equal(helpers.extractTransactionHash("not a URL"), "");
 });
 
+test("extractContractAddress accepts Etherscan address pages and hashes", () => {
+  const address = `0x${"12".repeat(20)}`;
+  assert.equal(helpers.extractContractAddress(`https://etherscan.io/address/${address}#code`), address);
+  assert.equal(helpers.extractContractAddress(`https://etherscan.io/tx/${address}`), "");
+});
+
+test("contract helpers validate bytecode and describe ABI functions", () => {
+  assert.equal(helpers.normalizeBytecode(" 60 00 f3 "), "0x6000f3");
+  assert.equal(helpers.normalizeBytecode("0xxyz"), "");
+  const abi = helpers.parseContractAbi('[{"type":"function","name":"add","inputs":[{"name":"a","type":"uint256"}],"stateMutability":"pure"},{"type":"event","name":"Added"}]');
+  assert.equal(helpers.abiFunctions(abi).length, 1);
+  assert.equal(helpers.functionSignature(abi[0]), "add(uint256)");
+  assert.equal(helpers.inputHint(abi[0].inputs[0]), "integer");
+  assert.throws(() => helpers.parseContractAbi("{}"), /not an array/);
+});
+
 test("validateWitnessText enforces the versioned replay contract", () => {
   assert.deepEqual(helpers.validateWitnessText('{"schema":"echoevm.replay-witness.v1"}'), { schema: "echoevm.replay-witness.v1" });
   assert.throws(() => helpers.validateWitnessText("{}"), /Expected an echoevm\.replay-witness\.v1/);

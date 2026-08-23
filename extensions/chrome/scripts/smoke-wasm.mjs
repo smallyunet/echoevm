@@ -15,6 +15,7 @@ const bytes = await readFile(path.join(root, "wasm/engine_bg.wasm"));
 await module.default({ module_or_path: bytes });
 assert.equal(typeof module.replay, "function", "Wasm bridge must export replay");
 assert.equal(typeof module.executeBytecode, "function", "Wasm bridge must export executeBytecode");
+assert.equal(typeof module.executeContract, "function", "Wasm bridge must export executeContract");
 
 const conformance = JSON.parse(await readFile(conformancePath, "utf8"));
 assert.equal(conformance.schema, "echoevm.bytecode-conformance.v1");
@@ -38,6 +39,26 @@ for (const vector of conformance.vectors) {
 assert.deepEqual([...forks].sort(), ["Cancun", "Osaka", "Prague"]);
 assert.equal(categories.size, 11, "Wasm conformance category count must not shrink");
 console.log(`EchoEVM Wasm bytecode conformance passed (${conformance.vectors.length} vectors, ${categories.size} categories, ${forks.size} forks)`);
+
+const contract = JSON.parse(module.executeContract(JSON.stringify({
+  bytecode: "6004356024350160005260206000f3",
+  function: {
+    type: "function",
+    name: "add",
+    inputs: [{ name: "a", type: "uint256" }, { name: "b", type: "uint256" }],
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "pure"
+  },
+  args: ["2", "3"],
+  fork: "Osaka",
+  profile: "arithmetic"
+})));
+assert.equal(contract.ok, true);
+assert.equal(contract.result.execution.status, "success");
+assert.equal(contract.result.execution.decodedOutput[0], "Uint(5, 256)");
+assert.match(contract.result.calldata, /^0x771602f7/);
+assert(contract.result.evidence.events.some((event) => event.op === "ADD"));
+console.log("EchoEVM Wasm Contract Lens smoke test passed (add(uint256,uint256) = 5)");
 
 const response = JSON.parse(module.replay("{}", JSON.stringify({ profile: "auto", limit: 40, maxMemoryBytes: 256 })));
 assert.equal(response.ok, false);

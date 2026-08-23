@@ -13,7 +13,7 @@ assert.match(manifest.content_security_policy.extension_pages, /wasm-unsafe-eval
 assert.deepEqual(manifest.permissions, undefined, "the first release should not request broad permissions");
 
 const required = [
-  "background.js", "content.js", "content.css", "lib.js", "popup.html", "popup.js", "popup.css",
+  "background.js", "content.js", "contract.js", "content.css", "lib.js", "popup.html", "popup.js", "popup.css",
   "LICENSE", "THIRD_PARTY_NOTICES.md",
   "wasm/engine.js", "wasm/engine_bg.wasm",
   "icons/icon-16.png", "icons/icon-32.png", "icons/icon-48.png", "icons/icon-128.png"
@@ -27,7 +27,7 @@ const wasm = await readFile(path.join(root, "wasm/engine_bg.wasm"));
 assert.deepEqual([...wasm.subarray(0, 4)], [0x00, 0x61, 0x73, 0x6d], "engine.wasm must have the Wasm magic header");
 assert(wasm.byteLength > 100_000, "engine.wasm is unexpectedly small");
 
-for (const relative of ["background.js", "content.js", "popup.js", "wasm/engine.js"]) {
+for (const relative of ["background.js", "content.js", "contract.js", "popup.js", "wasm/engine.js"]) {
   const source = await readFile(path.join(root, relative), "utf8");
   assert(!/<script[^>]+src=["']https?:/i.test(source), `${relative} must not load remote code`);
 }

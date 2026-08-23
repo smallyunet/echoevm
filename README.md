@@ -31,7 +31,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.2.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.3.0.zip`.
 
 ## Execute locally
 
@@ -76,9 +76,11 @@ the replay result or semantic oracle.
 
 ## Browser and editor embedding
 
-The Manifest V3 Chrome extension packages the Rust engine as WebAssembly. Load
-the extracted release ZIP from `chrome://extensions`, open an Etherscan
-transaction page, and select a self-contained witness. Execution happens inside
+The Manifest V3 Chrome extension packages the Rust engine as WebAssembly. On a
+verified Etherscan contract page, Contract Lens reads the displayed ABI and
+deployed bytecode and locally executes ABI functions marked `pure` in an
+explicit empty-state sandbox. On a transaction page, users can select a
+self-contained witness for exact standalone replay. Execution happens inside
 Chrome; no CLI installation is required.
 
 The VS Code extension compiles Solidity locally and runs the same Rust CLI,

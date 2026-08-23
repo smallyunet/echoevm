@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "EchoEVM Transaction Replay",
-  "version": "1.2.0",
-  "description": "Replay self-contained Ethereum transaction witnesses locally on Etherscan with EchoEVM Wasm.",
+  "name": "EchoEVM Browser Execution",
+  "version": "1.3.0",
+  "description": "Run verified pure contract functions and replay self-contained Ethereum transaction witnesses locally on Etherscan.",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "EchoEVM Transaction Replay"
+    "default_title": "EchoEVM Browser Execution"
   },
   "background": {
     "service_worker": "background.js",
@@ -20,6 +20,20 @@
       "js": [
         "lib.js",
         "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://etherscan.io/address/*",
+        "https://www.etherscan.io/address/*"
+      ],
+      "js": [
+        "lib.js",
+        "contract.js"
       ],
       "css": [
         "content.css"

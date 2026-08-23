@@ -4,7 +4,7 @@
     "name": "EchoEVM",
     "title": "Explain EVM execution without the opcode flood.",
     "description": "EchoEVM executes Solidity and EVM bytecode, then emits bounded causal evidence for failures, calls, state, gas, ABI, and arithmetic.",
-    "version": "v1.2.0",
+    "version": "v1.3.0",
     "schema": "echoevm.evidence.v1",
     "accent": "#34d399",
     "accentSoft": "rgba(52, 211, 153, 0.12)",

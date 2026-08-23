@@ -19,7 +19,7 @@ asset_path="${repo_dir}/dist/echoevm-chrome-${manifest_version}.zip"
 rm -rf "${staging_dir}"
 mkdir -p "${staging_dir}/wasm" "${staging_dir}/icons" "${repo_dir}/dist"
 
-cp "${extension_dir}/manifest.json" "${extension_dir}/background.js" "${extension_dir}/lib.js" "${extension_dir}/content.js" "${extension_dir}/content.css" "${staging_dir}/"
+cp "${extension_dir}/manifest.json" "${extension_dir}/background.js" "${extension_dir}/lib.js" "${extension_dir}/content.js" "${extension_dir}/contract.js" "${extension_dir}/content.css" "${staging_dir}/"
 cp "${extension_dir}/popup.html" "${extension_dir}/popup.js" "${extension_dir}/popup.css" "${staging_dir}/"
 cp "${extension_dir}/THIRD_PARTY_NOTICES.md" "${repo_dir}/LICENSE" "${staging_dir}/"
 cp "${extension_dir}"/icons/icon-*.png "${staging_dir}/icons/"
