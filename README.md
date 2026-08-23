@@ -4,6 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/smallyunet/echoevm?color=blue)](https://github.com/smallyunet/echoevm/releases)
 [![Rust](https://img.shields.io/badge/rust-1.95+-dea584?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Playground](https://img.shields.io/badge/playground-GitHub_Pages-34d399)](https://smallyunet.github.io/echoevm/)
 
 **Independent Ethereum execution and bounded causal evidence, implemented in Rust.**
 
@@ -15,13 +16,14 @@ interpreter, state transition, call-frame, gas, fork, and precompile code.
 
 [Playground](https://smallyunet.github.io/echoevm/) ·
 [latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
-[frozen v1 protocol](protocol/v1/README.md) ·
-[replay witness](docs/REPLAY_WITNESS.md)
+[documentation](docs/README.md) ·
+[frozen v1 protocol](protocol/v1/README.md)
 
-## Install
+## Quick start
 
 ```bash
 brew install smallyunet/tap/echoevm
+echoevm run 60016002015f5260205ff3 --json
 ```
 
 Or install the Rust CLI from a clone:
@@ -33,12 +35,9 @@ cargo install --path crates/echoevm-cli --locked
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
 Code VSIX, portable Agent Skills, and `echoevm-chrome-1.4.0.zip`.
 
-## Execute locally
+## Core workflows
 
 ```bash
-# Raw bytecode
-echoevm run 60016002015f5260205ff3 --json
-
 # Complete opcode trace or bounded evidence
 echoevm trace 600160020100 --format jsonl
 echoevm trace 600160020100 --format evidence-json --profile arithmetic --limit 20
@@ -127,6 +126,16 @@ replay, full block validation, consensus networking, and Prague request
 processing are outside the v1 claim. Evidence is diagnostic output, not a
 security audit or formal proof.
 
+## Documentation
+
+| Goal | Start here |
+|---|---|
+| Find the right guide | [Documentation index](docs/README.md) |
+| Replay a complete historical transaction | [Replay witnesses](docs/REPLAY_WITNESS.md) |
+| Integrate JSON or JSONL output | [Trace protocol](docs/TRACE_PROTOCOL.md) |
+| Review semantic coverage | [Bytecode compatibility](docs/BYTECODE_COMPATIBILITY.md) |
+| Build against stable schemas | [Protocol v1](protocol/v1/README.md) |
+
 ## Workspace
 
 | Crate | Purpose |
@@ -150,5 +159,17 @@ make test-conformance-full
 
 `make test-conformance-full` downloads and verifies the pinned official fixture
 archive before executing the zero-skip gate.
+
+## Echo family
+
+| Project | Execution domain | Static playground |
+|---|---|---|
+| [EchoEVM](https://github.com/smallyunet/echoevm) | Solidity and EVM bytecode | [Open](https://smallyunet.github.io/echoevm/) |
+| [EchoSVM](https://github.com/smallyunet/echosvm) | Solana transactions and sBPF | [Open](https://smallyunet.github.io/echosvm/) |
+| [EchoRV](https://github.com/smallyunet/echorv) | RISC-V firmware and traces | [Open](https://smallyunet.github.io/echorv/) |
+| [EchoScript](https://github.com/smallyunet/echoscript) | Bitcoin Tapscript inputs | [Open](https://smallyunet.github.io/echoscript/) |
+
+Each project executes locally, emits a versioned evidence schema, and publishes
+frozen reproducible cases through the same static playground contract.
 
 EchoEVM is available under the [MIT License](LICENSE).

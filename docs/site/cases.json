@@ -9,7 +9,9 @@
     "accent": "#34d399",
     "accentSoft": "rgba(52, 211, 153, 0.12)",
     "repository": "https://github.com/smallyunet/echoevm",
+    "docs": "https://github.com/smallyunet/echoevm/blob/main/docs/README.md",
     "release": "https://github.com/smallyunet/echoevm/releases/latest",
+    "install": "brew install smallyunet/tap/echoevm",
     "boundary": "These snapshots execute locally in EchoEVM. The static page does not replay arbitrary Mainnet transactions or contact an RPC.",
     "local": "Run Solidity, bytecode, or standalone transaction witnesses through EchoEVM's independent execution kernel."
   },

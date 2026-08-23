@@ -12,6 +12,12 @@
     });
   }
 
+  function linkAll(selector, value) {
+    document.querySelectorAll(selector).forEach(function (element) {
+      element.href = value;
+    });
+  }
+
   function configureProject(project) {
     document.title = project.name + ' Evidence Playground';
     document.documentElement.style.setProperty('--accent', project.accent);
@@ -23,11 +29,15 @@
     textAll('[data-project-version]', project.version);
     textAll('[data-project-boundary]', project.boundary);
     textAll('[data-project-local]', project.local);
+    textAll('[data-project-install]', project.install);
 
-    document.querySelector('[data-repo-link]').href = project.repository;
-    document.querySelector('[data-release-link]').href = project.release;
+    linkAll('[data-repo-link]', project.repository);
+    linkAll('[data-docs-link]', project.docs);
+    linkAll('[data-release-link]', project.release);
     const active = document.querySelector('[data-family="' + project.slug + '"]');
     if (active) active.setAttribute('aria-current', 'page');
+    const activeCard = document.querySelector('[data-family-card="' + project.slug + '"]');
+    if (activeCard) activeCard.setAttribute('aria-current', 'page');
   }
 
   function renderCase(item) {
@@ -70,8 +80,15 @@
   }
 
   select.addEventListener('change', function () {
-    renderCase(cases[Number(select.value)]);
+    const item = cases[Number(select.value)];
+    renderCase(item);
+    const url = new URL(window.location.href);
+    url.searchParams.set('case', item.id);
+    window.history.replaceState(null, '', url);
     status.textContent = '';
+  });
+  document.getElementById('copy-install').addEventListener('click', function () {
+    copy(document.querySelector('[data-project-install]').textContent, 'Install command copied.');
   });
   document.getElementById('copy-command').addEventListener('click', function () {
     copy(document.getElementById('case-command').textContent, 'CLI command copied.');
@@ -94,7 +111,13 @@
         option.textContent = item.title;
         select.append(option);
       });
-      renderCase(cases[0]);
+      const requestedCase = new URLSearchParams(window.location.search).get('case');
+      const requestedIndex = cases.findIndex(function (item) {
+        return item.id === requestedCase;
+      });
+      const initialIndex = requestedIndex >= 0 ? requestedIndex : 0;
+      select.value = String(initialIndex);
+      renderCase(cases[initialIndex]);
       view.setAttribute('aria-busy', 'false');
     })
     .catch(function (error) {

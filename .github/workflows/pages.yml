@@ -33,9 +33,13 @@ jobs:
           test -s docs/site/index.html
           test -s docs/site/styles.css
           test -s docs/site/app.js
+          test -s docs/README.md
+          grep -q 'data-site-contract="echo-family.v2"' docs/site/index.html
           jq -e '
             (.project.slug | length > 0) and
             (.project.schema | length > 0) and
+            (.project.docs | startswith("https://")) and
+            (.project.install | length > 0) and
             (.cases | length >= 2) and
             all(.cases[]; (.title | length > 0) and (.command | length > 0) and (.evidence.schema | length > 0))
           ' docs/site/cases.json
