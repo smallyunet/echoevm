@@ -1,6 +1,14 @@
 # EchoEVM roadmap
 
-**Current release: v1.1.0 — multi-fork bytecode conformance**
+**Current release: v1.2.0 — independent Rust EVM engine**
+
+## Delivered in v1.2.0
+
+- Replace the embedded third-party execution engine with EchoEVM's independent
+  Rust opcode, gas, state-transition, call/create, transaction, and precompile
+  implementation.
+- Preserve the pinned Cancun, Prague, and Osaka zero-skip official fixture gate
+  while expanding the owned opcode inventory from 154 to 170 names.
 
 ## Delivered in v1.1.0
 

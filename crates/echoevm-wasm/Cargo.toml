@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Browser WebAssembly bindings for the embedded EchoEVM Rust engine"
+description = "Browser WebAssembly bindings for the independent EchoEVM Rust engine"
 readme = "../../README.md"
 keywords = ["ethereum", "evm", "wasm", "browser"]
 categories = ["wasm", "development-tools"]
@@ -14,8 +14,8 @@ categories = ["wasm", "development-tools"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-echoevm-core = { version = "1.1.0", path = "../echoevm-core", default-features = false }
-echoevm-protocol = { version = "1.1.0", path = "../echoevm-protocol" }
+echoevm-core = { version = "1.2.0", path = "../echoevm-core", default-features = false }
+echoevm-protocol = { version = "1.2.0", path = "../echoevm-protocol" }
 getrandom.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -1,10 +1,10 @@
 {
   "schema": "echoevm.bytecode-conformance.v1",
   "engineDependency": {
-    "name": "revm",
-    "version": "42.0.1",
-    "registeredOpcodeBytes": 154,
-    "registeredOpcodeSha256": "789d3b3a058aad124fc737ee13224b1a3fef95cc334e3fdd0f765e88c385ebe4"
+    "name": "EchoEVM",
+    "version": "1.2.0",
+    "registeredOpcodeBytes": 170,
+    "registeredOpcodeSha256": "05371cc08da9a331440ff0b8e6af47c1111363a45d9b5d0aaa489fefa7396794"
   },
   "declaredForks": ["Cancun", "Prague", "Osaka"],
   "vectors": [

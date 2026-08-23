@@ -5,12 +5,13 @@
 [![Rust](https://img.shields.io/badge/rust-1.95+-dea584?logo=rust)](https://www.rust-lang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Embedded Ethereum execution and bounded causal evidence, implemented in Rust.**
+**Independent Ethereum execution and bounded causal evidence, implemented in Rust.**
 
 EchoEVM executes EVM bytecode, Solidity contracts, and self-contained Mainnet
 transaction witnesses. It is an executor, not a wrapper around Geth, an RPC
-debug method, or a remote service. Native, WebAssembly, Chrome, CLI, and editor
-frontends all use the same embedded Rust engine.
+debug method, a remote service, or another EVM implementation. Native,
+WebAssembly, Chrome, CLI, and editor frontends all use EchoEVM's own Rust
+interpreter, state transition, call-frame, gas, fork, and precompile code.
 
 [Playground](https://smallyunet.github.io/echoevm/) ·
 [latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
@@ -30,7 +31,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.1.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.2.0.zip`.
 
 ## Execute locally
 
@@ -97,7 +98,7 @@ The current `main` gate pins Ethereum execution-spec fixtures at
 Cancun, Prague, and Osaka rules: 63/1,456, 134/2,195, and 187/3,461
 files/transactions respectively.
 A shared native/Wasm bytecode matrix adds 15 exact vectors across 11 semantic
-categories and freezes the pinned engine's 154 registered opcode bytes. See the
+categories and freezes EchoEVM's 170-name opcode inventory. See the
 [`bytecode compatibility contract`](docs/BYTECODE_COMPATIBILITY.md). Official
 fixtures are the oracle; the archived Go implementation is not.
 

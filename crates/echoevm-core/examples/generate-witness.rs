@@ -1,7 +1,7 @@
 use alloy_consensus::Header;
+use alloy_primitives::{Address, B256, U256};
 use echoevm_core::{MAINNET_CANCUN_TIME, decode_hex};
 use echoevm_protocol::{ReplayWitness, WITNESS_SCHEMA, WitnessAccount};
-use revm::primitives::{Address, B256, U256};
 use std::{collections::BTreeMap, env, fs, path::PathBuf};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

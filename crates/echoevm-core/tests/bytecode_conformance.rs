@@ -1,6 +1,5 @@
-use echoevm_core::{ExecuteRequest, Fork, decode_hex, trace};
+use echoevm_core::{ExecuteRequest, Fork, decode_hex, opcode, trace};
 use echoevm_protocol::ExecutionStatus;
-use revm::bytecode::opcode::OpCode;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -44,16 +43,10 @@ struct Vector {
 fn registered_opcode_inventory_is_stable() {
     let matrix: Matrix = serde_json::from_str(VECTORS).expect("decode bytecode matrix");
     assert_eq!(matrix.schema, "echoevm.bytecode-conformance.v1");
-    assert_eq!(matrix.engine_dependency.name, "revm");
-    assert_eq!(matrix.engine_dependency.version, "42.0.1");
-    assert!(
-        include_str!("../../../Cargo.lock").contains("name = \"revm\"\nversion = \"42.0.1\""),
-        "matrix engine dependency must match Cargo.lock"
-    );
+    assert_eq!(matrix.engine_dependency.name, "EchoEVM");
+    assert_eq!(matrix.engine_dependency.version, env!("CARGO_PKG_VERSION"));
 
-    let registered: Vec<_> = (0u8..=u8::MAX)
-        .filter_map(|byte| OpCode::new(byte).map(|opcode| (byte, opcode.as_str())))
-        .collect();
+    let registered = opcode::inventory();
     assert_eq!(
         registered.len(),
         matrix.engine_dependency.registered_opcode_bytes,
@@ -63,7 +56,7 @@ fn registered_opcode_inventory_is_stable() {
         .iter()
         .map(|(byte, name)| format!("{byte:02x}:{name}\n"))
         .collect::<String>();
-    let inventory_hash = revm::primitives::hex::encode(Sha256::digest(inventory.as_bytes()));
+    let inventory_hash = hex::encode(Sha256::digest(inventory.as_bytes()));
     assert_eq!(
         inventory_hash, matrix.engine_dependency.registered_opcode_sha256,
         "registered opcode bytes or names changed; review activation and vectors"
@@ -80,7 +73,7 @@ fn registered_opcode_inventory_is_stable() {
         (0xf5, "CREATE2"),
         (0xfd, "REVERT"),
     ] {
-        assert_eq!(OpCode::new(byte).map(OpCode::as_str), Some(name));
+        assert_eq!(opcode::name(byte), Some(name));
     }
 }
 

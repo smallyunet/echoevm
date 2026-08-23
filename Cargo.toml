@@ -9,7 +9,7 @@ default-members = ["crates/echoevm-cli"]
 resolver = "2"
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -21,11 +21,20 @@ alloy-consensus = { version = "1.6.1", features = ["k256", "serde"] }
 alloy-eips = "1.6.1"
 alloy-dyn-abi = "1.6.1"
 alloy-json-abi = "1.6.1"
+ark-bls12-381 = "0.6.0"
+ark-bn254 = "0.6.0"
+ark-ec = "0.6.0"
+ark-ff = "0.6.0"
+ark-serialize = "0.6.0"
 anyhow = "1.0.102"
 clap = { version = "4.6.6", features = ["derive", "env"] }
 hex = "0.4.3"
+k256 = { version = "0.13.4", features = ["ecdsa"] }
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+p256 = { version = "0.13.2", features = ["ecdsa"] }
+ripemd = "0.1.3"
 getrandom = { version = "0.2.17", features = ["js"] }
-revm = { version = "42.0.1", default-features = false, features = ["std", "serde", "sha3-keccak", "tracer", "test-types"] }
 schemars = "1.2.1"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"

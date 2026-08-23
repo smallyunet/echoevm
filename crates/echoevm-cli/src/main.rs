@@ -12,7 +12,11 @@ mod web;
 mod witness;
 
 #[derive(Parser, Debug)]
-#[command(name = "echoevm", version, about = "Embedded EVM execution evidence")]
+#[command(
+    name = "echoevm",
+    version,
+    about = "Independent Rust EVM execution evidence"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,

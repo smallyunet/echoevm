@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- Replace the third-party EVM backend with EchoEVM's independent Rust opcode,
+  gas, state-transition, call/create, transaction, and precompile implementation.
+- Preserve the exact zero-skip Cancun, Prague, and Osaka official fixture gates.
+- Expand the frozen EchoEVM opcode inventory from 154 to 170 names.
+
 ## 1.1.0
 
 - Add exact Cancun, Prague, and Osaka bytecode conformance gates.
