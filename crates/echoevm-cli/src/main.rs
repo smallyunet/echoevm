@@ -53,6 +53,20 @@ struct WebArgs {
 
 #[derive(Subcommand, Debug)]
 enum WitnessCommand {
+    /// Build a proof-verified witness using standard JSON-RPC methods.
+    ImportProof {
+        input: String,
+        #[arg(long, env = "ETHEREUM_RPC_URL")]
+        rpc_url: String,
+        #[arg(long)]
+        out: Option<PathBuf>,
+        /// Optional durable copy of the EIP-1186 proof material.
+        #[arg(long)]
+        proofs_out: Option<PathBuf>,
+        /// Number of historical block hashes to embed for BLOCKHASH execution.
+        #[arg(long, default_value_t = 256, value_parser = clap::value_parser!(u16).range(0..=256))]
+        blockhash_depth: u16,
+    },
     ImportDebug {
         input: String,
         #[arg(long, env = "ETHEREUM_RPC_URL")]
@@ -273,6 +287,19 @@ fn main() -> Result<()> {
         Command::Repl => repl::run(),
         Command::Web(args) => web::run(&args.addr, args.code.as_deref()),
         Command::Witness { command } => match command {
+            WitnessCommand::ImportProof {
+                input,
+                rpc_url,
+                out,
+                proofs_out,
+                blockhash_depth,
+            } => witness::import_proof(
+                &input,
+                &rpc_url,
+                out.as_deref(),
+                proofs_out.as_deref(),
+                blockhash_depth,
+            ),
             WitnessCommand::ImportDebug {
                 input,
                 rpc_url,

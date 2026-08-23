@@ -2,7 +2,7 @@
   "schema": "echoevm.bytecode-conformance.v1",
   "engineDependency": {
     "name": "EchoEVM",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "registeredOpcodeBytes": 170,
     "registeredOpcodeSha256": "05371cc08da9a331440ff0b8e6af47c1111363a45d9b5d0aaa489fefa7396794"
   },

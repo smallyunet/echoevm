@@ -26,7 +26,8 @@ are not normative.
 The Rust CLI must retain these top-level commands and their v1 meanings:
 
 `call`, `deploy`, `disasm`, `repl`, `replay`, `run`, `solidity inspect`,
-`solidity run`, `trace`, `version`, `web`, and `witness import-debug`.
+`solidity run`, `trace`, `version`, `web`, `witness import-proof`, and
+`witness import-debug`.
 
 The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 `evidence-json`. Human-readable text may improve without a protocol bump.
@@ -38,10 +39,13 @@ The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 - Replay consumes only a complete witness and does not contact RPC.
 - `witness import-debug` is an optional acquisition adapter; its output must
   replay offline.
+- `witness import-proof` verifies EIP-1186 account/storage proofs against the
+  parent state root before writing the frozen replay witness. Its v1.4 scope is
+  limited to the first transaction in a block.
 - Cancun through Osaka are the declared transaction/interpreter rulesets.
-- Pre-Cancun replay, proof-backed historical state acquisition, block-level
-  system processing, and fixture families not executed by the release gate stay
-  outside the compatibility claim.
+- Pre-Cancun replay, proof-backed acquisition for later block transactions,
+  block-level system processing, and fixture families not executed by the
+  release gate stay outside the compatibility claim.
 - `--limit` bounds emitted evidence, not execution. Counts and `truncated` must
   continue to distinguish full execution from partial presentation.
 

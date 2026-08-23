@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+
+- Keep the VS Code package aligned with the EchoEVM 1.4.0 proof-verified
+  witness acquisition release.
+
 ## 1.3.0
 
 - Keep the VS Code package aligned with the EchoEVM 1.3.0 execution engine and

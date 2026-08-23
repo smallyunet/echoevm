@@ -31,7 +31,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.3.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.4.0.zip`.
 
 ## Execute locally
 
@@ -73,6 +73,24 @@ echoevm witness import-debug 0x0123... \
 
 The adapter ends after writing the witness. Its upstream result is never used as
 the replay result or semantic oracle.
+
+For the first transaction in a block, EchoEVM can instead use standard RPC
+methods only. It uses `eth_createAccessList` as an optional accelerator, then
+replays locally to discover missing reads to a bounded fixed point. Every
+account and storage value is fetched with EIP-1186 proofs from the parent block,
+verified against the parent state root, and checked against fetched code before
+the same self-contained replay contract is written:
+
+```bash
+echoevm witness import-proof 0x0123... \
+  --rpc-url https://your-rpc.example \
+  --out transaction.witness.json \
+  --proofs-out transaction.proofs.json
+```
+
+Standard RPC exposes block-boundary proofs, not intermediate state between
+transactions. `import-proof` therefore fails closed unless `transactionIndex`
+is zero. It never silently substitutes post-block state.
 
 ## Browser and editor embedding
 

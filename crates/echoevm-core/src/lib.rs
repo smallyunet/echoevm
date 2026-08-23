@@ -13,7 +13,7 @@ use alloy_consensus::{
     Header, Transaction as AlloyTransaction, TxEnvelope, transaction::SignerRecoverable,
 };
 use alloy_eips::{Decodable2718, Typed2718};
-use alloy_primitives::U256;
+use alloy_primitives::{Address, B256, U256};
 use echoevm_protocol::{
     ExecutionResult as WireResult, ExecutionStatus, ReplayResult, ReplayWitness, TraceStep,
     TransactionSummary, WITNESS_SCHEMA, WitnessProvenance,
@@ -84,6 +84,11 @@ pub enum ExecuteError {
     Hex(String),
     #[error("invalid replay witness: {0}")]
     Witness(String),
+    #[error("replay witness is incomplete: missing {accounts_len} accounts and {storage_len} storage slots", accounts_len = .accounts.len(), storage_len = .storage.len())]
+    IncompleteWitness {
+        accounts: Vec<Address>,
+        storage: Vec<(Address, B256)>,
+    },
 }
 
 pub fn decode_hex(input: &str) -> Result<Vec<u8>, ExecuteError> {
@@ -178,7 +183,12 @@ pub fn replay_witness(
     }
 
     let mut world = state::WorldState::default();
+    world.enable_missing_tracking();
     for (address, account) in &witness.prestate {
+        world.mark_known_account(*address);
+        for slot in account.storage.keys() {
+            world.mark_known_storage(*address, U256::from_be_bytes(slot.0));
+        }
         let target = world.account_mut(*address);
         target.balance = account.balance.unwrap_or_default();
         target.nonce = account.nonce;
@@ -251,6 +261,17 @@ pub fn replay_witness(
         },
     )
     .map_err(|error| ExecuteError::Evm(error.into()))?;
+    let missing = world.missing_reads();
+    if !missing.accounts.is_empty() || !missing.storage.is_empty() {
+        return Err(ExecuteError::IncompleteWitness {
+            accounts: missing.accounts.into_iter().collect(),
+            storage: missing
+                .storage
+                .into_iter()
+                .map(|(address, slot)| (address, B256::from(slot.to_be_bytes::<32>())))
+                .collect(),
+        });
+    }
     let gas_used = execution.gas_used;
     let status = match &execution.status {
         ExecutionStatus::Success => "success",
@@ -601,6 +622,7 @@ mod tests {
                     },
                 ),
                 (recipient, WitnessAccount::default()),
+                (Address::ZERO, WitnessAccount::default()),
             ]),
             block_hashes: BTreeMap::new(),
             source: Some("unit-test".into()),

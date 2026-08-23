@@ -44,12 +44,36 @@ echoevm witness import-debug 0x0123... \
 The imported file must replay later with no provider. The adapter's upstream
 response is acquisition data, never the EchoEVM execution result or oracle.
 
+`witness import-proof` is the debug-namespace-free acquisition path for the
+first transaction in a block:
+
+```bash
+echoevm witness import-proof 0x0123... \
+  --rpc-url https://your-rpc.example \
+  --out transaction.witness.json \
+  --proofs-out transaction.proofs.json
+```
+
+It uses `eth_createAccessList` when available, then iterates EchoEVM execution
+and missing-read discovery until the witness is complete. `eth_getProof`,
+`eth_getCode`, ordinary block/transaction lookups, and
+`eth_getRawTransactionByHash` supply the data. Account and storage proofs are
+verified against the parent block state root; fetched code is bound to each
+proved code hash. `--proofs-out` preserves the raw proof material in
+`echoevm.witness-proofs.v1` for independent inspection.
+
+Because EIP-1186 proves block-boundary state, this path fails closed for any
+transaction whose `transactionIndex` is not zero. Supporting later transactions
+requires replaying all preceding block transactions from the proved parent
+state; EchoEVM does not claim that capability in v1.4.0.
+
 ## Completeness responsibility
 
 Version 1 uses explicit prestate rather than implicit lazy network reads. A
 witness producer must include every touched account and storage slot. EchoEVM
 fails on structurally invalid witnesses, but a structurally valid witness that
 omits an otherwise existing account or zero-valued slot cannot be proven
-complete without Merkle proofs. A future proof-backed witness version will bind
-all reads to a state root; until then, trusted acquisition or frozen reviewed
-fixtures are required for historical Mainnet claims.
+complete without Merkle proofs. `import-proof` reduces that producer trust for
+its strict first-transaction scope by validating acquisition against the parent
+state root before emitting the frozen replay witness. Other witnesses still
+require trusted acquisition or frozen reviewed fixtures.

@@ -1,6 +1,18 @@
 # EchoEVM roadmap
 
-**Current release: v1.3.0 — Etherscan Contract Lens**
+**Current release: v1.4.0 — proof-verified witness acquisition**
+
+## Delivered in v1.4.0
+
+- Build first-in-block replay witnesses without debug namespaces using optional
+  access-list acceleration, iterative EchoEVM read discovery, EIP-1186 proofs,
+  and ordinary RPC lookups.
+- Verify account and storage Merkle-Patricia proofs against the parent state
+  root and verify fetched bytecode against proved code hashes.
+- Preserve optional raw proof bundles and embed up to 256 historical block
+  hashes for deterministic `BLOCKHASH` execution.
+- Fail closed for later block transactions rather than treating block-boundary
+  proofs as intermediate prestate.
 
 ## Delivered in v1.3.0
 
@@ -46,8 +58,8 @@
   then later execution-spec releases, without shrinking the current gates.
 - Grow the bytecode matrix around call/create rollback, warm/cold access,
   precompiles, logs, memory overflow, and transaction-type boundaries.
-- Add complete historical `BLOCKHASH` acquisition and proof-backed witness
-  construction independent of debug namespaces.
+- Extend proof-backed acquisition to later block transactions by replaying all
+  preceding transactions from the proved parent state.
 - Add Prague request/system-call and full block transition conformance.
 - Add source-level stepping and richer storage/value-flow links while preserving
   the bounded evidence schema.

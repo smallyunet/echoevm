@@ -1,6 +1,6 @@
 BINARY_NAME ?= echoevm
 BIN_DIR ?= bin
-VERSION ?= v1.3.0
+VERSION ?= v1.4.0
 
 .PHONY: help install build build-chrome run clean setup-official-fixtures test-unit test-bytecode-conformance test-integration test-e2e test-chrome test-official-fixtures test-conformance test-conformance-full test-deploy test-skills package-skills test
 

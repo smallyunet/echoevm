@@ -42,6 +42,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
             ),
             (recipient, WitnessAccount::default()),
+            (Address::ZERO, WitnessAccount::default()),
         ]),
         block_hashes: BTreeMap::new(),
         source: Some("echoevm-rust-wasm-smoke".into()),
