@@ -18,7 +18,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace --locked
-      - run: make test-bytecode-conformance test-explain test-test-witness
+      - run: make test-bytecode-conformance test-test-witness
       - run: cargo build --locked --release -p echoevm
       - run: cargo build --locked -p echoevm-wasm --target wasm32-unknown-unknown --profile wasm-release
       - run: bash scripts/test-cli.sh
@@ -53,6 +53,7 @@ jobs:
         working-directory: editors/vscode
         env:
           ECHOEVM_TEST_BINARY: ${{ github.workspace }}/target/debug/echoevm
+      - run: make test-explain
       - run: npm run package:vsix
         working-directory: editors/vscode
       - run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
