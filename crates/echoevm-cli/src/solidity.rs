@@ -230,6 +230,23 @@ fn run(args: SolidityRunArgs) -> Result<()> {
                     "compiler".into(),
                     json!({"executable": args.compiler.solc, "version": version}),
                 );
+                if let (Some(events), Some(locations)) = (
+                    object.get_mut("events").and_then(Value::as_array_mut),
+                    source_map.get("locations").and_then(Value::as_array),
+                ) {
+                    for event in events {
+                        let Some(pc) = event.get("pc").and_then(Value::as_u64) else {
+                            continue;
+                        };
+                        if let Some(location) = locations
+                            .iter()
+                            .find(|location| location.get("pc").and_then(Value::as_u64) == Some(pc))
+                            && let Some(event) = event.as_object_mut()
+                        {
+                            event.insert("source".into(), location.clone());
+                        }
+                    }
+                }
             }
             println!("{}", serde_json::to_string_pretty(&evidence)?);
         }

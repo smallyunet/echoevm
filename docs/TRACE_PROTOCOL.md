@@ -37,9 +37,11 @@ echoevm replay ./transaction.witness.json \
 ```
 
 Evidence explanations are deterministic and derived from executed opcodes.
-The v1 format reserves causal `links`; the Rust v1.0 selector currently emits
-an empty link list rather than inferring relationships it cannot prove from the
-captured step fields.
+The Rust selector emits causal `links` only when the captured trace establishes
+them: call/create frame entry and return, rolled-back storage writes, and
+tracked arithmetic value flow. Storage events include their execution-context
+address and observed previous/value pair. Selected Solidity evidence events
+also carry source locations resolved from the runtime source map when available.
 
 ## Boundary
 

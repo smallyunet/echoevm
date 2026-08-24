@@ -119,7 +119,8 @@ showing status, gas, source locations, storage output, and opcode evidence.
 
 The complete trace is the execution record. Bounded evidence is a deterministic
 post-execution selection for a chosen profile; it does not alter execution and
-does not infer causal links that the captured trace cannot establish.
+emits only frame, rollback, or tracked value-flow links established by captured
+execution facts.
 
 ## Compatibility and conformance
 

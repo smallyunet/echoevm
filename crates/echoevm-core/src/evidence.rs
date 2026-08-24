@@ -1,20 +1,64 @@
 use super::*;
+use std::collections::BTreeSet;
+
+mod causal;
+
+use causal::semantic_links;
 
 /// Builds a deterministic, bounded execution-evidence view from an exact trace.
 /// The limit only affects presentation; execution has already completed.
 pub fn build_evidence(result: &WireResult, profile: &str, limit: usize) -> serde_json::Value {
     let steps = result.trace.as_deref().unwrap_or_default();
+    let links: Vec<_> = semantic_links(steps)
+        .into_iter()
+        .filter(|link| {
+            link.get("kind").and_then(|value| value.as_str()) != Some("value-flow")
+                || matches!(profile, "arithmetic" | "full")
+        })
+        .collect();
+    let linked_steps: BTreeSet<usize> = links
+        .iter()
+        .flat_map(|link| {
+            [
+                link.get("from")
+                    .and_then(|value| value.get("step"))
+                    .and_then(|value| value.as_u64()),
+                link.get("to")
+                    .and_then(|value| value.get("step"))
+                    .and_then(|value| value.as_u64()),
+            ]
+        })
+        .flatten()
+        .map(|step| step as usize)
+        .collect();
     let mut candidates: Vec<&TraceStep> = steps
         .iter()
-        .filter(|step| evidence_selects(profile, step))
+        .filter(|step| evidence_selects(profile, step) || linked_steps.contains(&step.index))
         .collect();
     let candidate_count = candidates.len();
     let truncated = limit > 0 && candidates.len() > limit;
     if truncated {
-        candidates.sort_by_key(|step| (std::cmp::Reverse(evidence_priority(step)), step.index));
+        candidates.sort_by_key(|step| {
+            (
+                std::cmp::Reverse(evidence_priority_with_links(step, &links)),
+                step.index,
+            )
+        });
         candidates.truncate(limit);
         candidates.sort_by_key(|step| step.index);
     }
+    let selected_steps: BTreeSet<usize> = candidates.iter().map(|step| step.index).collect();
+    let links: Vec<_> = links
+        .into_iter()
+        .filter(|link| {
+            ["from", "to"].iter().all(|side| {
+                link.get(side)
+                    .and_then(|value| value.get("step"))
+                    .and_then(|value| value.as_u64())
+                    .is_some_and(|step| selected_steps.contains(&(step as usize)))
+            })
+        })
+        .collect();
     let events: Vec<_> = candidates
         .iter()
         .map(|step| {
@@ -31,6 +75,8 @@ pub fn build_evidence(result: &WireResult, profile: &str, limit: usize) -> serde
                     "staticCost": step.gas_before.saturating_sub(step.gas_after)
                 },
                 "stack": { "before": step.stack_before, "after": step.stack_after },
+                "storage": step.storage,
+                "control": step.control,
                 "halt": matches!(step.opcode_name.as_str(), "STOP" | "RETURN" | "REVERT" | "INVALID" | "SELFDESTRUCT"),
                 "reverted": step.opcode_name == "REVERT",
                 "error": step.halt_class,
@@ -49,7 +95,7 @@ pub fn build_evidence(result: &WireResult, profile: &str, limit: usize) -> serde
             "error": result.error
         },
         "events": events,
-        "links": [],
+        "links": links,
         "selection": {
             "candidates": candidate_count,
             "selected": candidates.len(),
@@ -57,6 +103,28 @@ pub fn build_evidence(result: &WireResult, profile: &str, limit: usize) -> serde
             "truncated": truncated
         }
     })
+}
+
+fn evidence_priority_with_links(step: &TraceStep, links: &[serde_json::Value]) -> u8 {
+    let feeds_division = links.iter().any(|link| {
+        link.get("kind").and_then(|value| value.as_str()) == Some("value-flow")
+            && link
+                .get("to")
+                .and_then(|value| value.get("op"))
+                .and_then(|value| value.as_str())
+                .is_some_and(|op| matches!(op, "DIV" | "SDIV" | "MOD" | "SMOD"))
+            && ["from", "to"].iter().any(|side| {
+                link.get(side)
+                    .and_then(|value| value.get("step"))
+                    .and_then(|value| value.as_u64())
+                    == Some(step.index as u64)
+            })
+    });
+    if feeds_division {
+        6
+    } else {
+        evidence_priority(step)
+    }
 }
 
 fn evidence_selects(profile: &str, step: &TraceStep) -> bool {

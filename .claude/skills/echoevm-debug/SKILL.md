@@ -34,7 +34,7 @@ Report the execution cause in this order:
 
 1. Verdict.
 2. Execution evidence: input, status, gas, state/storage, and selected trace scope.
-3. First relevant step, call depth, PC, opcode, gas, and stack transition present in the output.
+3. First relevant step, call depth, PC, opcode, gas, storage/context, and causal links present in the output.
 4. Interpretation, explicitly labeled as inference when it goes beyond the evidence.
 5. Limitations.
 6. Suggested next check.

@@ -10,8 +10,8 @@ Report when available:
 - Success, revert, or fault status and return or revert data.
 - Total steps plus compact candidate/selected/omitted counts and truncation state; for full traces, matched and emitted counts.
 - First relevant step, call depth, PC, opcode, gas, and stack transition.
-- Stack and control-flow evidence present in selected steps.
-- Whether `links` is empty. The current v1 selector reserves this field but does not infer causal links from fields it cannot prove.
+- Stack, storage/context, and control-flow evidence present in selected steps.
+- Causal `enters-frame`, `returns-to`, `rolls-back`, and tracked arithmetic `value-flow` links when selected.
 - Declared or transaction fork and replay warnings when applicable.
 - Witness schema and SHA-256 provenance for standalone replay.
 - Pinned fixture release, fork, exact case count, and failure evidence when conformance was requested.
@@ -22,6 +22,7 @@ Report when available:
 - Label causal explanations, source-level guesses, and suggested fixes as inference.
 - One trace applies only to the tested input, environment, gas limit, and initial state.
 - `gas.used` on a call/create event can include nested-frame execution; do not label all of it as an opcode surcharge.
+- Treat a `value-flow` link as tracked stack provenance for that execution, not a source-level business invariant.
 - When runtime PC mapping is unavailable or ambiguous, identify opcode PC and call depth rather than claiming a Solidity source line.
 - Do not market the result as a vulnerability scan, formal verification, or complete compatibility proof.
 

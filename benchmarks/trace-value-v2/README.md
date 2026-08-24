@@ -36,3 +36,17 @@ medium reasoning effort. Evidence achieved 11/12 strict answers (91.7%), broad
 
 This is evidence for these frozen cases and model configuration, not a security
 audit, formal verification result, or proof of general EVM compatibility.
+
+## Rust causal-evidence milestone
+
+The fixture generator now executes the current Rust CLI and fails unless all
+four cases retain their exact primary and secondary depth/PC/opcode locations.
+It additionally requires exact child-failure return and rollback links,
+delegate storage-context writes, and the `SUB` PC 591 to `DIV` PC 701 value-flow
+carrying divisor `0x3`. Generated Solidity evidence includes the runtime source
+map used to enrich those locations.
+
+This deterministic fixture gate restores the semantic evidence needed to rerun
+the model matrix on Rust. It does not transfer the v0.0.41 model result to the
+new implementation; a new external-model result requires a separately
+authorized benchmark run.
