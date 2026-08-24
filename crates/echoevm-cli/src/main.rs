@@ -6,6 +6,7 @@ use echoevm_core::{
 };
 use std::{fs, path::PathBuf};
 
+mod explain;
 mod repl;
 mod solidity;
 mod web;
@@ -29,6 +30,10 @@ enum Command {
     Disasm(CodeArgs),
     Version(VersionArgs),
     Replay(ReplayArgs),
+    Explain {
+        #[command(subcommand)]
+        command: explain::ExplainCommand,
+    },
     Call(RunArgs),
     Deploy(RunArgs),
     Solidity {
@@ -283,6 +288,7 @@ fn main() -> Result<()> {
             }
             Ok(())
         }
+        Command::Explain { command } => explain::execute(command),
         Command::Solidity { command } => solidity::execute(command),
         Command::Repl => repl::run(),
         Command::Web(args) => web::run(&args.addr, args.code.as_deref()),

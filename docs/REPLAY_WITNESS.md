@@ -32,6 +32,14 @@ echoevm replay ./transaction.witness.json --format evidence-json
 This command is the formal replay capability. It is deterministic for the
 witness bytes and does not expose an RPC option.
 
+The same offline input can be routed through the deterministic explanation
+layer without changing the replay boundary:
+
+```bash
+echoevm explain replay ./transaction.witness.json \
+  --expect-status success --format json
+```
+
 `witness import-debug` is an explicitly named acquisition adapter for
 capturing exact prestate from a provider that exposes `prestateTracer`:
 

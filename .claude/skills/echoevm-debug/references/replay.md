@@ -25,6 +25,17 @@ Only when compact evidence is insufficient, request the full standalone result:
 echoevm replay ./transaction.witness.json --format json
 ```
 
+For a deterministic verdict/root-cause envelope, route the same witness through
+the explanation facade:
+
+```bash
+echoevm explain replay ./transaction.witness.json \
+  --expect-status success --format json
+```
+
+This command retains the same no-RPC replay boundary. Do not replace a missing
+`rootCause` or `insufficient-evidence` verdict with an unsupported inference.
+
 ## Optional witness import
 
 For migration or fixture acquisition, a configured trace-capable RPC may import exact prestate into a witness:

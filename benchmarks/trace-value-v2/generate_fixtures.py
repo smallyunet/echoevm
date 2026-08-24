@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate frozen Solidity summary, broad-auto, and routed evidence fixtures."""
+"""Generate frozen Solidity execution, evidence, and explanation fixtures."""
 
 from __future__ import annotations
 
@@ -33,6 +33,21 @@ def command(binary: Path, case: dict[str, object], solc: str, solc_args: list[st
         "--solc", solc, "--gas", str(GAS),
         "--format", "evidence-json", "--profile", profile, "--limit", str(limit),
     ]
+    for value in solc_args:
+        args.extend(["--solc-arg", value])
+    return args
+
+
+def explain_command(binary: Path, case: dict[str, object], solc: str, solc_args: list[str]) -> list[str]:
+    source = (ROOT / str(case["source"])).relative_to(ROOT.parents[1])
+    args = [
+        str(binary), "explain", "solidity", str(source),
+        "--contract", str(case["contract"]), "--function", str(case["function"]),
+        "--args", str(case["args"]), "--solc", solc, "--gas", str(GAS),
+        "--format", "json", "--profile", str(case["profile"]), "--limit", "40",
+    ]
+    if case.get("expectedReturn"):
+        args.extend(["--expect-return", str(case["expectedReturn"])])
     for value in solc_args:
         args.extend(["--solc-arg", value])
     return args
@@ -90,6 +105,23 @@ def require_oracle(case: dict[str, object], payload: dict[str, object]) -> None:
             raise RuntimeError(f"{case['id']} missing exact wrong-divisor value flow")
 
 
+def require_explanation(case: dict[str, object], payload: dict[str, object]) -> None:
+    expected = case["expectedExplanation"]
+    if payload.get("schema") != "echoevm.explanation.v1":
+        raise RuntimeError(f"{case['id']} emitted unexpected explanation schema")
+    if payload.get("verdict", {}).get("code") != expected["verdict"]:
+        raise RuntimeError(f"{case['id']} emitted unexpected explanation verdict")
+    root = payload.get("rootCause") or {}
+    if root.get("code") != expected["rootCause"]:
+        raise RuntimeError(f"{case['id']} emitted unexpected root cause")
+    locations = {(item["depth"], item["pc"], item["op"]) for item in root.get("evidence", [])}
+    for name in ("primary", "secondary"):
+        oracle = case["oracle"][name]
+        location = (oracle["depth"], oracle["pc"], oracle["opcode"])
+        if location not in locations:
+            raise RuntimeError(f"{case['id']} explanation missing {name} location {location}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--echoevm", required=True, type=Path)
@@ -107,8 +139,10 @@ def main() -> None:
     for case in cases:
         broad = run_json(command(binary, case, args.solc, args.solc_arg, "full", 0))
         evidence = run_json(command(binary, case, args.solc, args.solc_arg, str(case["profile"]), 40))
+        explanation = run_json(explain_command(binary, case, args.solc, args.solc_arg))
         require_oracle(case, broad)
         require_oracle(case, evidence)
+        require_explanation(case, explanation)
         if broad["execution"] != evidence["execution"]:
             raise RuntimeError(f"{case['id']} execution changed across evidence profiles")
         common = {
@@ -116,7 +150,12 @@ def main() -> None:
             "request": {"contract": case["contract"], "function": case["function"], "args": case["args"], "fork": "Osaka"},
         }
         control = {**common, "format": "execution-summary.v1", "execution": broad["execution"]}
-        for condition, payload in (("control", control), ("broad", {**common, **broad}), ("evidence", {**common, **evidence})):
+        for condition, payload in (
+            ("control", control),
+            ("broad", {**common, **broad}),
+            ("evidence", {**common, **evidence}),
+            ("explanation", {**common, **explanation}),
+        ):
             case_dir = output / case["id"]
             case_dir.mkdir(exist_ok=True)
             (case_dir / f"{condition}.json").write_text(json.dumps(payload, separators=(",", ":")) + "\n")

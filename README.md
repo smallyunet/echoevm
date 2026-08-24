@@ -64,6 +64,24 @@ echoevm solidity run ./editors/vscode/examples/Counter.sol \
 `solidity run` invokes a local `solc` through standard JSON. Contract execution
 remains in the embedded EchoEVM engine.
 
+## Explain an execution
+
+```bash
+# Explain a self-contained transaction witness
+echoevm explain replay ./transaction.witness.json --format text
+
+# Explain one compiled Solidity function and compare its ABI return value
+echoevm explain solidity ./Contract.sol \
+  --contract Contract --function 'average(uint256[])' --args '[2,4,6,8]' \
+  --expect-return 0x05 --format json
+```
+
+`echoevm explain` emits either a human-readable report or the stable
+`echoevm.explanation.v1` document. It separates the verdict, directly captured
+causal findings, an optional root cause, and limitations. When an observed
+result differs from a declared expectation but the selected evidence cannot
+establish why, the verdict is `insufficient-evidence`.
+
 ## Replay a Mainnet transaction
 
 ```bash

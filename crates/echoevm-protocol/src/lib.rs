@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 pub const TRACE_SCHEMA: &str = "echoevm.trace.v1";
 pub const EVIDENCE_SCHEMA: &str = "echoevm.evidence.v1";
+pub const EXPLANATION_SCHEMA: &str = "echoevm.explanation.v1";
 pub const WITNESS_SCHEMA: &str = "echoevm.replay-witness.v1";
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const MAX_WITNESS_BYTES: usize = 64 << 20;
@@ -120,6 +121,74 @@ pub struct ReplayResult {
     pub witness: WitnessProvenance,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub evidence: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationExpectation {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub return_data: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationReference {
+    pub step: usize,
+    pub depth: usize,
+    pub pc: u64,
+    pub op: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationFinding {
+    pub code: String,
+    pub summary: String,
+    pub basis: String,
+    pub confidence: String,
+    #[serde(default)]
+    pub evidence: Vec<ExplanationReference>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationVerdict {
+    pub code: String,
+    pub summary: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationEvidenceSummary {
+    pub schema: String,
+    pub profile: String,
+    pub candidates: usize,
+    pub selected: usize,
+    pub omitted: usize,
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExplanationDocument {
+    pub schema: String,
+    pub input: serde_json::Value,
+    pub expectation: ExplanationExpectation,
+    pub verdict: ExplanationVerdict,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root_cause: Option<ExplanationFinding>,
+    #[serde(default)]
+    pub findings: Vec<ExplanationFinding>,
+    pub execution: serde_json::Value,
+    pub evidence: ExplanationEvidenceSummary,
+    #[serde(default)]
+    pub limitations: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -301,6 +370,7 @@ mod tests {
     fn protocol_versions_are_frozen() {
         assert_eq!(TRACE_SCHEMA, "echoevm.trace.v1");
         assert_eq!(EVIDENCE_SCHEMA, "echoevm.evidence.v1");
+        assert_eq!(EXPLANATION_SCHEMA, "echoevm.explanation.v1");
         assert_eq!(WITNESS_SCHEMA, "echoevm.replay-witness.v1");
         assert_eq!(PROTOCOL_VERSION, 1);
     }

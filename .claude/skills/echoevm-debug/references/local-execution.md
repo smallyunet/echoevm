@@ -37,6 +37,22 @@ echoevm solidity run <source.sol> \
 
 Route wrong-operand or numeric questions to `--profile arithmetic`. Source-run evidence preserves compiler, source, contract, and function metadata. Use separate runs and compare their structured results when the request requires a before/after comparison.
 
+When the task asks for a root-cause report rather than raw evidence, use the
+deterministic explanation facade and declare any known expectation explicitly:
+
+```bash
+echoevm explain solidity <source.sol> \
+  --contract <contract> \
+  --function '<canonical-signature>' \
+  --args <comma-separated-values> \
+  --expect-return <hex-value> \
+  --format json
+```
+
+Treat `rootCause` as established only when it is present. An
+`insufficient-evidence` verdict is a closed diagnostic result, not permission to
+guess from the source.
+
 Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, payable calls, or test discovery.
 
 ## Explain bytecode or an artifact

@@ -46,6 +46,11 @@ delegate storage-context writes, and the `SUB` PC 591 to `DIV` PC 701 value-flow
 carrying divisor `0x3`. Generated Solidity evidence includes the runtime source
 map used to enrich those locations.
 
+Each case also has a deterministic `echoevm.explanation.v1` fixture. The gate
+requires the generic root-cause class plus both exact oracle locations. Run
+`make test-explain` to regenerate the suite in a temporary directory and compare
+it byte-for-byte with the checked-in fixtures.
+
 This deterministic fixture gate restores the semantic evidence needed to rerun
 the model matrix on Rust. It does not transfer the v0.0.41 model result to the
 new implementation; a new external-model result requires a separately

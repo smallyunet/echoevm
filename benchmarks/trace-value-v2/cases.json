@@ -6,6 +6,7 @@
     "function": "ignoredChildRevert(uint256)",
     "args": "42",
     "profile": "revert",
+    "expectedExplanation": {"verdict":"completed-with-causal-findings","rootCause":"child-frame-failure-continued"},
     "question": "The function is required to propagate a failed child write. Instead the top-level call succeeds, returns false, and the child's provisional value 42 is not committed. Identify the failure-handling bug and the two causally relevant instructions.",
     "oracle": {"rootCause":"IGNORED_LOW_LEVEL_CALL_FAILURE","primary":{"depth":0,"pc":682,"opcode":"CALL"},"secondary":{"depth":1,"pc":237,"opcode":"REVERT"},"fix":"REQUIRE_CALL_SUCCESS"},
     "requiredLinks": ["enters-frame", "returns-to", "rolls-back"]
@@ -17,6 +18,7 @@
     "function": "swallowedCreateRevert(uint256)",
     "args": "7",
     "profile": "revert",
+    "expectedExplanation": {"verdict":"completed-with-causal-findings","rootCause":"child-frame-failure-continued"},
     "question": "The function is required to propagate constructor failure. Instead the top-level call succeeds and returns address(0) after the constructor provisionally writes marker 7 and reverts. Identify the failure-handling bug and the two causally relevant instructions.",
     "oracle": {"rootCause":"SWALLOWED_CREATE_FAILURE","primary":{"depth":0,"pc":776,"opcode":"CREATE"},"secondary":{"depth":1,"pc":110,"opcode":"REVERT"},"fix":"PROPAGATE_CREATE_REVERT"},
     "requiredLinks": ["enters-frame", "returns-to", "rolls-back"]
@@ -28,6 +30,7 @@
     "function": "delegateWriteCorruptsParent(uint256)",
     "args": "42",
     "profile": "storage",
+    "expectedExplanation": {"verdict":"completed-with-causal-findings","rootCause":"delegatecall-context-write"},
     "question": "The function should update Child.value to 42 without changing Parent.child. It returns true, but Parent storage slot 0 is overwritten with 42. Identify the execution-context bug and the paired state-changing instruction.",
     "oracle": {"rootCause":"DELEGATECALL_STORAGE_CONTEXT","primary":{"depth":0,"pc":454,"opcode":"DELEGATECALL"},"secondary":{"depth":1,"pc":244,"opcode":"SSTORE"},"fix":"USE_CALL_NOT_DELEGATECALL"},
     "requiredLinks": ["enters-frame", "returns-to"]
@@ -39,6 +42,8 @@
     "function": "wrongAverage(uint256[])",
     "args": "[2,4,6,8]",
     "profile": "arithmetic",
+    "expectedReturn": "0x05",
+    "expectedExplanation": {"verdict":"expectation-mismatch","rootCause":"arithmetic-input-provenance"},
     "question": "The function should return the average of [2,4,6,8], which is 5, but it returns 6. Identify the divisor bug, its consuming instruction, and the producer that supplies the wrong divisor.",
     "oracle": {"rootCause":"WRONG_DIVISOR","primary":{"depth":0,"pc":701,"opcode":"DIV"},"secondary":{"depth":0,"pc":591,"opcode":"SUB"},"fix":"DIVIDE_BY_LENGTH"},
     "requiredLinks": ["value-flow"]

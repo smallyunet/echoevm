@@ -5,6 +5,7 @@ mod bn254;
 mod bytecode;
 mod engine;
 mod evidence;
+mod explanation;
 mod kzg;
 pub mod opcode;
 mod replay;
@@ -13,6 +14,7 @@ pub mod state;
 pub use bytecode::{assemble, disassemble};
 pub use engine::{Authorization, Environment as BlockEnv, Transaction, transact};
 pub use evidence::build_evidence;
+pub use explanation::explain_evidence;
 pub use replay::replay_witness;
 
 use alloy_consensus::{

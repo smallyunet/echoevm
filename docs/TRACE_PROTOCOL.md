@@ -43,6 +43,23 @@ tracked arithmetic value flow. Storage events include their execution-context
 address and observed previous/value pair. Selected Solidity evidence events
 also carry source locations resolved from the runtime source map when available.
 
+## Deterministic explanation
+
+`echoevm explain replay` and `echoevm explain solidity` consume the same bounded
+evidence and emit `echoevm.explanation.v1`. The document separates `verdict`, an
+optional `rootCause`, all captured `findings`, execution and evidence summaries,
+and explicit `limitations`.
+
+Declared `--expect-status` and `--expect-return` values establish a mismatch;
+they do not themselves establish its cause. A root cause is emitted only when
+the selected frame, rollback, storage-context, or arithmetic provenance links
+close the causal chain. Otherwise the verdict is `insufficient-evidence`.
+
+When `--expect-return` is present and the profile remains `auto`, explain routes
+to the arithmetic profile. A short expected ABI word is compared with its
+32-byte zero-padded return encoding; arbitrary return byte strings otherwise
+remain exact.
+
 ## Boundary
 
 Trace and evidence are produced by the embedded Rust executor. They do not
