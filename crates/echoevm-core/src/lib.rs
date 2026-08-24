@@ -23,8 +23,8 @@ use alloy_consensus::{
 use alloy_eips::{Decodable2718, Typed2718};
 use alloy_primitives::{Address, B256, U256};
 use echoevm_protocol::{
-    ExecutionResult as WireResult, ExecutionStatus, ReplayResult, ReplayWitness, TraceStep,
-    TransactionSummary, WITNESS_SCHEMA, WitnessProvenance,
+    ExecutionResult as WireResult, ExecutionStatus, ReplayResult, ReplayWitness, TestFork,
+    TestWitness, TraceStep, TransactionSummary, WITNESS_SCHEMA, WitnessProvenance,
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -92,7 +92,7 @@ pub enum ExecuteError {
     Hex(String),
     #[error("invalid replay witness: {0}")]
     Witness(String),
-    #[error("replay witness is incomplete: missing {accounts_len} accounts and {storage_len} storage slots", accounts_len = .accounts.len(), storage_len = .storage.len())]
+    #[error("execution witness is incomplete: missing {accounts_len} accounts and {storage_len} storage slots", accounts_len = .accounts.len(), storage_len = .storage.len())]
     IncompleteWitness {
         accounts: Vec<Address>,
         storage: Vec<(Address, B256)>,
@@ -146,6 +146,107 @@ pub fn deploy_bytecode(
     Ok(engine::deploy(initcode, gas_limit, fork, include_trace))
 }
 
+/// Executes a strict test witness. Context-free v1 witnesses retain the
+/// original isolated-call behavior; context-bearing witnesses use the same
+/// transaction/state path as self-contained Mainnet replay.
+pub fn execute_test_witness(
+    witness: &TestWitness,
+    include_trace: bool,
+) -> Result<WireResult, ExecuteError> {
+    witness
+        .validate()
+        .map_err(|error| ExecuteError::Witness(error.to_string()))?;
+    let fork = match witness.fork {
+        TestFork::Cancun => Fork::Cancun,
+        TestFork::Prague => Fork::Prague,
+        TestFork::Osaka => Fork::Osaka,
+    };
+    let Some(context) = &witness.context else {
+        return Ok(engine::execute(engine::Request {
+            bytecode: witness.bytecode.to_vec(),
+            calldata: witness.calldata.to_vec(),
+            gas_limit: witness.gas_limit,
+            fork,
+            trace: include_trace,
+        }));
+    };
+
+    let mut world = state::WorldState::default();
+    world.enable_missing_tracking();
+    for (address, account) in &context.accounts {
+        world.mark_known_account(*address);
+        for slot in account.storage.keys() {
+            world.mark_known_storage(*address, U256::from_be_bytes(slot.0));
+        }
+        let target = world.account_mut(*address);
+        target.balance = account.balance;
+        target.nonce = account.nonce;
+        target.code = account.code.to_vec();
+        target.storage = account
+            .storage
+            .iter()
+            .map(|(slot, value)| (U256::from_be_bytes(slot.0), U256::from_be_bytes(value.0)))
+            .collect();
+    }
+    world.mark_known_account(context.target);
+    world.account_mut(context.target).code = witness.bytecode.to_vec();
+    world.mark_known_account(context.environment.coinbase);
+
+    let caller_nonce = context.accounts[&context.caller].nonce;
+    let mut execution = engine::transact(
+        &mut world,
+        engine::Transaction {
+            caller: context.caller,
+            to: Some(context.target),
+            value: context.value,
+            data: witness.calldata.to_vec(),
+            gas_limit: witness.gas_limit,
+            gas_price: context.gas_price,
+            max_fee_per_gas: context.gas_price,
+            max_priority_fee_per_gas: Some(U256::ZERO),
+            nonce: caller_nonce,
+            access_list: Vec::new(),
+            authorization_list: Vec::new(),
+            set_code: false,
+            max_fee_per_blob_gas: None,
+            fork,
+            environment: engine::Environment {
+                chain_id: context.environment.chain_id,
+                block_number: context.environment.block_number,
+                timestamp: context.environment.timestamp,
+                coinbase: context.environment.coinbase,
+                block_gas_limit: context.environment.block_gas_limit,
+                base_fee: context.environment.base_fee,
+                prevrandao: context.environment.prevrandao,
+                blob_base_fee: context.environment.blob_base_fee,
+                block_hashes: context.environment.block_hashes.clone(),
+                blob_hashes: Vec::new(),
+            },
+            trace: include_trace,
+        },
+    )
+    .map_err(|error| ExecuteError::Evm(error.into()))?;
+    let missing = world.missing_reads();
+    if !missing.accounts.is_empty() || !missing.storage.is_empty() {
+        return Err(ExecuteError::IncompleteWitness {
+            accounts: missing.accounts.into_iter().collect(),
+            storage: missing
+                .storage
+                .into_iter()
+                .map(|(address, slot)| (address, B256::from(slot.to_be_bytes::<32>())))
+                .collect(),
+        });
+    }
+    execution.storage = world
+        .accounts
+        .get(&context.target)
+        .into_iter()
+        .flat_map(|account| &account.storage)
+        .map(|(slot, value)| (format!("0x{slot:064x}"), format!("0x{value:064x}")))
+        .collect();
+    Ok(execution)
+}
+
 /// Executes a complete, self-contained Mainnet witness with the embedded engine.
 /// This path never contacts RPC or delegates execution to another client.
 #[cfg(test)]
@@ -153,6 +254,10 @@ mod tests {
     use super::*;
     use alloy_primitives::{Address, B256};
     use echoevm_protocol::WitnessAccount;
+    use echoevm_protocol::{
+        TEST_WITNESS_SCHEMA, TestAccount, TestEnvironment, TestExecutionContext, TestExpectation,
+        TestFork, TestWitness,
+    };
 
     #[test]
     fn adds_and_returns_word() {
@@ -188,6 +293,66 @@ mod tests {
         assert_eq!(trace.len(), 4);
         assert_eq!(trace[2].opcode_name, "ADD");
         assert!(trace[2].gas_before >= trace[2].gas_after);
+    }
+
+    fn stateful_test_witness(storage: BTreeMap<B256, B256>) -> TestWitness {
+        let caller = Address::from([0x10; 20]);
+        let target = Address::from([0x20; 20]);
+        TestWitness {
+            schema: TEST_WITNESS_SCHEMA.into(),
+            name: "stateful-sload".into(),
+            bytecode: decode_hex("60005460005260206000f3").unwrap().into(),
+            calldata: Default::default(),
+            gas_limit: 100_000,
+            fork: TestFork::Osaka,
+            expectation: TestExpectation::default(),
+            requires: Vec::new(),
+            source: None,
+            context: Some(TestExecutionContext {
+                caller,
+                target,
+                value: U256::ZERO,
+                gas_price: U256::ZERO,
+                accounts: BTreeMap::from([
+                    (
+                        caller,
+                        TestAccount {
+                            balance: U256::from(1_000_000),
+                            ..Default::default()
+                        },
+                    ),
+                    (
+                        target,
+                        TestAccount {
+                            storage,
+                            ..Default::default()
+                        },
+                    ),
+                ]),
+                environment: TestEnvironment::default(),
+            }),
+        }
+    }
+
+    #[test]
+    fn executes_stateful_test_witness_through_transaction_path() {
+        let slot = B256::ZERO;
+        let value = B256::from(U256::from(42).to_be_bytes::<32>());
+        let result = execute_test_witness(
+            &stateful_test_witness(BTreeMap::from([(slot, value)])),
+            true,
+        )
+        .unwrap();
+        assert_eq!(result.status, ExecutionStatus::Success);
+        assert_eq!(result.return_data, format!("0x{:064x}", 42));
+        assert!(result.trace.is_some());
+    }
+
+    #[test]
+    fn stateful_test_witness_fails_closed_on_undeclared_slot() {
+        let error =
+            execute_test_witness(&stateful_test_witness(BTreeMap::new()), true).unwrap_err();
+        assert!(matches!(error, ExecuteError::IncompleteWitness { .. }));
     }
 
     #[test]

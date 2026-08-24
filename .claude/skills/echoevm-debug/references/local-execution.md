@@ -62,10 +62,25 @@ echoevm explain test <failure.test-witness.json> --format json
 Require schema `echoevm.test-witness.v1`. Report the embedded expectation and
 SHA-256 provenance. A non-empty `requires` list must fail closed with
 `unsupported-capability`. Do not drop Foundry cheatcodes, RPC forks,
-setup-derived initial state, or multi-transaction requirements to make a test
-appear reproducible.
+unmaterialized setup state, or multi-transaction requirements to make a test
+appear reproducible. For a context-bearing witness, undeclared account or
+storage reads must fail as incomplete; do not interpret them as zero.
 
-Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, payable calls, or test discovery.
+To build one bounded call from a linked Foundry artifact:
+
+```bash
+echoevm witness from-foundry <artifact.json> \
+  --function '<signature>' \
+  --storage <32-byte-slot>=<32-byte-value> \
+  --out <failure.test-witness.json>
+```
+
+This adapter ABI-encodes a runtime call and materializes only explicitly
+supplied state. It is not Forge test discovery or Forge trace import. An
+ABI-visible `setUp()` and the standard HEVM cheatcode address are recorded as
+unsupported requirements.
+
+Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, or test discovery.
 
 ## Explain bytecode or an artifact
 
@@ -89,4 +104,7 @@ The trace records pre/post stack where available. Include the final execution st
 When compatibility or a suspected consensus bug is part of the task, reproduce
 it with a focused EchoEVM test and the pinned official fixture corpus.
 
-The current CLI does not expose arbitrary initial account or storage maps. Do not silently drop requested initial state; use a prepared witness when exact state is required.
+Use a context-bearing test witness for exact single-transaction account,
+storage, caller/value, and block context. It is not a substitute for earlier
+transactions or an RPC fork; those dependencies must remain explicit and
+unsupported until a producer can fully materialize them.

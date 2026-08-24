@@ -1,0 +1,14 @@
+{
+  "abi": [
+    {
+      "type": "function",
+      "name": "read",
+      "inputs": [],
+      "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
+      "stateMutability": "view"
+    }
+  ],
+  "deployedBytecode": {
+    "object": "0x60005460005260206000f3"
+  }
+}

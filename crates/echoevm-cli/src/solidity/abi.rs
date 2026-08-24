@@ -20,7 +20,7 @@ pub(super) fn select_contract<'a>(
     Ok(&contracts[0])
 }
 
-pub(super) fn select_function<'a>(abi: &'a JsonAbi, requested: &str) -> Result<&'a Function> {
+pub(crate) fn select_function<'a>(abi: &'a JsonAbi, requested: &str) -> Result<&'a Function> {
     let matches: Vec<_> = abi
         .functions()
         .filter(|function| function.name == requested || function.signature() == requested)
@@ -31,7 +31,7 @@ pub(super) fn select_function<'a>(abi: &'a JsonAbi, requested: &str) -> Result<&
     bail!("function {requested:?} did not uniquely identify an ABI function")
 }
 
-pub(super) fn coerce(params: &[Param], input: &str) -> Result<Vec<alloy_dyn_abi::DynSolValue>> {
+pub(crate) fn coerce(params: &[Param], input: &str) -> Result<Vec<alloy_dyn_abi::DynSolValue>> {
     let values = split_args(input);
     if params.len() != values.len() {
         bail!(

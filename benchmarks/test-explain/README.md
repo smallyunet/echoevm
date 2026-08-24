@@ -12,3 +12,5 @@ materialize those requirements into a supported self-contained witness or
 preserve them in `requires`; it must never silently drop them.
 
 Run `make test-test-witness` to exercise all supported and rejected fixtures.
+The gate also exports a stateful call from the checked-in Foundry artifact and
+verifies both successful replay and incomplete-storage rejection.

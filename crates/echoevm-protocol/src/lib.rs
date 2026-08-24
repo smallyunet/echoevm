@@ -8,7 +8,8 @@ use std::collections::BTreeMap;
 mod test_witness;
 
 pub use test_witness::{
-    TestExpectation, TestFork, TestSourceLocation, TestSourceMetadata, TestWitness,
+    TestAccount, TestEnvironment, TestExecutionContext, TestExpectation, TestFork,
+    TestSourceLocation, TestSourceMetadata, TestWitness,
 };
 
 pub const TRACE_SCHEMA: &str = "echoevm.trace.v1";
@@ -348,6 +349,8 @@ pub enum ProtocolError {
     TestName,
     #[error("test witness gasLimit must be non-zero")]
     TestGasLimit,
+    #[error("invalid test witness context: {0}")]
+    TestContext(String),
     #[error("unsupported-capability: {0}")]
     UnsupportedCapabilities(String),
 }

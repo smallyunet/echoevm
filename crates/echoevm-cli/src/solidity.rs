@@ -1,4 +1,4 @@
-mod abi;
+pub(crate) mod abi;
 mod compiler;
 mod source_map;
 

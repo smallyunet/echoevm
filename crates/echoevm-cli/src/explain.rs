@@ -2,11 +2,10 @@ use crate::solidity;
 use anyhow::{Result, bail};
 use clap::{Args, Subcommand, ValueEnum};
 use echoevm_core::{
-    ExecuteRequest, Fork, build_evidence, decode_hex, explain_evidence, replay_witness, trace,
+    build_evidence, decode_hex, execute_test_witness, explain_evidence, replay_witness,
 };
 use echoevm_protocol::{
-    ExecutionStatus, ExplanationDocument, ExplanationExpectation, ReplayWitness, TestFork,
-    TestWitness,
+    ExecutionStatus, ExplanationDocument, ExplanationExpectation, ReplayWitness, TestWitness,
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -107,17 +106,7 @@ pub fn execute(command: ExplainCommand) -> Result<()> {
 fn test(args: ExplainTestArgs) -> Result<()> {
     let bytes = fs::read(&args.witness)?;
     let witness = TestWitness::decode_strict(&bytes)?;
-    let fork = match witness.fork {
-        TestFork::Cancun => Fork::Cancun,
-        TestFork::Prague => Fork::Prague,
-        TestFork::Osaka => Fork::Osaka,
-    };
-    let execution = trace(ExecuteRequest {
-        bytecode: witness.bytecode.to_vec(),
-        calldata: witness.calldata.to_vec(),
-        gas_limit: witness.gas_limit,
-        fork,
-    })?;
+    let execution = execute_test_witness(&witness, true)?;
     let profile = test_profile(&args.profile, &witness);
     let mut evidence = build_evidence(&execution, profile, args.limit);
     enrich_test_sources(&mut evidence, &witness);

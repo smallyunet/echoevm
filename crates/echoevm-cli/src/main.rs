@@ -7,6 +7,7 @@ use echoevm_core::{
 use std::{fs, path::PathBuf};
 
 mod explain;
+mod foundry;
 mod repl;
 mod solidity;
 mod web;
@@ -79,6 +80,8 @@ enum WitnessCommand {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    /// Export one bounded runtime call from a Foundry JSON artifact.
+    FromFoundry(foundry::FoundryWitnessArgs),
 }
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
@@ -311,6 +314,7 @@ fn main() -> Result<()> {
                 rpc_url,
                 out,
             } => witness::import_debug(&input, &rpc_url, out.as_deref()),
+            WitnessCommand::FromFoundry(args) => foundry::export(args),
         },
     }
 }
