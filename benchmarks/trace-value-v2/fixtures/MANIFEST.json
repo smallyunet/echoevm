@@ -3,7 +3,7 @@
   "echoevm": {
     "runtime": "rust",
     "rustVersion": "unknown",
-    "version": "1.5.1"
+    "version": "1.6.0"
   },
   "compiler": {
     "executable": "node",

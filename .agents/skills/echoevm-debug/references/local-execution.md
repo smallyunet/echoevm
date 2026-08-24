@@ -80,7 +80,23 @@ supplied state. It is not Forge test discovery or Forge trace import. An
 ABI-visible `setUp()` and the standard HEVM cheatcode address are recorded as
 unsupported requirements.
 
-Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, or test discovery.
+For a linked artifact whose constructor and zero-argument `setUp()` can execute
+without HEVM cheatcodes, prefer the direct preparation workflow:
+
+```bash
+echoevm explain foundry <artifact.json> \
+  --test '<canonical-test-signature>' \
+  --witness-out <failure.test-witness.json> \
+  --format json
+```
+
+Report `setupExecuted`, the materialized account/slot counts, witness SHA-256,
+and whether the saved witness replays independently. This mode starts from an
+isolated empty chain; do not describe it as Forge execution, RPC-fork capture,
+or historical state replay. Both embedded and dynamically executed standard
+HEVM cheatcode targets must fail closed.
+
+Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, or automatic Forge-suite discovery.
 
 ## Explain bytecode or an artifact
 

@@ -1,6 +1,6 @@
 pub(crate) mod abi;
 mod compiler;
-mod source_map;
+pub(crate) mod source_map;
 
 use abi::*;
 use compiler::*;

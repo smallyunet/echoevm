@@ -97,7 +97,7 @@ pub(super) fn runtime_source_map(contract: &CompiledContract) -> Value {
     json!({"locations": locations})
 }
 
-pub(super) fn instruction_pcs(code: &[u8]) -> Vec<usize> {
+pub(crate) fn instruction_pcs(code: &[u8]) -> Vec<usize> {
     let mut pcs = Vec::new();
     let mut pc = 0;
     while pc < code.len() {

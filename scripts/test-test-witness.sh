@@ -62,7 +62,7 @@ fi
 grep -Fq 'execution witness is incomplete' "$scratch/incomplete.err"
 
 "$binary" witness from-foundry "$repo_dir/benchmarks/test-explain/foundry/SetUpTest.json" \
-  --function 'testExample()' --out "$scratch/setup.json"
+  --function 'testReadsSetup()' --out "$scratch/setup.json"
 jq -e '.requires == ["foundry-set-up"]' "$scratch/setup.json"
 if "$binary" explain test "$scratch/setup.json" --format json \
   >"$scratch/setup.out" 2>"$scratch/setup.err"; then
@@ -70,4 +70,34 @@ if "$binary" explain test "$scratch/setup.json" --format json \
   exit 1
 fi
 grep -Fq 'unsupported-capability: foundry-set-up' "$scratch/setup.err"
+
+"$binary" explain foundry "$repo_dir/benchmarks/test-explain/foundry/SetUpTest.json" \
+  --test 'testReadsSetup()' --expect-return "$value" --format json \
+  --witness-out "$scratch/prepared.json" >"$scratch/prepared-explanation.json"
+jq -e '
+  .input.kind == "foundry-test" and
+  .input.setupExecuted == true and
+  .input.materializedAccounts >= 2 and
+  .input.materializedStorageSlots >= 1 and
+  .input.witnessSchema == "echoevm.test-witness.v1" and
+  (.input.witnessSha256 | length) == 64 and
+  .verdict.code == "execution-completed" and
+  .execution.status == "success" and
+  .execution.returnData == "0x000000000000000000000000000000000000000000000000000000000000002a"
+' "$scratch/prepared-explanation.json"
+prepared_sha="$(shasum -a 256 "$scratch/prepared.json" | awk '{print $1}')"
+jq -e --arg sha "$prepared_sha" '.input.witnessSha256 == $sha' \
+  "$scratch/prepared-explanation.json"
+"$binary" explain test "$scratch/prepared.json" --format json | jq -e '
+  .verdict.code == "execution-completed" and .execution.status == "success"
+'
+
+wrong_value="0x000000000000000000000000000000000000000000000000000000000000002b"
+"$binary" explain foundry "$repo_dir/benchmarks/test-explain/foundry/SetUpTest.json" \
+  --test 'testReadsSetup()' --expect-return "$wrong_value" --format json | jq -e '
+  .verdict.code == "expectation-mismatch" and
+  .rootCause.code == "storage-output-provenance" and
+  any(.rootCause.evidence[]; .op == "SLOAD" and .source.file == "SetUpTest.sol") and
+  any(.rootCause.evidence[]; .op == "RETURN")
+'
 echo "Test witness explanation gate passed"

@@ -19,6 +19,8 @@ pub enum ExplainCommand {
     Test(ExplainTestArgs),
     /// Compile and explain one Solidity function execution.
     Solidity(Box<solidity::SolidityExplainArgs>),
+    /// Prepare and explain one self-contained Foundry test function.
+    Foundry(Box<crate::foundry::FoundryExplainArgs>),
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -100,16 +102,39 @@ pub fn execute(command: ExplainCommand) -> Result<()> {
         ExplainCommand::Replay(args) => replay(args),
         ExplainCommand::Test(args) => test(args),
         ExplainCommand::Solidity(args) => solidity::explain(*args),
+        ExplainCommand::Foundry(args) => crate::foundry::explain(*args),
     }
 }
 
 fn test(args: ExplainTestArgs) -> Result<()> {
     let bytes = fs::read(&args.witness)?;
     let witness = TestWitness::decode_strict(&bytes)?;
-    let execution = execute_test_witness(&witness, true)?;
-    let profile = test_profile(&args.profile, &witness);
-    let mut evidence = build_evidence(&execution, profile, args.limit);
-    enrich_test_sources(&mut evidence, &witness);
+    let input = json!({
+        "kind": "test-witness",
+        "path": args.witness,
+        "schema": witness.schema,
+        "name": witness.name,
+        "sha256": hex::encode(Sha256::digest(&bytes)),
+        "fork": format!("{:?}", witness.fork),
+        "gasLimit": witness.gas_limit,
+        "calldata": format!("0x{}", hex::encode(&witness.calldata)),
+        "source": witness.source,
+        "runtime": {"name": "EchoEVM", "version": env!("CARGO_PKG_VERSION")}
+    });
+    let document = explain_test_witness(&witness, input, &args.profile, args.limit)?;
+    write_explanation(&document, &args.format)
+}
+
+pub(crate) fn explain_test_witness(
+    witness: &TestWitness,
+    input: Value,
+    requested_profile: &str,
+    limit: usize,
+) -> Result<ExplanationDocument> {
+    let execution = execute_test_witness(witness, true)?;
+    let profile = test_profile(requested_profile, witness);
+    let mut evidence = build_evidence(&execution, profile, limit);
+    enrich_test_sources(&mut evidence, witness);
     let expectation = ExplanationExpectation {
         status: witness.expectation.status.as_ref().map(execution_status),
         return_data: witness
@@ -124,21 +149,7 @@ fn test(args: ExplainTestArgs) -> Result<()> {
             .map(|(slot, value)| (slot.to_string(), value.to_string()))
             .collect(),
     };
-    let digest = Sha256::digest(&bytes);
-    let input = json!({
-        "kind": "test-witness",
-        "path": args.witness,
-        "schema": witness.schema,
-        "name": witness.name,
-        "sha256": hex::encode(digest),
-        "fork": format!("{:?}", witness.fork),
-        "gasLimit": witness.gas_limit,
-        "calldata": format!("0x{}", hex::encode(&witness.calldata)),
-        "source": witness.source,
-        "runtime": {"name": "EchoEVM", "version": env!("CARGO_PKG_VERSION")}
-    });
-    let document = explain_evidence(&evidence, input, expectation);
-    write_explanation(&document, &args.format)
+    Ok(explain_evidence(&evidence, input, expectation))
 }
 
 fn test_profile<'a>(requested: &'a str, witness: &TestWitness) -> &'a str {

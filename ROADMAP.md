@@ -1,6 +1,21 @@
 # EchoEVM roadmap
 
-**Current release: v1.5.1 — auditable module boundaries, unchanged A-grade semantics**
+**Current release: v1.6.0 — self-contained Foundry test explanation with replayable evidence**
+
+## Delivered in v1.6.0
+
+- Add direct `echoevm explain foundry` preparation for linked artifacts:
+  constructor deployment, zero-argument `setUp()`, explicit read-set closure,
+  independently replayable witness output, and deterministic SHA-256
+  provenance.
+- Carry explicit accounts, storage, caller, target, value, and block context in
+  strict call-level test witnesses while failing closed on undeclared reads.
+- Track storage values through stack and memory into RETURN/REVERT so return
+  mismatches can identify `storage-output-provenance` as direct root evidence.
+- Reject standard and dynamically executed HEVM cheatcodes rather than treating
+  Forge behavior as ordinary empty-account calls.
+- Keep the scope to a fresh isolated single-test chain; RPC forks, external
+  historical state, and Forge orchestration remain outside the claim.
 
 ## Delivered in v1.5.1
 
@@ -84,8 +99,8 @@
 - Extend proof-backed acquisition to later block transactions by replaying all
   preceding transactions from the proved parent state.
 - Add Prague request/system-call and full block transition conformance.
-- Add source-level stepping and richer storage/value-flow links while preserving
-  the bounded evidence schema.
+- Add source-level stepping and richer branch/control value-flow links while
+  preserving the bounded evidence schema.
 - Publish the browser extension through a signed store channel after store
   credentials and review are available.
 

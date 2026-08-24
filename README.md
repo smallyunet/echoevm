@@ -73,6 +73,11 @@ echoevm explain replay ./transaction.witness.json --format text
 # Explain a self-contained call-level test
 echoevm explain test ./failure.test-witness.json --format text
 
+# Deploy a linked Foundry artifact, run setUp(), and explain one test call
+echoevm explain foundry out/Counter.t.sol/CounterTest.json \
+  --test 'testIncrement()' --witness-out failure.test-witness.json \
+  --format text
+
 # Explain one compiled Solidity function and compare its ABI return value
 echoevm explain solidity ./Contract.sol \
   --contract Contract --function 'average(uint256[])' --args '[2,4,6,8]' \
@@ -86,11 +91,13 @@ result differs from a declared expectation but the selected evidence cannot
 establish why, the verdict is `insufficient-evidence`.
 
 Call-level tests use the strict `echoevm.test-witness.v1` protocol. It carries
-runtime bytecode, calldata, fork/gas metadata, status/return/storage
-expectations, and optional source locations. Requirements that cannot yet be
-replayed independently—such as Foundry cheatcodes, RPC forks, or setup-derived
-initial state—must be listed in `requires` and fail with
-`unsupported-capability`.
+runtime bytecode, calldata, explicit accounts/storage/caller/value/environment,
+expectations, and optional source locations. `explain foundry` executes linked
+constructor bytecode and an ABI-visible zero-argument `setUp()` locally, closes
+the final call's read set against the resulting isolated state, then replays the
+materialized witness independently. Standard or dynamically reached HEVM
+cheatcodes fail with `unsupported-capability`; RPC forks and external historical
+state are not inferred.
 
 ## Replay a Mainnet transaction
 

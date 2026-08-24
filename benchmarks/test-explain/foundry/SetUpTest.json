@@ -9,13 +9,25 @@
     },
     {
       "type": "function",
-      "name": "testExample",
+      "name": "testReadsSetup",
       "inputs": [],
       "outputs": [],
       "stateMutability": "nonpayable"
     }
   ],
+  "id": 0,
+  "metadata": {
+    "settings": {
+      "compilationTarget": {
+        "SetUpTest.sol": "SetUpTest"
+      }
+    }
+  },
+  "bytecode": {
+    "object": "0x602a600c600039602a6000f35f3560e01c80630a9254e414601b5763fe030255146021575f5ffd5b602a5f55005b5f545f5260205ff3"
+  },
   "deployedBytecode": {
-    "object": "0x00"
+    "object": "0x5f3560e01c80630a9254e414601b5763fe030255146021575f5ffd5b602a5f55005b5f545f5260205ff3",
+    "sourceMap": "0:100:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
   }
 }

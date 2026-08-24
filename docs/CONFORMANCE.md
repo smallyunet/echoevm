@@ -1,6 +1,6 @@
 # EchoEVM conformance contract
 
-EchoEVM v1.5.1 calls a release **A-grade** only when every gate below passes
+EchoEVM v1.6.0 calls a release **A-grade** only when every gate below passes
 without skipped or expected-failure cases. This is a project release label, not
 an Ethereum Foundation certification and not a claim of full execution-client
 equivalence.
@@ -42,7 +42,8 @@ The release additionally requires:
 
 - the 15-vector native/Wasm bytecode matrix across 11 semantic categories;
 - focused Rust unit and integration tests;
-- CLI, Solidity, replay-witness, Chrome/Wasm, VS Code, and packaged-skill tests;
+- CLI, Solidity, replay-witness, stateful test-witness, Foundry preparation,
+  Chrome/Wasm, VS Code, and packaged-skill tests;
 - formatting, lint, locked dependency, and release artifact checks in CI.
 
 Run the complete local conformance gate with:

@@ -183,6 +183,7 @@ fn choose_root_cause(
     if return_mismatch {
         priorities.extend([
             "child-frame-failure-continued",
+            "storage-output-provenance",
             "arithmetic-input-provenance",
             "delegatecall-context-write",
         ]);

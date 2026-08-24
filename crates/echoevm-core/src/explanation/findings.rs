@@ -6,6 +6,7 @@ pub(super) fn collect(evidence: &Value, status: &str) -> Vec<ExplanationFinding>
     findings.extend(child_failure_findings(evidence, status));
     findings.extend(rollback_findings(evidence));
     findings.extend(delegate_context_findings(evidence));
+    findings.extend(storage_output_findings(evidence));
     findings.extend(arithmetic_findings(evidence));
     findings.extend(storage_write_findings(evidence));
     if matches!(status, "revert" | "fault")
@@ -24,6 +25,25 @@ pub(super) fn collect(evidence: &Value, status: &str) -> Vec<ExplanationFinding>
         });
     }
     findings
+}
+
+fn storage_output_findings(evidence: &Value) -> Vec<ExplanationFinding> {
+    links(evidence)
+        .iter()
+        .filter(|link| link.get("kind").and_then(Value::as_str) == Some("output-flow"))
+        .filter(|link| {
+            link.get("from")
+                .and_then(|endpoint| endpoint_op(evidence, endpoint))
+                == Some("SLOAD")
+        })
+        .map(|link| ExplanationFinding {
+            code: "storage-output-provenance".into(),
+            summary: "A value read from persistent storage flowed through memory into the execution output.".into(),
+            basis: "tracked stack and memory provenance from SLOAD to RETURN or REVERT".into(),
+            confidence: "direct".into(),
+            evidence: link_references(evidence, link),
+        })
+        .collect()
 }
 
 fn child_failure_findings(evidence: &Value, status: &str) -> Vec<ExplanationFinding> {

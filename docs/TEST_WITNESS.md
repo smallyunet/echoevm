@@ -64,3 +64,39 @@ execution. RPC forks, multi-transaction histories, dynamically reached
 cheatcodes, and constructor effects must be materialized by a producer before
 they can be executed. Forge failure text or Forge traces are never treated as
 EchoEVM execution evidence.
+
+## Direct Foundry test preparation
+
+For a linked artifact that does not use HEVM cheatcodes, EchoEVM can prepare
+and explain the test in one command:
+
+```bash
+echoevm explain foundry out/Counter.t.sol/CounterTest.json \
+  --test 'testIncrement()' \
+  --witness-out failure.test-witness.json \
+  --format json
+```
+
+The command performs four bounded phases with EchoEVM's own engine:
+
+1. Execute the artifact creation bytecode on a fresh isolated chain.
+2. Execute an ABI-visible zero-argument `setUp()` when present.
+3. Materialize the resulting accounts and storage plus zero-valued reads made
+   by the selected final call.
+4. Independently replay the self-contained final-call witness and build
+   `echoevm.explanation.v1`.
+
+When the Foundry artifact provides `deployedBytecode.sourceMap`, its own source
+ID and compilation target are used to attach exact runtime PC ranges for that
+source file. Imported-source IDs that are not named by the per-contract
+artifact remain opcode-level evidence rather than guessed source locations.
+
+`--witness-out` writes the exact pretty-printed bytes whose SHA-256 appears in
+the explanation. The saved file can be rerun with `echoevm explain test`
+without Foundry or RPC.
+
+This preparation model intentionally represents a fresh isolated chain. It
+does not import Forge execution results. Standard HEVM address constants are
+rejected conservatively, and executed call targets are checked again to catch
+dynamically constructed cheatcode addresses. RPC forks, broadcast scripts,
+multi-test ordering, and external historical state remain unsupported.

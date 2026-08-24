@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0
+
+- Package the direct Foundry test preparation workflow for constructor,
+  zero-argument `setUp()`, exact read-set closure, and independently replayable
+  witness evidence.
+- Carry explicit state and execution context through strict test witnesses and
+  surface storage-to-output provenance in bounded explanations.
+- Fail closed when a test executes HEVM cheatcodes outside EchoEVM's isolated
+  single-test execution boundary.
+
 ## 1.5.1
 
 - Align product copy with EchoEVM's exact-trace and bounded-evidence boundary.

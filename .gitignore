@@ -9,6 +9,8 @@
 /tests/official/.cache/
 /tests/official/fixtures/
 /tests/fixtures/
+/benchmarks/test-explain/foundry-project/out/
+/benchmarks/test-explain/foundry-project/cache/
 
 # Editor build outputs.
 /editors/vscode/node_modules/

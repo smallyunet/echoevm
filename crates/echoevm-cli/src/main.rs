@@ -81,7 +81,7 @@ enum WitnessCommand {
         out: Option<PathBuf>,
     },
     /// Export one bounded runtime call from a Foundry JSON artifact.
-    FromFoundry(foundry::FoundryWitnessArgs),
+    FromFoundry(Box<foundry::FoundryWitnessArgs>),
 }
 
 #[derive(Clone, Copy, Debug, Default, ValueEnum)]
@@ -314,7 +314,7 @@ fn main() -> Result<()> {
                 rpc_url,
                 out,
             } => witness::import_debug(&input, &rpc_url, out.as_deref()),
-            WitnessCommand::FromFoundry(args) => foundry::export(args),
+            WitnessCommand::FromFoundry(args) => foundry::export(*args),
         },
     }
 }

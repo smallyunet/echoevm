@@ -73,6 +73,14 @@ fn value_flow_links(steps: &[TraceStep]) -> Vec<serde_json::Value> {
             }
         }
 
+        if matches!(step.opcode_name.as_str(), "RETURN" | "REVERT")
+            && let Some(offset) = stack_word_usize(&step.stack_before, 0)
+            && let Some(Some(producer_index)) = memory.get(&(step.depth, offset))
+            && let Some(producer) = steps.get(*producer_index)
+        {
+            links.push(link("output-flow", producer, step, None, None));
+        }
+
         let memory_origin = match step.opcode_name.as_str() {
             "MSTORE" | "MSTORE8" => {
                 let offset = stack_word_usize(&step.stack_before, 0);
@@ -269,6 +277,24 @@ mod tests {
                 && link["from"]["pc"] == 10
                 && link["to"]["pc"] == 14
                 && link["value"] == format!("0x{:064x}", 3)
+        }));
+    }
+
+    #[test]
+    fn links_storage_value_through_memory_to_return() {
+        let steps = vec![
+            step(0, 0, 10, "SLOAD", &[0], &[42]),
+            step(1, 0, 11, "PUSH0", &[42], &[42, 0]),
+            step(2, 0, 12, "MSTORE", &[42, 0], &[]),
+            step(3, 0, 13, "PUSH1", &[], &[32]),
+            step(4, 0, 14, "PUSH0", &[32], &[32, 0]),
+            step(5, 0, 15, "RETURN", &[32, 0], &[]),
+        ];
+        let links = value_flow_links(&steps);
+        assert!(links.iter().any(|link| {
+            link["kind"] == "output-flow"
+                && link["from"]["op"] == "SLOAD"
+                && link["to"]["op"] == "RETURN"
         }));
     }
 }
