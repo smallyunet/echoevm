@@ -1,6 +1,17 @@
 # EchoEVM roadmap
 
-**Current release: v1.4.0 — proof-verified witness acquisition**
+**Current release: v1.5.0 — full declared-fork state-test conformance**
+
+## Delivered in v1.5.0
+
+- Expand the pinned `tests@v20.0.1` gate to every matching Cancun, Prague, and
+  Osaka state-test fixture: 7,216 files and 39,921 transactions, zero skip.
+- Verify signed transaction round-trip and sender, normalized rejection class,
+  receipt gas/status, logs commitment, account state, and state root.
+- Add EIP-152 BLAKE2F, high-s ECRECOVER handling, EIP-2200 SSTORE sentry,
+  fork-aware blob limits, EIP-7610 storage collisions, and the edge semantics
+  exposed by the expanded corpus.
+- Expose execution logs, logs hash, and state root in the additive v1 result.
 
 ## Delivered in v1.4.0
 
@@ -54,8 +65,8 @@
 
 ## Next
 
-- Expand the frozen official corpus to transaction and block fixture families,
-  then later execution-spec releases, without shrinking the current gates.
+- Expand into transaction and block fixture families, then later
+  execution-spec releases, without shrinking the current state-test gate.
 - Grow the bytecode matrix around call/create rollback, warm/cold access,
   precompiles, logs, memory overflow, and transaction-type boundaries.
 - Extend proof-backed acquisition to later block transactions by replaying all

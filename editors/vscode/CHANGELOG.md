@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.0
+
+- Align the extension with the EchoEVM 1.5.0 full Cancun-through-Osaka state
+  test gate and public execution logs/state commitments.
+
 ## 1.4.0
 
 - Keep the VS Code package aligned with the EchoEVM 1.4.0 proof-verified

@@ -8,6 +8,7 @@ exactly what EchoEVM observes, derives, and does not claim.
 | Replay a transaction from complete historical state | [Replay witnesses](REPLAY_WITNESS.md) |
 | Integrate trace or evidence output | [Trace protocol](TRACE_PROTOCOL.md) |
 | Understand supported bytecode semantics | [Bytecode compatibility](BYTECODE_COMPATIBILITY.md) |
+| Audit fixture counts and release-grade criteria | [Conformance contract](CONFORMANCE.md) |
 | Build against the frozen wire contract | [Protocol v1](../protocol/v1/README.md) |
 | Embed EchoEVM in VS Code | [VS Code onboarding validation](VSCode_ONBOARDING_VALIDATION.md) |
 
@@ -24,4 +25,3 @@ EchoEVM performs execution in its Rust engine. RPC and Geth adapters may acquire
 inputs or provide independent comparison data, but they are not the execution
 result or semantic oracle. See [replay witnesses](REPLAY_WITNESS.md) for the
 proof-backed and trace-backed acquisition boundaries.
-

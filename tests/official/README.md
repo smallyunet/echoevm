@@ -9,17 +9,17 @@ make setup-official-fixtures
 make test-official-fixtures
 ```
 
-The Rust gate executes the Cancun-, Prague-, and Osaka-authored state-test
-suites under their matching declared rulesets. Osaka additionally retains the
-Prague-authored cases evaluated for the Osaka post-state. It compares accepted
-post-state accounts, balances, nonce, code, and storage exactly, and requires
-consensus-invalid transactions to be rejected. The wrapper asserts all three
-exact release summaries:
+The Rust gate recursively executes every state-test fixture in the release's
+`for_cancun`, `for_prague`, and `for_osaka` directories under its matching
+declared ruleset. It validates canonical signed transaction bytes and recovered
+senders, accepted post-state accounts and roots, receipt status and gas, ordered
+logs commitments, and normalized rejection categories. The wrapper asserts all
+three exact release summaries:
 
 ```text
-files=63 transactions=1456 accepted=1303 rejected=153 fork=Cancun skipped=0
-files=134 transactions=2195 accepted=1998 rejected=197 fork=Prague skipped=0
-files=187 transactions=3461 accepted=3244 rejected=217 fork=Osaka skipped=0
+files=2337 transactions=11554 accepted=10968 rejected=586 fork=Cancun skipped=0
+files=2471 transactions=13851 accepted=13063 rejected=788 fork=Prague skipped=0
+files=2408 transactions=14516 accepted=13708 rejected=808 fork=Osaka skipped=0
 ```
 
 No allowlist, per-case skip, or Go/client differential output participates in

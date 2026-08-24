@@ -33,7 +33,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.4.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.5.0.zip`.
 
 ## Core workflows
 
@@ -113,13 +113,17 @@ The stable wire boundary is frozen under [`protocol/v1`](protocol/v1/README.md):
 - Solidity/editor protocol version 1
 
 The current `main` gate pins Ethereum execution-spec fixtures at
-`tests@v20.0.1` and executes exact zero-skip state-test corpora under matching
-Cancun, Prague, and Osaka rules: 63/1,456, 134/2,195, and 187/3,461
-files/transactions respectively.
+`tests@v20.0.1` and executes the complete matching state-test directories with
+zero skip: 2,337/11,554 Cancun, 2,471/13,851 Prague, and 2,408/14,516 Osaka
+files/transactions. Across 39,921 transactions it checks canonical signed
+transaction bytes and sender recovery, exact accept/reject category, receipt
+status and gas, logs hash, post-state accounts, and post-state root.
 A shared native/Wasm bytecode matrix adds 15 exact vectors across 11 semantic
 categories and freezes EchoEVM's 170-name opcode inventory. See the
+[`conformance contract`](docs/CONFORMANCE.md) and
 [`bytecode compatibility contract`](docs/BYTECODE_COMPATIBILITY.md). Official
-fixtures are the oracle; the archived Go implementation is not.
+fixtures are the oracle; the archived Go implementation is not. “A-grade” is
+an EchoEVM release-gate label, not an Ethereum Foundation certification.
 
 Supported transaction/interpreter scope is Cancun through Osaka. Pre-Cancun
 replay, full block validation, consensus networking, and Prague request
@@ -134,6 +138,7 @@ security audit or formal proof.
 | Replay a complete historical transaction | [Replay witnesses](docs/REPLAY_WITNESS.md) |
 | Integrate JSON or JSONL output | [Trace protocol](docs/TRACE_PROTOCOL.md) |
 | Review semantic coverage | [Bytecode compatibility](docs/BYTECODE_COMPATIBILITY.md) |
+| Audit the release conformance claim | [Conformance contract](docs/CONFORMANCE.md) |
 | Build against stable schemas | [Protocol v1](protocol/v1/README.md) |
 
 ## Workspace

@@ -1,8 +1,8 @@
 //! EchoEVM's independent legacy-bytecode interpreter.
 
 use crate::{DEFAULT_GAS_LIMIT, ENGINE_NAME, ENGINE_VERSION, Fork, opcode, state::WorldState};
-use alloy_primitives::{Address, B256, U256, keccak256};
-use echoevm_protocol::{ExecutionResult, ExecutionStatus, TraceStep};
+use alloy_primitives::{Address, B256, Bytes, Log, U256, keccak256};
+use echoevm_protocol::{ExecutionLog, ExecutionResult, ExecutionStatus, TraceStep};
 use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
 use num_bigint::BigUint;
 use p256::ecdsa::{
@@ -106,6 +106,7 @@ pub fn execute(request: Request) -> ExecutionResult {
 fn execute_inner(request: Request) -> ExecutionResult {
     let mut state = WorldState::default();
     state.begin_transaction();
+    warm_precompiles(&mut state, request.fork);
     let address = Address::ZERO;
     let trace = request.trace;
     let gas_limit = request.gas_limit;
@@ -124,6 +125,7 @@ pub fn deploy(initcode: Vec<u8>, gas_limit: u64, fork: Fork, trace: bool) -> Exe
 fn deploy_inner(initcode: Vec<u8>, gas_limit: u64, fork: Fork, trace: bool) -> ExecutionResult {
     let mut state = WorldState::default();
     state.begin_transaction();
+    warm_precompiles(&mut state, fork);
     let address = Address::from([0x10; 20]);
     let mut vm = Machine::new(
         Request {
@@ -165,6 +167,7 @@ fn deploy_and_call_inner(
 ) -> Result<ExecutionResult, &'static str> {
     let mut state = WorldState::default();
     state.begin_transaction();
+    warm_precompiles(&mut state, fork);
     let address = Address::from([0x10; 20]);
     let mut constructor = Machine::new(
         Request {
@@ -216,8 +219,14 @@ fn transact_inner(
     state: &mut WorldState,
     transaction: Transaction,
 ) -> Result<ExecutionResult, &'static str> {
+    if transaction.gas_limit > transaction.environment.block_gas_limit {
+        return Err("GasLimitExceedsBlockGasLimit");
+    }
     if transaction.fork == Fork::Osaka && transaction.gas_limit > OSAKA_TRANSACTION_GAS_LIMIT {
         return Err("GasLimitExceedsMaximum");
+    }
+    if transaction.to.is_none() && transaction.data.len() > 49_152 {
+        return Err("CreateInitCodeSizeLimit");
     }
     if transaction.set_code {
         if transaction.fork == Fork::Cancun {
@@ -242,7 +251,17 @@ fn transact_inner(
         if transaction.to.is_none() {
             return Err("BlobTransactionContractCreation");
         }
-        if transaction.environment.blob_hashes.len() > 6 {
+        // Prague's EIP-7691 raises the block/transaction allowance to nine;
+        // Osaka's EIP-7934 caps a single blob transaction back at six.
+        let max_blobs = if transaction.fork == Fork::Prague {
+            9
+        } else {
+            6
+        };
+        if transaction.fork != Fork::Cancun && transaction.environment.blob_hashes.len() > 9 {
+            return Err("BlobGasAllowanceExceeded");
+        }
+        if transaction.environment.blob_hashes.len() > max_blobs {
             return Err("TooManyBlobs");
         }
         if transaction
@@ -274,6 +293,9 @@ fn transact_inner(
     }
     if sender.nonce != transaction.nonce {
         return Err("NonceMismatch");
+    }
+    if sender.nonce == u64::MAX {
+        return Err("NonceOverflow");
     }
     let intrinsic = intrinsic_gas(
         &transaction.data,
@@ -322,6 +344,7 @@ fn transact_inner(
     }
 
     state.begin_transaction();
+    warm_precompiles(state, transaction.fork);
     state.account_mut(transaction.caller).balance -= gas_cost;
     state.account_mut(transaction.caller).balance -= blob_cost;
     state.account_mut(transaction.caller).nonce += 1;
@@ -330,10 +353,14 @@ fn transact_inner(
     let target = transaction
         .to
         .unwrap_or_else(|| create_address(transaction.caller, transaction.nonce));
-    if !state.transfer(transaction.caller, target, transaction.value) {
+    let create_collision = transaction.to.is_none()
+        && state.account(target).is_some_and(|account| {
+            account.nonce != 0 || !account.code.is_empty() || !account.storage.is_empty()
+        });
+    if !create_collision && !state.transfer(transaction.caller, target, transaction.value) {
         return Err("InsufficientFunds");
     }
-    if transaction.to.is_none() {
+    if transaction.to.is_none() && !create_collision {
         state.account_mut(target).nonce = 1;
         state.created.insert(target);
     }
@@ -350,52 +377,53 @@ fn transact_inner(
     }
 
     let available = transaction.gas_limit - intrinsic;
-    let (mut halt, mut remaining, steps) =
-        if transaction.to.is_some() && is_precompile(target, transaction.fork) {
-            let (halt, remaining) =
-                run_precompile(target, transaction.data, available, transaction.fork);
-            (halt, remaining, Vec::new())
-        } else {
-            let code = if transaction.to.is_some() {
-                if let Some(delegate) = delegation_target(state.code(target), transaction.fork) {
-                    state.warm_addresses.insert(delegate);
-                    if is_precompile(delegate, transaction.fork) {
-                        Vec::new()
-                    } else {
-                        state.code(delegate).to_vec()
-                    }
+    let (mut halt, mut remaining, steps) = if create_collision {
+        (Halt::Fault("CreateCollision"), 0, Vec::new())
+    } else if transaction.to.is_some() && is_precompile(target, transaction.fork) {
+        let (halt, remaining) =
+            run_precompile(target, transaction.data, available, transaction.fork);
+        (halt, remaining, Vec::new())
+    } else {
+        let code = if transaction.to.is_some() {
+            if let Some(delegate) = delegation_target(state.code(target), transaction.fork) {
+                state.warm_addresses.insert(delegate);
+                if is_precompile(delegate, transaction.fork) {
+                    Vec::new()
                 } else {
-                    state.code(target).to_vec()
+                    state.code(delegate).to_vec()
                 }
             } else {
-                transaction.data.clone()
-            };
-            let calldata = if transaction.to.is_some() {
-                transaction.data
-            } else {
-                Vec::new()
-            };
-            let mut machine = Machine::new_frame(
-                code,
-                calldata,
-                available,
-                transaction.fork,
-                transaction.trace,
-                state,
-                target,
-                transaction.caller,
-                transaction.caller,
-                transaction.value,
-                0,
-                false,
-                transaction.gas_price,
-                transaction.environment.clone(),
-            );
-            let halt = machine.run();
-            let remaining = machine.gas;
-            let steps = std::mem::take(&mut machine.steps);
-            (halt, remaining, steps)
+                state.code(target).to_vec()
+            }
+        } else {
+            transaction.data.clone()
         };
+        let calldata = if transaction.to.is_some() {
+            transaction.data
+        } else {
+            Vec::new()
+        };
+        let mut machine = Machine::new_frame(
+            code,
+            calldata,
+            available,
+            transaction.fork,
+            transaction.trace,
+            state,
+            target,
+            transaction.caller,
+            transaction.caller,
+            transaction.value,
+            0,
+            false,
+            transaction.gas_price,
+            transaction.environment.clone(),
+        );
+        let halt = machine.run();
+        let remaining = machine.gas;
+        let steps = std::mem::take(&mut machine.steps);
+        (halt, remaining, steps)
+    };
     if transaction.to.is_none()
         && let Halt::Return(code) = &halt
     {
@@ -504,7 +532,7 @@ fn result_from_halt(
             ExecutionStatus::Fault,
             Vec::new(),
             Some(error.to_owned()),
-            gas_limit,
+            gas_limit.saturating_sub(remaining),
         ),
     };
     let storage = state
@@ -513,12 +541,24 @@ fn result_from_halt(
         .flat_map(|account| &account.storage)
         .map(|(slot, value)| (format!("0x{slot:064x}"), format!("0x{value:064x}")))
         .collect();
+    let logs = state
+        .logs
+        .iter()
+        .map(|log| ExecutionLog {
+            address: log.address.to_string(),
+            topics: log.topics().iter().map(ToString::to_string).collect(),
+            data: format!("0x{}", hex::encode(&log.data.data)),
+        })
+        .collect();
     ExecutionResult {
         engine: ENGINE_NAME.into(),
         engine_version: ENGINE_VERSION.into(),
         status,
         return_data: format!("0x{}", hex::encode(output)),
         gas_used,
+        logs,
+        logs_hash: keccak256(alloy_rlp::encode(&state.logs)).to_string(),
+        state_root: state.state_root().to_string(),
         storage,
         trace: trace.then_some(steps),
         error,
@@ -582,8 +622,8 @@ impl<'a> Machine<'a> {
             self.pc += 1;
             let name = opcode::name(op).unwrap_or("UNKNOWN");
             let gas_before = self.gas;
-            let stack_before = self.stack_snapshot();
             let trace_index = self.trace.then(|| {
+                let stack_before = self.stack_snapshot();
                 let index = self.steps.len();
                 self.steps.push(TraceStep {
                     index,
@@ -791,11 +831,14 @@ impl<'a> Machine<'a> {
             }
             0x35 => {
                 self.charge(3)?;
-                let offset = self.pop_usize()?;
+                let offset = self.pop()?;
                 let mut word = [0u8; 32];
-                if offset < self.calldata.len() {
-                    let size = (self.calldata.len() - offset).min(32);
-                    word[..size].copy_from_slice(&self.calldata[offset..offset + size]);
+                if offset <= U256::from(usize::MAX) {
+                    let offset = offset.to::<usize>();
+                    if offset < self.calldata.len() {
+                        let size = (self.calldata.len() - offset).min(32);
+                        word[..size].copy_from_slice(&self.calldata[offset..offset + size]);
+                    }
                 }
                 self.push(U256::from_be_bytes(word))
             }
@@ -832,6 +875,12 @@ impl<'a> Machine<'a> {
             0x55 => {
                 if self.static_mode {
                     return Err(Halt::Fault("StateChangeDuringStaticCall"));
+                }
+                // EIP-2200's sentry prevents SSTORE when at most the CALL
+                // stipend remains, even when the eventual write would be a
+                // warm no-op costing less than 2,300 gas.
+                if self.gas <= 2_300 {
+                    return Err(Halt::Fault("OutOfGas"));
                 }
                 let key = self.pop()?;
                 let value = self.pop()?;
@@ -1024,8 +1073,9 @@ impl<'a> Machine<'a> {
     }
 
     fn keccak(&mut self) -> Result<(), Halt> {
-        let offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let offset = self.pop()?;
+        let size = self.pop()?;
+        let (offset, size) = memory_region(offset, size)?;
         self.charge(30 + 6 * words(size))?;
         self.expand(offset, size)?;
         self.push(U256::from_be_bytes(
@@ -1035,35 +1085,51 @@ impl<'a> Machine<'a> {
 
     fn copy_data(&mut self, source: DataSource) -> Result<(), Halt> {
         self.charge(3)?;
-        let memory_offset = self.pop_usize()?;
-        let data_offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let memory_offset = self.pop()?;
+        let data_offset = self.pop()?;
+        let size = self.pop()?;
+        let (memory_offset, size) = memory_region(memory_offset, size)?;
         self.charge(copy_gas(size))?;
         self.expand(memory_offset, size)?;
+        if data_offset > U256::from(usize::MAX) {
+            return Ok(());
+        }
+        let data_offset = data_offset.to::<usize>();
         let data: &[u8] = match source {
             DataSource::Calldata => &self.calldata,
             DataSource::Code => &self.code,
         };
         for index in 0..size {
-            self.memory[memory_offset + index] =
-                data.get(data_offset + index).copied().unwrap_or(0);
+            self.memory[memory_offset + index] = data_offset
+                .checked_add(index)
+                .and_then(|offset| data.get(offset))
+                .copied()
+                .unwrap_or(0);
         }
         Ok(())
     }
 
     fn extcodecopy(&mut self) -> Result<(), Halt> {
         let address = word_address(self.pop()?);
-        let memory_offset = self.pop_usize()?;
-        let code_offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let memory_offset = self.pop()?;
+        let code_offset = self.pop()?;
+        let size = self.pop()?;
+        let (memory_offset, size) = memory_region(memory_offset, size)?;
         let cold = self.state.warm_addresses.insert(address);
         self.charge(if cold { 2_600 } else { 100 })?;
         self.charge(copy_gas(size))?;
         self.expand(memory_offset, size)?;
+        if code_offset > U256::from(usize::MAX) {
+            return Ok(());
+        }
+        let code_offset = code_offset.to::<usize>();
         let code = self.state.code(address);
         for index in 0..size {
-            self.memory[memory_offset + index] =
-                code.get(code_offset + index).copied().unwrap_or(0);
+            self.memory[memory_offset + index] = code_offset
+                .checked_add(index)
+                .and_then(|offset| code.get(offset))
+                .copied()
+                .unwrap_or(0);
         }
         Ok(())
     }
@@ -1078,6 +1144,9 @@ impl<'a> Machine<'a> {
         }
         let size = usize_from_word(size)?;
         self.charge(copy_gas(size))?;
+        if size == 0 {
+            return Ok(());
+        }
         let destination = usize_from_word(destination)?;
         let source = usize_from_word(source)?;
         self.expand(destination, size)?;
@@ -1091,13 +1160,27 @@ impl<'a> Machine<'a> {
             return Err(Halt::Fault("StateChangeDuringStaticCall"));
         }
         let topics = usize::from(op - 0xa0);
-        let offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
-        for _ in 0..topics {
-            self.pop()?;
-        }
-        self.charge(375 + 375 * topics as u64 + 8 * size as u64)?;
-        self.expand(offset, size)
+        let offset = self.pop()?;
+        let size = self.pop()?;
+        let (offset, size) = memory_region(offset, size)?;
+        let topics = (0..topics)
+            .map(|_| {
+                self.pop()
+                    .map(|topic| B256::from(topic.to_be_bytes::<32>()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        self.charge(
+            375u64
+                .saturating_add(375u64.saturating_mul(topics.len() as u64))
+                .saturating_add(8u64.saturating_mul(size as u64)),
+        )?;
+        self.expand(offset, size)?;
+        self.state.logs.push(Log::new_unchecked(
+            self.address,
+            topics,
+            Bytes::copy_from_slice(&self.memory[offset..offset + size]),
+        ));
+        Ok(())
     }
 
     fn dup(&mut self, op: u8) -> Result<(), Halt> {
@@ -1156,10 +1239,14 @@ impl<'a> Machine<'a> {
 
     fn jump(&mut self, conditional: bool) -> Result<(), Halt> {
         self.charge(if conditional { 10 } else { 8 })?;
-        let destination = self.pop_usize()?;
+        let destination = self.pop()?;
         if conditional && self.pop()?.is_zero() {
             return Ok(());
         }
+        if destination > U256::from(usize::MAX) {
+            return Err(Halt::Fault("InvalidJump"));
+        }
+        let destination = destination.to::<usize>();
         if destination >= self.code.len()
             || self.code[destination] != 0x5b
             || self.in_push_data(destination)
@@ -1191,9 +1278,15 @@ impl<'a> Machine<'a> {
 
     fn copy_return_data(&mut self) -> Result<(), Halt> {
         self.charge(3)?;
-        let memory_offset = self.pop_usize()?;
-        let data_offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let memory_offset = self.pop()?;
+        let data_offset = self.pop()?;
+        let size = self.pop()?;
+        let (memory_offset, size) = memory_region(memory_offset, size)?;
+        let data_offset = if data_offset > U256::from(usize::MAX) {
+            return Err(Halt::Fault("OutOfOffset"));
+        } else {
+            data_offset.to::<usize>()
+        };
         let end = data_offset
             .checked_add(size)
             .ok_or(Halt::Fault("OutOfOffset"))?;
@@ -1201,6 +1294,9 @@ impl<'a> Machine<'a> {
             return Err(Halt::Fault("OutOfOffset"));
         }
         self.charge(copy_gas(size))?;
+        if size == 0 {
+            return Ok(());
+        }
         self.expand(memory_offset, size)?;
         self.memory[memory_offset..memory_offset + size]
             .copy_from_slice(&self.return_data[data_offset..end]);
@@ -1215,11 +1311,13 @@ impl<'a> Machine<'a> {
         } else {
             U256::ZERO
         };
-        let input_offset = self.pop_usize()?;
-        let input_size = self.pop_usize()?;
-        let output_offset = self.pop_usize()?;
-        let output_size = self.pop_usize()?;
-        if self.static_mode && !value.is_zero() {
+        let input_offset_word = self.pop()?;
+        let input_size_word = self.pop()?;
+        let output_offset_word = self.pop()?;
+        let output_size_word = self.pop()?;
+        let (input_offset, input_size) = memory_region(input_offset_word, input_size_word)?;
+        let (output_offset, output_size) = memory_region(output_offset_word, output_size_word)?;
+        if self.static_mode && op == 0xf1 && !value.is_zero() {
             return Err(Halt::Fault("StateChangeDuringStaticCall"));
         }
         self.expand(input_offset, input_size)?;
@@ -1236,8 +1334,6 @@ impl<'a> Machine<'a> {
         if !value.is_zero() {
             base_cost += 9_000;
             if op == 0xf1
-                && (!is_precompile(code_address, self.fork)
-                    || is_p256verify_precompile(code_address, self.fork))
                 && self.state.account(code_address).is_none_or(|account| {
                     account.nonce == 0 && account.balance.is_zero() && account.code.is_empty()
                 })
@@ -1248,8 +1344,8 @@ impl<'a> Machine<'a> {
         self.charge(base_cost)?;
         let cap = self.gas - self.gas / 64;
         let forwarded = requested_gas.min(cap);
-        self.charge(forwarded)?;
         let child_gas = forwarded + if value.is_zero() { 0 } else { 2_300 };
+        self.charge(forwarded)?;
         if self.depth >= 1_024 {
             self.gas = self.gas.saturating_add(child_gas);
             self.return_data.clear();
@@ -1270,6 +1366,11 @@ impl<'a> Machine<'a> {
         let call_value = if op == 0xf4 { self.call_value } else { value };
         let static_mode = self.static_mode || op == 0xfa;
         let snapshot = self.state.clone();
+        if matches!(op, 0xf1 | 0xf2) && self.state.balance(self.address) < value {
+            self.gas = self.gas.saturating_add(child_gas);
+            self.return_data.clear();
+            return self.push(U256::ZERO);
+        }
         if op == 0xf1 && !self.state.transfer(self.address, code_address, value) {
             self.gas = self.gas.saturating_add(child_gas);
             self.return_data.clear();
@@ -1338,8 +1439,9 @@ impl<'a> Machine<'a> {
             return Err(Halt::Fault("StateChangeDuringStaticCall"));
         }
         let value = self.pop()?;
-        let offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let offset = self.pop()?;
+        let size = self.pop()?;
+        let (offset, size) = memory_region(offset, size)?;
         let salt = if op == 0xf5 { Some(self.pop()?) } else { None };
         self.charge(32_000 + words(size) * if op == 0xf5 { 8 } else { 2 })?;
         self.expand(offset, size)?;
@@ -1356,6 +1458,13 @@ impl<'a> Machine<'a> {
             .account(self.address)
             .map(|a| a.nonce)
             .unwrap_or_default();
+        // EIP-2681 makes an account at the nonce limit unable to create any
+        // further contracts. This applies to both CREATE and CREATE2 even
+        // though CREATE2 does not derive its destination from the nonce.
+        if creator_nonce == u64::MAX {
+            self.return_data.clear();
+            return self.push(U256::ZERO);
+        }
         let address = if let Some(salt) = salt {
             create2_address(self.address, salt, &initcode)
         } else {
@@ -1365,11 +1474,9 @@ impl<'a> Machine<'a> {
         self.state.warm_addresses.insert(address);
         let forwarded = self.gas - self.gas / 64;
         self.charge(forwarded)?;
-        if self
-            .state
-            .account(address)
-            .is_some_and(|account| account.nonce != 0 || !account.code.is_empty())
-        {
+        if self.state.account(address).is_some_and(|account| {
+            account.nonce != 0 || !account.code.is_empty() || !account.storage.is_empty()
+        }) {
             self.return_data.clear();
             return self.push(U256::ZERO);
         }
@@ -1481,8 +1588,9 @@ impl<'a> Machine<'a> {
     }
 
     fn output_region(&mut self) -> Result<Vec<u8>, Halt> {
-        let offset = self.pop_usize()?;
-        let size = self.pop_usize()?;
+        let offset = self.pop()?;
+        let size = self.pop()?;
+        let (offset, size) = memory_region(offset, size)?;
         self.expand(offset, size)?;
         Ok(self.memory[offset..offset + size].to_vec())
     }
@@ -1556,6 +1664,15 @@ fn usize_from_word(value: U256) -> Result<usize, Halt> {
     }
 }
 
+fn memory_region(offset: U256, size: U256) -> Result<(usize, usize), Halt> {
+    let size = usize_from_word(size)?;
+    if size == 0 {
+        Ok((0, 0))
+    } else {
+        Ok((usize_from_word(offset)?, size))
+    }
+}
+
 #[derive(Clone, Copy)]
 enum DataSource {
     Calldata,
@@ -1570,6 +1687,20 @@ fn is_precompile(address: Address, fork: Fork) -> bool {
     }
     let maximum = if fork == Fork::Cancun { 10 } else { 17 };
     bytes[..19].iter().all(|byte| *byte == 0) && (1..=maximum).contains(&bytes[19])
+}
+
+fn warm_precompiles(state: &mut WorldState, fork: Fork) {
+    let maximum = if fork == Fork::Cancun { 10 } else { 17 };
+    for number in 1..=maximum {
+        let mut bytes = [0u8; 20];
+        bytes[19] = number;
+        state.warm_addresses.insert(Address::from(bytes));
+    }
+    if fork == Fork::Osaka {
+        let mut bytes = [0u8; 20];
+        bytes[18..].copy_from_slice(&0x100u16.to_be_bytes());
+        state.warm_addresses.insert(Address::from(bytes));
+    }
 }
 
 fn is_p256verify_precompile(address: Address, fork: Fork) -> bool {
@@ -1602,6 +1733,7 @@ fn run_precompile(address: Address, input: Vec<u8>, gas: u64, fork: Fork) -> (Ha
         6 => 150,
         7 => 6_000,
         8 => 45_000 + 34_000 * (input.len() / 192) as u64,
+        9 if input.len() == 213 => u32::from_be_bytes(input[..4].try_into().unwrap()) as u64,
         10 => 50_000,
         11..=17 if fork != Fork::Cancun => crate::bls::gas(number as u8, input.len()).unwrap(),
         0x100 if fork == Fork::Osaka => 6_900,
@@ -1633,6 +1765,10 @@ fn run_precompile(address: Address, input: Vec<u8>, gas: u64, fork: Fork) -> (Ha
                     None => return (Halt::Fault("PrecompileError"), 0),
                 },
                 8 => match crate::bn254::pairing(&input) {
+                    Some(output) => output,
+                    None => return (Halt::Fault("PrecompileError"), 0),
+                },
+                9 => match blake2f_precompile(&input) {
                     Some(output) => output,
                     None => return (Halt::Fault("PrecompileError"), 0),
                 },
@@ -1677,6 +1813,80 @@ fn p256verify_precompile(input: &[u8]) -> Vec<u8> {
     output
 }
 
+fn blake2f_precompile(input: &[u8]) -> Option<Vec<u8>> {
+    const IV: [u64; 8] = [
+        0x6a09e667f3bcc908,
+        0xbb67ae8584caa73b,
+        0x3c6ef372fe94f82b,
+        0xa54ff53a5f1d36f1,
+        0x510e527fade682d1,
+        0x9b05688c2b3e6c1f,
+        0x1f83d9abfb41bd6b,
+        0x5be0cd19137e2179,
+    ];
+    const SIGMA: [[usize; 16]; 10] = [
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        [14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3],
+        [11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4],
+        [7, 9, 3, 1, 13, 12, 11, 14, 2, 6, 5, 10, 4, 0, 15, 8],
+        [9, 0, 5, 7, 2, 4, 10, 15, 14, 1, 11, 12, 6, 8, 3, 13],
+        [2, 12, 6, 10, 0, 11, 8, 3, 4, 13, 7, 5, 15, 14, 1, 9],
+        [12, 5, 1, 15, 14, 13, 4, 10, 0, 7, 6, 3, 9, 2, 8, 11],
+        [13, 11, 7, 14, 12, 1, 3, 9, 5, 0, 15, 4, 8, 6, 2, 10],
+        [6, 15, 14, 9, 11, 3, 0, 8, 12, 2, 13, 7, 1, 4, 10, 5],
+        [10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0],
+    ];
+    if input.len() != 213 || input[212] > 1 {
+        return None;
+    }
+    let rounds = u32::from_be_bytes(input[..4].try_into().ok()?) as usize;
+    let mut h = [0u64; 8];
+    let mut m = [0u64; 16];
+    for (index, word) in h.iter_mut().enumerate() {
+        *word = u64::from_le_bytes(input[4 + index * 8..12 + index * 8].try_into().ok()?);
+    }
+    for (index, word) in m.iter_mut().enumerate() {
+        *word = u64::from_le_bytes(input[68 + index * 8..76 + index * 8].try_into().ok()?);
+    }
+    let t0 = u64::from_le_bytes(input[196..204].try_into().ok()?);
+    let t1 = u64::from_le_bytes(input[204..212].try_into().ok()?);
+    let mut v = [0u64; 16];
+    v[..8].copy_from_slice(&h);
+    v[8..].copy_from_slice(&IV);
+    v[12] ^= t0;
+    v[13] ^= t1;
+    if input[212] == 1 {
+        v[14] = !v[14];
+    }
+    for round in 0..rounds {
+        let s = SIGMA[round % 10];
+        blake2f_g(&mut v, 0, 4, 8, 12, m[s[0]], m[s[1]]);
+        blake2f_g(&mut v, 1, 5, 9, 13, m[s[2]], m[s[3]]);
+        blake2f_g(&mut v, 2, 6, 10, 14, m[s[4]], m[s[5]]);
+        blake2f_g(&mut v, 3, 7, 11, 15, m[s[6]], m[s[7]]);
+        blake2f_g(&mut v, 0, 5, 10, 15, m[s[8]], m[s[9]]);
+        blake2f_g(&mut v, 1, 6, 11, 12, m[s[10]], m[s[11]]);
+        blake2f_g(&mut v, 2, 7, 8, 13, m[s[12]], m[s[13]]);
+        blake2f_g(&mut v, 3, 4, 9, 14, m[s[14]], m[s[15]]);
+    }
+    let mut output = Vec::with_capacity(64);
+    for index in 0..8 {
+        output.extend_from_slice(&(h[index] ^ v[index] ^ v[index + 8]).to_le_bytes());
+    }
+    Some(output)
+}
+
+fn blake2f_g(v: &mut [u64; 16], a: usize, b: usize, c: usize, d: usize, x: u64, y: u64) {
+    v[a] = v[a].wrapping_add(v[b]).wrapping_add(x);
+    v[d] = (v[d] ^ v[a]).rotate_right(32);
+    v[c] = v[c].wrapping_add(v[d]);
+    v[b] = (v[b] ^ v[c]).rotate_right(24);
+    v[a] = v[a].wrapping_add(v[b]).wrapping_add(y);
+    v[d] = (v[d] ^ v[a]).rotate_right(16);
+    v[c] = v[c].wrapping_add(v[d]);
+    v[b] = (v[b] ^ v[c]).rotate_right(63);
+}
+
 fn ecrecover_precompile(input: &[u8]) -> Vec<u8> {
     let mut padded = [0u8; 128];
     let copy = input.len().min(128);
@@ -1684,15 +1894,22 @@ fn ecrecover_precompile(input: &[u8]) -> Vec<u8> {
     if padded[32..63].iter().any(|byte| *byte != 0) || !matches!(padded[63], 27 | 28) {
         return Vec::new();
     }
-    let Ok(signature) = Signature::from_scalars(
+    let Ok(mut signature) = Signature::from_scalars(
         <[u8; 32]>::try_from(&padded[64..96]).unwrap(),
         <[u8; 32]>::try_from(&padded[96..128]).unwrap(),
     ) else {
         return Vec::new();
     };
-    let Some(recovery) = RecoveryId::from_byte(padded[63] - 27) else {
+    let Some(mut recovery) = RecoveryId::from_byte(padded[63] - 27) else {
         return Vec::new();
     };
+    // Ethereum's precompile accepts both low-s and high-s signatures. k256
+    // verifies only low-s signatures, so preserve the recovered key by
+    // normalizing s and flipping the recovery y parity together.
+    if let Some(normalized) = signature.normalize_s() {
+        signature = normalized;
+        recovery = RecoveryId::new(!recovery.is_y_odd(), recovery.is_x_reduced());
+    }
     let Ok(key) = VerifyingKey::recover_from_prehash(&padded[..32], &signature, recovery) else {
         return Vec::new();
     };
@@ -1806,11 +2023,12 @@ const fn words(size: usize) -> u64 {
 
 const fn memory_cost(size: usize) -> u64 {
     let words = words(size);
-    3 * words + words * words / 512
+    3u64.saturating_mul(words)
+        .saturating_add(words.saturating_mul(words) / 512)
 }
 
 const fn copy_gas(size: usize) -> u64 {
-    3 * words(size)
+    3u64.saturating_mul(words(size))
 }
 
 const fn environment_gas(op: u8) -> u64 {
@@ -1877,7 +2095,7 @@ fn signed_lt(a: U256, b: U256) -> bool {
         (true, false) => true,
         (false, true) => false,
         (false, false) => a < b,
-        (true, true) => a > b,
+        (true, true) => a < b,
     }
 }
 
@@ -2142,5 +2360,80 @@ mod tests {
         expected[31] = 1;
         assert_eq!(p256verify_precompile(&valid), expected);
         assert!(p256verify_precompile(&invalid).is_empty());
+    }
+
+    #[test]
+    fn ecrecover_accepts_official_high_s_vector() {
+        let input = hex::decode(concat!(
+            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "000000000000000000000000000000000000000000000000000000000000001c",
+            "c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5",
+            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413b"
+        ))
+        .unwrap();
+        let expected =
+            hex::decode("000000000000000000000000bbb10a3b5835400b63ca00372c16db781220fb0b")
+                .unwrap();
+
+        assert_eq!(ecrecover_precompile(&input), expected);
+    }
+
+    #[test]
+    fn create2_rejects_creator_at_nonce_limit() {
+        let creator = Address::from([0x11; 20]);
+        let mut state = WorldState::default();
+        state.account_mut(creator).nonce = u64::MAX;
+        let mut machine = Machine::new_frame(
+            vec![0x60, 0x00, 0x60, 0x00, 0x60, 0x00, 0x60, 0x00, 0xf5, 0x00],
+            Vec::new(),
+            100_000,
+            Fork::Cancun,
+            false,
+            &mut state,
+            creator,
+            Address::ZERO,
+            Address::ZERO,
+            U256::ZERO,
+            0,
+            false,
+            U256::ZERO,
+            Environment::default(),
+        );
+
+        assert_eq!(machine.run(), Halt::Stop);
+        assert_eq!(machine.stack, vec![U256::ZERO]);
+        assert_eq!(machine.state.account(creator).unwrap().nonce, u64::MAX);
+        assert_eq!(machine.state.accounts.len(), 1);
+    }
+
+    #[test]
+    fn returndatacopy_zero_size_does_not_expand_or_index_memory() {
+        let mut state = WorldState::default();
+        let mut machine = Machine::new_frame(
+            Vec::new(),
+            Vec::new(),
+            100_000,
+            Fork::Cancun,
+            false,
+            &mut state,
+            Address::ZERO,
+            Address::ZERO,
+            Address::ZERO,
+            U256::ZERO,
+            0,
+            false,
+            U256::ZERO,
+            Environment::default(),
+        );
+        machine.memory.resize(32, 0);
+        machine.stack = vec![U256::ZERO, U256::ZERO, U256::from(512)];
+
+        assert_eq!(machine.copy_return_data(), Ok(()));
+        assert_eq!(machine.memory.len(), 32);
+    }
+
+    #[test]
+    fn zero_size_memory_region_ignores_unrepresentable_offset() {
+        assert_eq!(memory_region(U256::MAX, U256::ZERO), Ok((0, 0)));
     }
 }

@@ -1,11 +1,16 @@
 #![cfg(feature = "official-fixtures")]
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_consensus::{
+    Transaction as AlloyTransaction, TxEnvelope, transaction::SignerRecoverable,
+};
+use alloy_eips::{Decodable2718, Encodable2718};
+use alloy_primitives::{Address, B256, U256, keccak256};
 use echoevm_core::{
     Authorization, BlockEnv, Fork, Transaction,
     state::{Account, WorldState},
     transact,
 };
+use echoevm_protocol::ExecutionStatus;
 use serde::Deserialize;
 use std::{
     collections::BTreeMap,
@@ -17,7 +22,6 @@ use std::{
 struct Gate {
     fork: &'static str,
     target: &'static str,
-    authored: &'static [&'static str],
     expected_files: usize,
     expected_transactions: usize,
     expected_accepted: usize,
@@ -28,29 +32,26 @@ const GATES: [Gate; 3] = [
     Gate {
         fork: "Cancun",
         target: "for_cancun",
-        authored: &["cancun"],
-        expected_files: 63,
-        expected_transactions: 1_456,
-        expected_accepted: 1_303,
-        expected_rejected: 153,
+        expected_files: 2_337,
+        expected_transactions: 11_554,
+        expected_accepted: 10_968,
+        expected_rejected: 586,
     },
     Gate {
         fork: "Prague",
         target: "for_prague",
-        authored: &["prague"],
-        expected_files: 134,
-        expected_transactions: 2_195,
-        expected_accepted: 1_998,
-        expected_rejected: 197,
+        expected_files: 2_471,
+        expected_transactions: 13_851,
+        expected_accepted: 13_063,
+        expected_rejected: 788,
     },
     Gate {
         fork: "Osaka",
         target: "for_osaka",
-        authored: &["prague", "osaka"],
-        expected_files: 187,
-        expected_transactions: 3_461,
-        expected_accepted: 3_244,
-        expected_rejected: 217,
+        expected_files: 2_408,
+        expected_transactions: 14_516,
+        expected_accepted: 13_708,
+        expected_rejected: 808,
     },
 ];
 
@@ -139,10 +140,22 @@ struct JsonAccessListItem {
 #[serde(rename_all = "camelCase")]
 struct JsonPost {
     indexes: JsonIndexes,
+    txbytes: String,
+    hash: String,
+    logs: String,
+    #[serde(default)]
+    receipt: Option<JsonReceipt>,
     #[serde(default)]
     state: BTreeMap<String, JsonAccount>,
     #[serde(default)]
     expect_exception: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct JsonReceipt {
+    cumulative_gas_used: String,
+    status: bool,
 }
 
 #[derive(Deserialize)]
@@ -162,20 +175,25 @@ fn official_state_fixtures_by_declared_fork_zero_skip() {
             .join("../..")
             .join(root);
     }
+    let selected_fork = std::env::var("ECHOEVM_OFFICIAL_FORK").ok();
     for gate in GATES {
+        if selected_fork
+            .as_deref()
+            .is_some_and(|selected| selected != gate.fork)
+        {
+            continue;
+        }
         run_gate(&root, gate);
     }
 }
 
 fn run_gate(root: &Path, gate: Gate) {
     let mut files = Vec::new();
-    for authored in gate.authored {
-        collect_json(
-            &root.join("state_tests").join(gate.target).join(authored),
-            gate.fork,
-            &mut files,
-        );
-    }
+    collect_json(
+        &root.join("state_tests").join(gate.target),
+        gate.fork,
+        &mut files,
+    );
     files.sort();
     assert_eq!(
         files.len(),
@@ -200,6 +218,18 @@ fn run_gate(root: &Path, gate: Gate) {
             for (index, case) in cases.iter().enumerate() {
                 transactions += 1;
                 let mut world = decode_state(&unit.pre);
+                if let Err(error) = validate_txbytes(case, &unit.transaction) {
+                    if let Some(expected) = case.expect_exception.as_deref() {
+                        assert_exception(path, &name, index, expected, &error, &unit, case);
+                        assert_rejected_commitments(path, &name, index, &world, case);
+                        rejected += 1;
+                        continue;
+                    }
+                    panic!(
+                        "{}::{name}[{index}] invalid txbytes: {error}",
+                        path.display()
+                    );
+                }
                 let transaction = build_transaction(&unit, case, gate).unwrap_or_else(|error| {
                     panic!("{}::{name}[{index}] build tx: {error}", path.display())
                 });
@@ -207,7 +237,11 @@ fn run_gate(root: &Path, gate: Gate) {
                     transact(&mut world, transaction),
                     case.expect_exception.as_deref(),
                 ) {
-                    (Err(_), Some(_)) => rejected += 1,
+                    (Err(error), Some(expected)) => {
+                        assert_exception(path, &name, index, expected, error, &unit, case);
+                        assert_rejected_commitments(path, &name, index, &world, case);
+                        rejected += 1;
+                    }
                     (Err(error), None) => panic!(
                         "{}::{name}[{index}] unexpectedly rejected: {error}",
                         path.display()
@@ -216,7 +250,10 @@ fn run_gate(root: &Path, gate: Gate) {
                         "{}::{name}[{index}] expected {expected}, transaction was accepted",
                         path.display()
                     ),
-                    (Ok(_), None) => assert_state(path, &name, index, &world, &case.state),
+                    (Ok(result), None) => {
+                        assert_state(path, &name, index, &world, &case.state);
+                        assert_commitments(path, &name, index, &world, &result, case);
+                    }
                 }
             }
         }
@@ -244,6 +281,178 @@ fn run_gate(root: &Path, gate: Gate) {
         transactions - rejected,
         rejected,
         gate.fork
+    );
+}
+
+fn assert_commitments(
+    path: &Path,
+    name: &str,
+    index: usize,
+    world: &WorldState,
+    result: &echoevm_protocol::ExecutionResult,
+    case: &JsonPost,
+) {
+    let expected_root = case.hash.parse::<B256>().expect("fixture state root");
+    assert_eq!(
+        world.state_root(),
+        expected_root,
+        "{}::{name}[{index}] state root",
+        path.display()
+    );
+    let expected_logs = case.logs.parse::<B256>().expect("fixture logs hash");
+    assert_eq!(
+        keccak256(alloy_rlp::encode(&world.logs)),
+        expected_logs,
+        "{}::{name}[{index}] logs hash",
+        path.display()
+    );
+    let receipt = case.receipt.as_ref().expect("accepted fixture receipt");
+    assert_eq!(
+        result.gas_used,
+        quantity_u64(&receipt.cumulative_gas_used).expect("receipt gas"),
+        "{}::{name}[{index}] receipt gas",
+        path.display()
+    );
+    assert_eq!(
+        result.status == ExecutionStatus::Success,
+        receipt.status,
+        "{}::{name}[{index}] receipt status",
+        path.display()
+    );
+}
+
+fn validate_txbytes(case: &JsonPost, transaction: &JsonTransaction) -> Result<(), String> {
+    let bytes = decode_bytes(&case.txbytes)?;
+    let mut raw = bytes.as_slice();
+    let envelope = TxEnvelope::decode_2718(&mut raw)
+        .map_err(|error| format!("InvalidSignatureVrs: decode envelope: {error}"))?;
+    if !raw.is_empty() {
+        return Err("InvalidSignatureVrs: trailing transaction bytes".into());
+    }
+    if envelope.encoded_2718() != bytes {
+        return Err("InvalidSignatureVrs: non-canonical transaction encoding".into());
+    }
+    if envelope.chain_id().is_some_and(|chain_id| chain_id != 1) {
+        return Err(format!(
+            "InvalidChainId: transaction chain id {:?} != fixture chain id 1",
+            envelope.chain_id()
+        ));
+    }
+    let signer = envelope
+        .recover_signer()
+        .map_err(|error| format!("InvalidSignatureVrs: recover sender: {error}"))?;
+    let expected = parse_address(&transaction.sender)?;
+    if signer != expected {
+        return Err(format!(
+            "InvalidSignatureVrs: recovered sender {signer} != fixture sender {expected}"
+        ));
+    }
+    Ok(())
+}
+
+fn assert_exception(
+    path: &Path,
+    name: &str,
+    index: usize,
+    expected: &str,
+    actual: &str,
+    unit: &Unit,
+    case: &JsonPost,
+) {
+    let category = match actual.split(':').next().unwrap_or(actual) {
+        "GasLimitExceedsBlockGasLimit" => "GAS_ALLOWANCE_EXCEEDED",
+        "GasLimitExceedsMaximum" => "GAS_LIMIT_EXCEEDS_MAXIMUM",
+        "CreateInitCodeSizeLimit" => "INITCODE_SIZE_EXCEEDED",
+        "InsufficientFunds" => "INSUFFICIENT_ACCOUNT_FUNDS",
+        "UpfrontCostOverflow" | "GasPaymentOverflow" | "BlobGasPaymentOverflow" => {
+            "GASLIMIT_PRICE_PRODUCT_OVERFLOW"
+        }
+        "BlobGasPriceTooLow" => "INSUFFICIENT_MAX_FEE_PER_BLOB_GAS",
+        "MaxFeePerGasBelowBaseFee" => "INSUFFICIENT_MAX_FEE_PER_GAS",
+        "CalldataFloorGasTooLow" => "INTRINSIC_GAS_BELOW_FLOOR_GAS_COST",
+        "IntrinsicGasTooLow" => "INTRINSIC_GAS_TOO_LOW",
+        "InvalidChainId" => "INVALID_CHAINID",
+        "InvalidSignatureVrs" => {
+            if unit.transaction.max_fee_per_blob_gas.is_some() && unit.transaction.to.is_empty() {
+                "TYPE_3_TX_CONTRACT_CREATION"
+            } else if unit.transaction.authorization_list.is_some()
+                && unit.transaction.to.is_empty()
+            {
+                "TYPE_4_TX_CONTRACT_CREATION"
+            } else if let Some(gas_price) = unit.transaction.gas_price.as_deref() {
+                let gas_price = quantity(gas_price).expect("fixture gas price");
+                let gas_limit = quantity(&unit.transaction.gas_limit[case.indexes.gas])
+                    .expect("fixture gas limit");
+                if gas_price.checked_mul(gas_limit).is_none() {
+                    "GASLIMIT_PRICE_PRODUCT_OVERFLOW"
+                } else {
+                    "INVALID_SIGNATURE_VRS"
+                }
+            } else {
+                "INVALID_SIGNATURE_VRS"
+            }
+        }
+        "NonceOverflow" => "NONCE_IS_MAX",
+        "NonceMismatch" => {
+            let sender = parse_address(&unit.transaction.sender).expect("fixture sender");
+            let state_nonce = unit
+                .pre
+                .get(&sender.to_string().to_lowercase())
+                .map(|account| quantity_u64(&account.nonce).expect("state nonce"))
+                .unwrap_or_default();
+            let tx_nonce = quantity_u64(&unit.transaction.nonce).expect("tx nonce");
+            if tx_nonce > state_nonce {
+                "NONCE_MISMATCH_TOO_HIGH"
+            } else {
+                "NONCE_MISMATCH_TOO_LOW"
+            }
+        }
+        "PriorityFeeAboveMaxFee" => "PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS",
+        "SenderNotExternallyOwned" => "SENDER_NOT_EOA",
+        "TooManyBlobs" => "TYPE_3_TX_BLOB_COUNT_EXCEEDED",
+        "BlobGasAllowanceExceeded" => "TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED",
+        "BlobTransactionContractCreation" => "TYPE_3_TX_CONTRACT_CREATION",
+        "InvalidBlobVersionedHash" => "TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH",
+        "BlobTransactionMissingBlobHashes" => "TYPE_3_TX_ZERO_BLOBS",
+        "EmptyAuthorizationList" => "TYPE_4_EMPTY_AUTHORIZATION_LIST",
+        "SetCodeTransactionContractCreation" => "TYPE_4_TX_CONTRACT_CREATION",
+        other => panic!(
+            "{}::{name}[{index}] unmapped rejection {other}: {actual}",
+            path.display()
+        ),
+    };
+    let category_matches = expected
+        .split('|')
+        .any(|candidate| candidate.ends_with(category))
+        || (actual == "CalldataFloorGasTooLow"
+            && expected
+                .split('|')
+                .any(|candidate| candidate.ends_with("INTRINSIC_GAS_TOO_LOW")));
+    assert!(
+        category_matches,
+        "{}::{name}[{index}] expected {expected}, got {actual} ({category})",
+        path.display()
+    );
+}
+
+fn assert_rejected_commitments(
+    path: &Path,
+    name: &str,
+    index: usize,
+    world: &WorldState,
+    case: &JsonPost,
+) {
+    assert_eq!(
+        world.state_root(),
+        case.hash.parse::<B256>().expect("rejected state root"),
+        "{}::{name}[{index}] rejected state root",
+        path.display()
+    );
+    assert_eq!(
+        keccak256(alloy_rlp::encode(&world.logs)),
+        case.logs.parse::<B256>().expect("rejected logs hash"),
+        "{}::{name}[{index}] rejected logs hash",
+        path.display()
     );
 }
 
@@ -299,6 +508,12 @@ fn build_transaction(unit: &Unit, case: &JsonPost, gate: Gate) -> Result<Transac
         .map(quantity)
         .transpose()?
         .unwrap_or_default();
+    let block_number = quantity_u64(&unit.env.current_number)?;
+    let block_hashes = if block_number == 0 {
+        BTreeMap::new()
+    } else {
+        BTreeMap::from([(block_number - 1, keccak256(b"0"))])
+    };
     Ok(Transaction {
         caller: parse_address(&unit.transaction.sender)?,
         to: (!unit.transaction.to.is_empty() && unit.transaction.to != "0x")
@@ -370,7 +585,7 @@ fn build_transaction(unit: &Unit, case: &JsonPost, gate: Gate) -> Result<Transac
         },
         environment: BlockEnv {
             chain_id: 1,
-            block_number: quantity_u64(&unit.env.current_number)?,
+            block_number,
             timestamp: quantity_u64(&unit.env.current_timestamp)?,
             coinbase: parse_address(&unit.env.current_coinbase)?,
             block_gas_limit: quantity_u64(&unit.env.current_gas_limit)?,
@@ -393,7 +608,7 @@ fn build_transaction(unit: &Unit, case: &JsonPost, gate: Gate) -> Result<Transac
                     .unwrap_or_default(),
                 3_338_477,
             ),
-            block_hashes: BTreeMap::new(),
+            block_hashes,
             blob_hashes: unit
                 .transaction
                 .blob_versioned_hashes
@@ -424,11 +639,9 @@ fn decode_account(input: &JsonAccount) -> Account {
         storage: input
             .storage
             .iter()
-            .map(|(slot, value)| {
-                (
-                    quantity(slot).expect("slot"),
-                    quantity(value).expect("value"),
-                )
+            .filter_map(|(slot, value)| {
+                let value = quantity(value).expect("value");
+                (!value.is_zero()).then(|| (quantity(slot).expect("slot"), value))
             })
             .collect(),
     }
@@ -442,6 +655,7 @@ fn assert_state(
     expected: &BTreeMap<String, JsonAccount>,
 ) {
     let expected = decode_state(expected);
+    let refund = actual.refund;
     let actual: BTreeMap<_, _> = actual
         .accounts
         .iter()
@@ -453,12 +667,28 @@ fn assert_state(
         .into_iter()
         .filter(|(_, account)| !account.is_empty())
         .collect();
-    assert_eq!(
-        actual,
-        expected,
-        "{}::{name}[{index}] state",
-        path.display()
-    );
+    if actual != expected {
+        let addresses = actual
+            .keys()
+            .chain(expected.keys())
+            .copied()
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut mismatches = Vec::new();
+        for address in addresses {
+            let actual_account = actual.get(&address);
+            let expected_account = expected.get(&address);
+            if actual_account != expected_account {
+                mismatches.push(format!(
+                    "{address}: actual={actual_account:?} expected={expected_account:?}"
+                ));
+            }
+        }
+        panic!(
+            "{}::{name}[{index}] state mismatches: {}; refund={refund}",
+            path.display(),
+            mismatches.join("; ")
+        );
+    }
 }
 
 fn collect_json(root: &Path, fork: &str, output: &mut Vec<PathBuf>) {

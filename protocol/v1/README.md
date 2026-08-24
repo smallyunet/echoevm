@@ -40,7 +40,7 @@ The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 - `witness import-debug` is an optional acquisition adapter; its output must
   replay offline.
 - `witness import-proof` verifies EIP-1186 account/storage proofs against the
-  parent state root before writing the frozen replay witness. Its v1.4 scope is
+  parent state root before writing the frozen replay witness. Its v1.5 scope is
   limited to the first transaction in a block.
 - Cancun through Osaka are the declared transaction/interpreter rulesets.
 - Pre-Cancun replay, proof-backed acquisition for later block transactions,
@@ -54,10 +54,11 @@ The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 Rust becomes the default implementation only after it passes all existing
 protocol consumers and, at minimum, the pinned `tests@v20.0.1` executable corpus:
 
-- 187 Prague/Osaka-authored state fixture files;
-- 3,461 transactions;
-- 3,244 accepted transactions;
-- 217 consensus-invalid transactions rejected;
+- 7,216 Cancun/Prague/Osaka state fixture files;
+- 39,921 transactions;
+- 37,739 accepted transactions;
+- 2,182 consensus-invalid transactions rejected by normalized category;
+- exact receipt gas/status, logs hash, account state, and state root;
 - zero skipped execution.
 
 Independent regression vectors and curated compliance fixtures must be

@@ -33,14 +33,18 @@ corpora under their matching fork rules and requires exact, zero-skip totals:
 
 | Fork | Files | Transactions | Accepted | Rejected |
 |---|---:|---:|---:|---:|
-| Cancun | 63 | 1,456 | 1,303 | 153 |
-| Prague | 134 | 2,195 | 1,998 | 197 |
-| Osaka | 187 | 3,461 | 3,244 | 217 |
+| Cancun | 2,337 | 11,554 | 10,968 | 586 |
+| Prague | 2,471 | 13,851 | 13,063 | 788 |
+| Osaka | 2,408 | 14,516 | 13,708 | 808 |
+| **Total** | **7,216** | **39,921** | **37,739** | **2,182** |
 
-The official state-test gate compares acceptance, account inventory, balance,
-nonce, code, and storage. The regression vectors add exact gas, output, halt,
-and trace checks. Neither gate claims full block validation or every fixture
-family in the downloaded archive.
+For accepted transactions the gate compares canonical `txbytes` round-trip and
+sender recovery, account inventory, balance, nonce, code, storage, receipt gas
+and status, RLP logs hash, and Merkle-Patricia state root. Rejected transactions
+must match a normalized official exception category and preserve the expected
+state root and empty logs commitment. The regression vectors add exact output,
+halt, and trace checks. See [the conformance contract](CONFORMANCE.md) for the
+release-grade definition and limitations.
 
 ## Explicit boundaries
 

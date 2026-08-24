@@ -1,6 +1,7 @@
 //! EchoEVM-owned account state and transaction journal.
 
-use alloy_primitives::{Address, B256, U256, keccak256};
+use alloy_primitives::{Address, B256, Log, U256, keccak256};
+use alloy_trie::{EMPTY_ROOT_HASH, HashBuilder, Nibbles, TrieAccount};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::{Arc, Mutex},
@@ -16,7 +17,7 @@ pub struct Account {
 
 impl Account {
     pub fn is_empty(&self) -> bool {
-        self.nonce == 0 && self.balance.is_zero() && self.code.is_empty()
+        self.nonce == 0 && self.balance.is_zero() && self.code.is_empty() && self.storage.is_empty()
     }
 
     pub fn code_hash(&self) -> B256 {
@@ -38,6 +39,7 @@ pub struct WorldState {
     pub created: BTreeSet<Address>,
     pub selfdestructed: BTreeSet<Address>,
     pub refund: i64,
+    pub logs: Vec<Log>,
     track_missing: bool,
     known_accounts: BTreeSet<Address>,
     known_slots: BTreeSet<(Address, U256)>,
@@ -162,6 +164,33 @@ impl WorldState {
         self.created.clear();
         self.selfdestructed.clear();
         self.refund = 0;
+        self.logs.clear();
+    }
+
+    pub fn state_root(&self) -> B256 {
+        let mut leaves = self
+            .accounts
+            .iter()
+            .filter(|(_, account)| !account.is_empty())
+            .map(|(address, account)| {
+                let trie_account = TrieAccount {
+                    nonce: account.nonce,
+                    balance: account.balance,
+                    storage_root: storage_root(account),
+                    code_hash: account.code_hash(),
+                };
+                (
+                    Nibbles::unpack(keccak256(address)),
+                    alloy_rlp::encode(trie_account),
+                )
+            })
+            .collect::<Vec<_>>();
+        leaves.sort_by_key(|leaf| leaf.0);
+        let mut builder = HashBuilder::default();
+        for (key, value) in leaves {
+            builder.add_leaf(key, &value);
+        }
+        builder.root()
     }
 
     pub fn finalize_transaction(&mut self) {
@@ -174,4 +203,27 @@ impl WorldState {
         self.original_storage.clear();
         self.created.clear();
     }
+}
+
+fn storage_root(account: &Account) -> B256 {
+    let mut leaves = account
+        .storage
+        .iter()
+        .filter(|(_, value)| !value.is_zero())
+        .map(|(slot, value)| {
+            (
+                Nibbles::unpack(keccak256(slot.to_be_bytes::<32>())),
+                alloy_rlp::encode(*value),
+            )
+        })
+        .collect::<Vec<_>>();
+    if leaves.is_empty() {
+        return EMPTY_ROOT_HASH;
+    }
+    leaves.sort_by_key(|leaf| leaf.0);
+    let mut builder = HashBuilder::default();
+    for (key, value) in leaves {
+        builder.add_leaf(key, &value);
+    }
+    builder.root()
 }

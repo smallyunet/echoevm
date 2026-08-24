@@ -46,12 +46,27 @@ pub enum ExecutionStatus {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct ExecutionLog {
+    pub address: String,
+    #[serde(default)]
+    pub topics: Vec<String>,
+    pub data: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct ExecutionResult {
     pub engine: String,
     pub engine_version: String,
     pub status: ExecutionStatus,
     pub return_data: String,
     pub gas_used: u64,
+    #[serde(default)]
+    pub logs: Vec<ExecutionLog>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub logs_hash: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub state_root: String,
     #[serde(default)]
     pub storage: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
