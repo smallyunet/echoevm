@@ -1,6 +1,6 @@
 ---
 name: echoevm-debug
-description: Explain EVM-sensitive Solidity, bytecode, or self-contained Ethereum transaction witnesses with bounded EchoEVM execution evidence. Use when debugging reverts, gas, storage, low-level calls, contract creation, bytecode, or transaction replay; skip routine source edits that ordinary tests already explain.
+description: Explain EVM-sensitive Solidity, bytecode, self-contained call-level tests, or Ethereum transaction witnesses with bounded EchoEVM execution evidence. Use when debugging reverts, gas, storage, low-level calls, contract creation, bytecode, tests, or transaction replay; skip routine source edits that ordinary tests already explain.
 ---
 
 # EchoEVM Debug
@@ -17,6 +17,7 @@ Use EchoEVM as a local deterministic execution microscope. Base conclusions on i
 
 - For an EVM-sensitive `.sol` file, contract, ABI function, constructor, revert, gas boundary, storage change, or low-level call, read [references/local-execution.md](references/local-execution.md).
 - For bytecode, calldata, storage, opcode, or isolated gas behavior, read [references/local-execution.md](references/local-execution.md).
+- For an `echoevm.test-witness.v1` call-level test, read [references/local-execution.md](references/local-execution.md).
 - For an existing witness, transaction hash, or Etherscan transaction URL, read [references/replay.md](references/replay.md). A hash or URL requires an explicit acquisition step before replay.
 - Before interpreting any result, read [references/evidence.md](references/evidence.md).
 

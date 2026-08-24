@@ -1,0 +1,8 @@
+{
+  "schema": "echoevm.test-witness.v1",
+  "name": "unexpected revert",
+  "bytecode": "0x60006000fd",
+  "gasLimit": 100000,
+  "fork": "Osaka",
+  "expectation": {"status": "success"}
+}

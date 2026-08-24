@@ -1,0 +1,19 @@
+{
+  "schema": "echoevm.test-witness.v1",
+  "name": "arithmetic return mismatch",
+  "bytecode": "0x600360140460005260206000f3",
+  "gasLimit": 100000,
+  "fork": "Osaka",
+  "expectation": {
+    "status": "success",
+    "returnData": "0x05"
+  },
+  "source": {
+    "file": "Arithmetic.t.sol",
+    "function": "average()",
+    "test": "testAverage",
+    "locations": [
+      {"pc": 4, "file": "Arithmetic.t.sol", "start": 120, "length": 9}
+    ]
+  }
+}

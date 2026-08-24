@@ -5,10 +5,17 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+mod test_witness;
+
+pub use test_witness::{
+    TestExpectation, TestFork, TestSourceLocation, TestSourceMetadata, TestWitness,
+};
+
 pub const TRACE_SCHEMA: &str = "echoevm.trace.v1";
 pub const EVIDENCE_SCHEMA: &str = "echoevm.evidence.v1";
 pub const EXPLANATION_SCHEMA: &str = "echoevm.explanation.v1";
 pub const WITNESS_SCHEMA: &str = "echoevm.replay-witness.v1";
+pub const TEST_WITNESS_SCHEMA: &str = "echoevm.test-witness.v1";
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const MAX_WITNESS_BYTES: usize = 64 << 20;
 
@@ -130,6 +137,8 @@ pub struct ExplanationExpectation {
     pub status: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub return_data: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub storage: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -331,6 +340,16 @@ pub enum ProtocolError {
     Transaction,
     #[error("witness prestate is empty")]
     Prestate,
+    #[error("unsupported test witness schema {0:?}")]
+    TestWitnessSchema(String),
+    #[error("test witness bytecode is empty")]
+    TestBytecode,
+    #[error("test witness name is empty")]
+    TestName,
+    #[error("test witness gasLimit must be non-zero")]
+    TestGasLimit,
+    #[error("unsupported-capability: {0}")]
+    UnsupportedCapabilities(String),
 }
 
 impl ReplayWitness {
@@ -372,6 +391,7 @@ mod tests {
         assert_eq!(EVIDENCE_SCHEMA, "echoevm.evidence.v1");
         assert_eq!(EXPLANATION_SCHEMA, "echoevm.explanation.v1");
         assert_eq!(WITNESS_SCHEMA, "echoevm.replay-witness.v1");
+        assert_eq!(TEST_WITNESS_SCHEMA, "echoevm.test-witness.v1");
         assert_eq!(PROTOCOL_VERSION, 1);
     }
 

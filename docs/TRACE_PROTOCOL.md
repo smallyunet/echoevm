@@ -60,6 +60,12 @@ to the arithmetic profile. A short expected ABI word is compared with its
 32-byte zero-padded return encoding; arbitrary return byte strings otherwise
 remain exact.
 
+`echoevm explain test <witness>` accepts `echoevm.test-witness.v1`. The embedded
+expectation can cover status, return data, and selected final storage slots.
+Test witnesses with return expectations route to arithmetic evidence; storage
+expectations route to storage evidence; combined expectations route to full
+evidence. Optional PC source locations are copied only onto matching events.
+
 ## Boundary
 
 Trace and evidence are produced by the embedded Rust executor. They do not

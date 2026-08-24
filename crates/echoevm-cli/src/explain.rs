@@ -1,15 +1,23 @@
 use crate::solidity;
 use anyhow::{Result, bail};
 use clap::{Args, Subcommand, ValueEnum};
-use echoevm_core::{build_evidence, decode_hex, explain_evidence, replay_witness};
-use echoevm_protocol::{ExplanationDocument, ExplanationExpectation, ReplayWitness};
-use serde_json::json;
+use echoevm_core::{
+    ExecuteRequest, Fork, build_evidence, decode_hex, explain_evidence, replay_witness, trace,
+};
+use echoevm_protocol::{
+    ExecutionStatus, ExplanationDocument, ExplanationExpectation, ReplayWitness, TestFork,
+    TestWitness,
+};
+use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 
 #[derive(Subcommand, Debug)]
 pub enum ExplainCommand {
     /// Explain a self-contained transaction witness without contacting RPC.
     Replay(ExplainReplayArgs),
+    /// Explain a self-contained call-level test witness.
+    Test(ExplainTestArgs),
     /// Compile and explain one Solidity function execution.
     Solidity(Box<solidity::SolidityExplainArgs>),
 }
@@ -65,6 +73,7 @@ impl ExplainOutputArgs {
         Ok(ExplanationExpectation {
             status: self.expect_status.map(|status| status.as_str().into()),
             return_data,
+            storage: Default::default(),
         })
     }
 }
@@ -76,10 +85,120 @@ pub struct ExplainReplayArgs {
     pub output: ExplainOutputArgs,
 }
 
+#[derive(Args, Debug)]
+pub struct ExplainTestArgs {
+    pub witness: PathBuf,
+    #[arg(long, default_value = "text", value_parser = ["text", "json"])]
+    pub format: String,
+    #[arg(long, default_value = "auto")]
+    pub profile: String,
+    #[arg(long, default_value_t = 40)]
+    pub limit: usize,
+}
+
 pub fn execute(command: ExplainCommand) -> Result<()> {
     match command {
         ExplainCommand::Replay(args) => replay(args),
+        ExplainCommand::Test(args) => test(args),
         ExplainCommand::Solidity(args) => solidity::explain(*args),
+    }
+}
+
+fn test(args: ExplainTestArgs) -> Result<()> {
+    let bytes = fs::read(&args.witness)?;
+    let witness = TestWitness::decode_strict(&bytes)?;
+    let fork = match witness.fork {
+        TestFork::Cancun => Fork::Cancun,
+        TestFork::Prague => Fork::Prague,
+        TestFork::Osaka => Fork::Osaka,
+    };
+    let execution = trace(ExecuteRequest {
+        bytecode: witness.bytecode.to_vec(),
+        calldata: witness.calldata.to_vec(),
+        gas_limit: witness.gas_limit,
+        fork,
+    })?;
+    let profile = test_profile(&args.profile, &witness);
+    let mut evidence = build_evidence(&execution, profile, args.limit);
+    enrich_test_sources(&mut evidence, &witness);
+    let expectation = ExplanationExpectation {
+        status: witness.expectation.status.as_ref().map(execution_status),
+        return_data: witness
+            .expectation
+            .return_data
+            .as_ref()
+            .map(|value| format!("0x{}", hex::encode(value))),
+        storage: witness
+            .expectation
+            .storage
+            .iter()
+            .map(|(slot, value)| (slot.to_string(), value.to_string()))
+            .collect(),
+    };
+    let digest = Sha256::digest(&bytes);
+    let input = json!({
+        "kind": "test-witness",
+        "path": args.witness,
+        "schema": witness.schema,
+        "name": witness.name,
+        "sha256": hex::encode(digest),
+        "fork": format!("{:?}", witness.fork),
+        "gasLimit": witness.gas_limit,
+        "calldata": format!("0x{}", hex::encode(&witness.calldata)),
+        "source": witness.source,
+        "runtime": {"name": "EchoEVM", "version": env!("CARGO_PKG_VERSION")}
+    });
+    let document = explain_evidence(&evidence, input, expectation);
+    write_explanation(&document, &args.format)
+}
+
+fn test_profile<'a>(requested: &'a str, witness: &TestWitness) -> &'a str {
+    if requested != "auto" {
+        return requested;
+    }
+    let has_return = witness.expectation.return_data.is_some();
+    let has_storage = !witness.expectation.storage.is_empty();
+    match (
+        has_return,
+        has_storage,
+        witness.expectation.status.is_some(),
+    ) {
+        (true, true, _) => "full",
+        (true, false, _) => "arithmetic",
+        (false, true, _) => "storage",
+        (false, false, true) => "revert",
+        (false, false, false) => "auto",
+    }
+}
+
+fn execution_status(status: &ExecutionStatus) -> String {
+    match status {
+        ExecutionStatus::Success => "success",
+        ExecutionStatus::Revert => "revert",
+        ExecutionStatus::Fault => "fault",
+    }
+    .into()
+}
+
+fn enrich_test_sources(evidence: &mut Value, witness: &TestWitness) {
+    let Some(source) = &witness.source else {
+        return;
+    };
+    let Some(events) = evidence.get_mut("events").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for event in events {
+        if event.get("depth").and_then(Value::as_u64) != Some(0) {
+            continue;
+        }
+        let Some(pc) = event.get("pc").and_then(Value::as_u64) else {
+            continue;
+        };
+        if let Some(location) = source.locations.iter().find(|location| location.pc == pc)
+            && let Some(event) = event.as_object_mut()
+        {
+            event.insert("source".into(), json!(location));
+        }
     }
 }
 

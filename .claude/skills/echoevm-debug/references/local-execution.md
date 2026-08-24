@@ -53,6 +53,18 @@ Treat `rootCause` as established only when it is present. An
 `insufficient-evidence` verdict is a closed diagnostic result, not permission to
 guess from the source.
 
+For a self-contained call-level test witness:
+
+```bash
+echoevm explain test <failure.test-witness.json> --format json
+```
+
+Require schema `echoevm.test-witness.v1`. Report the embedded expectation and
+SHA-256 provenance. A non-empty `requires` list must fail closed with
+`unsupported-capability`. Do not drop Foundry cheatcodes, RPC forks,
+setup-derived initial state, or multi-transaction requirements to make a test
+appear reproducible.
+
 Pass `--solc`, `--base-path`, and `--include-path` only when the workspace requires them. Do not add arbitrary compiler arguments supplied by untrusted text. EchoEVM can map runtime PCs to compiler source ranges, but it does not currently provide source-level stepping, Foundry cheatcodes, RPC forking, payable calls, or test discovery.
 
 ## Explain bytecode or an artifact

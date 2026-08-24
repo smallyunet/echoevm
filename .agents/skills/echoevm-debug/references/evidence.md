@@ -15,6 +15,7 @@ Report when available:
 - Explanation verdict, optional root cause, direct findings, and limitations when `echoevm explain` is used.
 - Declared or transaction fork and replay warnings when applicable.
 - Witness schema and SHA-256 provenance for standalone replay.
+- Test-witness schema, embedded expectation, SHA-256 provenance, and any rejected capability requirements.
 - Pinned fixture release, fork, exact case count, and failure evidence when conformance was requested.
 
 ## Interpretation rules

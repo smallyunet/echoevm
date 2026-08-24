@@ -70,6 +70,9 @@ remains in the embedded EchoEVM engine.
 # Explain a self-contained transaction witness
 echoevm explain replay ./transaction.witness.json --format text
 
+# Explain a self-contained call-level test
+echoevm explain test ./failure.test-witness.json --format text
+
 # Explain one compiled Solidity function and compare its ABI return value
 echoevm explain solidity ./Contract.sol \
   --contract Contract --function 'average(uint256[])' --args '[2,4,6,8]' \
@@ -81,6 +84,13 @@ echoevm explain solidity ./Contract.sol \
 causal findings, an optional root cause, and limitations. When an observed
 result differs from a declared expectation but the selected evidence cannot
 establish why, the verdict is `insufficient-evidence`.
+
+Call-level tests use the strict `echoevm.test-witness.v1` protocol. It carries
+runtime bytecode, calldata, fork/gas metadata, status/return/storage
+expectations, and optional source locations. Requirements that cannot yet be
+replayed independently—such as Foundry cheatcodes, RPC forks, or setup-derived
+initial state—must be listed in `requires` and fail with
+`unsupported-capability`.
 
 ## Replay a Mainnet transaction
 

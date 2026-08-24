@@ -27,5 +27,6 @@ echoevm-protocol = { version = "1.5.1", path = "../echoevm-protocol" }
 hex.workspace = true
 serde_json.workspace = true
 serde.workspace = true
+sha2.workspace = true
 tiny_http.workspace = true
 ureq.workspace = true

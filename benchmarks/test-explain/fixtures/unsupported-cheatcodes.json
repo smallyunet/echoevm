@@ -1,0 +1,9 @@
+{
+  "schema": "echoevm.test-witness.v1",
+  "name": "unsupported Foundry cheatcode",
+  "bytecode": "0x00",
+  "gasLimit": 100000,
+  "fork": "Osaka",
+  "expectation": {"status": "success"},
+  "requires": ["foundry-cheatcodes"]
+}

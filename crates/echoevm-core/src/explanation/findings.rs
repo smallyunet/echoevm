@@ -7,6 +7,7 @@ pub(super) fn collect(evidence: &Value, status: &str) -> Vec<ExplanationFinding>
     findings.extend(rollback_findings(evidence));
     findings.extend(delegate_context_findings(evidence));
     findings.extend(arithmetic_findings(evidence));
+    findings.extend(storage_write_findings(evidence));
     if matches!(status, "revert" | "fault")
         && !findings.iter().any(is_terminal_finding)
         && let Some(event) = events(evidence)
@@ -138,6 +139,43 @@ fn arithmetic_findings(evidence: &Value) -> Vec<ExplanationFinding> {
         .collect();
     findings.sort_by_key(|(input, _)| u8::from(*input != 1));
     findings.into_iter().map(|(_, finding)| finding).collect()
+}
+
+fn storage_write_findings(evidence: &Value) -> Vec<ExplanationFinding> {
+    events(evidence)
+        .iter()
+        .filter(|event| {
+            let step = usize_field(event, "step");
+            !links(evidence).iter().any(|link| {
+                link.get("kind").and_then(Value::as_str) == Some("rolls-back")
+                    && link
+                        .get("from")
+                        .is_some_and(|from| usize_field(from, "step") == step)
+            })
+        })
+        .filter_map(|event| {
+            let write = event
+                .get("storage")
+                .and_then(Value::as_array)?
+                .iter()
+                .find(|access| access.get("kind").and_then(Value::as_str) == Some("write"))?;
+            let slot = write
+                .get("slot")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            let value = write
+                .get("value")
+                .and_then(Value::as_str)
+                .unwrap_or("unknown");
+            Some(ExplanationFinding {
+                code: "storage-write".into(),
+                summary: format!("Execution wrote value {value} to storage slot {slot}."),
+                basis: "captured storage write event".into(),
+                confidence: "direct".into(),
+                evidence: vec![event_reference(event, Some("write"))],
+            })
+        })
+        .collect()
 }
 
 fn is_terminal_finding(finding: &ExplanationFinding) -> bool {

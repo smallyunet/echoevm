@@ -31,15 +31,23 @@ pub fn explain_evidence(
         .return_data
         .as_deref()
         .is_some_and(|expected| !return_data_matches(expected, return_data));
-    let expectation_mismatch = status_mismatch || return_mismatch;
+    let storage_mismatch = !storage_matches(&expectation, &execution);
+    let expectation_mismatch = status_mismatch || return_mismatch || storage_mismatch;
 
     let findings = findings::collect(evidence, status);
 
-    let root_cause = choose_root_cause(&findings, expectation_mismatch, status);
+    let root_cause = choose_root_cause(
+        &findings,
+        status_mismatch,
+        return_mismatch,
+        storage_mismatch,
+        status,
+    );
     let verdict = verdict(
         status,
         status_mismatch,
         return_mismatch,
+        storage_mismatch,
         root_cause.as_ref(),
     );
     let selection = evidence.get("selection").unwrap_or(&Value::Null);
@@ -98,15 +106,21 @@ fn verdict(
     status: &str,
     status_mismatch: bool,
     return_mismatch: bool,
+    storage_mismatch: bool,
     root_cause: Option<&ExplanationFinding>,
 ) -> ExplanationVerdict {
-    if status_mismatch || return_mismatch {
-        let mismatch = match (status_mismatch, return_mismatch) {
-            (true, true) => "status and return data differ from the declared expectation",
-            (true, false) => "execution status differs from the declared expectation",
-            (false, true) => "return data differs from the declared expectation",
-            (false, false) => unreachable!(),
-        };
+    if status_mismatch || return_mismatch || storage_mismatch {
+        let mut fields = Vec::new();
+        if status_mismatch {
+            fields.push("status");
+        }
+        if return_mismatch {
+            fields.push("return data");
+        }
+        if storage_mismatch {
+            fields.push("storage");
+        }
+        let mismatch = format!("declared expectation differs for {}", fields.join(", "));
         return if root_cause.is_some() {
             ExplanationVerdict {
                 code: "expectation-mismatch".into(),
@@ -152,32 +166,71 @@ fn verdict(
 
 fn choose_root_cause(
     findings: &[ExplanationFinding],
-    expectation_mismatch: bool,
+    status_mismatch: bool,
+    return_mismatch: bool,
+    storage_mismatch: bool,
     status: &str,
 ) -> Option<ExplanationFinding> {
-    let priorities: &[&str] = if expectation_mismatch {
-        &[
+    let mut priorities = Vec::new();
+    if status_mismatch {
+        priorities.extend([
             "child-frame-failure-continued",
-            "delegatecall-context-write",
-            "arithmetic-input-provenance",
-            "rolled-back-write",
             "execution-revert",
             "execution-fault",
-        ]
-    } else if status == "revert" || status == "fault" {
-        &["rolled-back-write", "execution-revert", "execution-fault"]
-    } else {
-        &[
+            "rolled-back-write",
+        ]);
+    }
+    if return_mismatch {
+        priorities.extend([
+            "child-frame-failure-continued",
+            "arithmetic-input-provenance",
+            "delegatecall-context-write",
+        ]);
+    }
+    if storage_mismatch {
+        priorities.extend([
+            "delegatecall-context-write",
+            "storage-write",
+            "rolled-back-write",
+        ]);
+    }
+    if priorities.is_empty() && (status == "revert" || status == "fault") {
+        priorities.extend(["rolled-back-write", "execution-revert", "execution-fault"]);
+    } else if priorities.is_empty() {
+        priorities.extend([
             "child-frame-failure-continued",
             "delegatecall-context-write",
-        ]
-    };
+        ]);
+    }
     priorities.iter().find_map(|code| {
         findings
             .iter()
             .find(|finding| finding.code == *code)
             .cloned()
     })
+}
+
+fn storage_matches(expectation: &ExplanationExpectation, execution: &Value) -> bool {
+    let actual = execution.get("storage").and_then(Value::as_object);
+    expectation.storage.iter().all(|(slot, expected)| {
+        let observed = actual
+            .and_then(|storage| storage.get(slot))
+            .and_then(Value::as_str)
+            .unwrap_or("0x0");
+        normalize_storage_word(observed) == normalize_storage_word(expected)
+    })
+}
+
+fn normalize_storage_word(value: &str) -> String {
+    let stripped = value
+        .trim()
+        .trim_start_matches("0x")
+        .trim_start_matches('0');
+    if stripped.is_empty() {
+        "0".into()
+    } else {
+        stripped.to_ascii_lowercase()
+    }
 }
 
 fn usize_field(value: &Value, key: &str) -> usize {
@@ -237,6 +290,7 @@ mod tests {
         let expectation = ExplanationExpectation {
             status: None,
             return_data: Some("0x01".into()),
+            storage: Default::default(),
         };
         let result = explain_evidence(&evidence, json!({"kind": "test"}), expectation);
         assert_eq!(result.verdict.code, "insufficient-evidence");
@@ -262,6 +316,7 @@ mod tests {
         let expectation = ExplanationExpectation {
             status: None,
             return_data: Some("0x05".into()),
+            storage: Default::default(),
         };
         let result = explain_evidence(&evidence, json!({"kind": "test"}), expectation);
         assert_eq!(result.verdict.code, "expectation-mismatch");
@@ -269,5 +324,36 @@ mod tests {
             result.root_cause.unwrap().code,
             "arithmetic-input-provenance"
         );
+    }
+
+    #[test]
+    fn points_storage_mismatch_to_committed_write() {
+        let slot = format!("0x{:064x}", 0);
+        let evidence = json!({
+            "schema": "echoevm.evidence.v1",
+            "profile": "storage",
+            "execution": {
+                "status": "success",
+                "returnData": "0x",
+                "storage": {slot.clone(): format!("0x{:064x}", 42)},
+                "totalSteps": 1
+            },
+            "events": [{
+                "step": 0, "depth": 0, "pc": 4, "op": "SSTORE",
+                "storage": [{
+                    "kind": "write", "slot": slot.clone(),
+                    "value": format!("0x{:064x}", 42)
+                }]
+            }],
+            "links": [],
+            "selection": {"candidates": 1, "selected": 1, "omitted": 0, "truncated": false}
+        });
+        let expectation = ExplanationExpectation {
+            storage: [(slot, format!("0x{:064x}", 7))].into(),
+            ..Default::default()
+        };
+        let result = explain_evidence(&evidence, json!({"kind": "test"}), expectation);
+        assert_eq!(result.verdict.code, "expectation-mismatch");
+        assert_eq!(result.root_cause.unwrap().code, "storage-write");
     }
 }

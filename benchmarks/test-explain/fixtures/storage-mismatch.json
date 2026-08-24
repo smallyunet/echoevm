@@ -1,0 +1,20 @@
+{
+  "schema": "echoevm.test-witness.v1",
+  "name": "storage mismatch",
+  "bytecode": "0x602a60005500",
+  "gasLimit": 100000,
+  "fork": "Osaka",
+  "expectation": {
+    "status": "success",
+    "storage": {
+      "0x0000000000000000000000000000000000000000000000000000000000000000": "0x0000000000000000000000000000000000000000000000000000000000000007"
+    }
+  },
+  "source": {
+    "file": "Storage.t.sol",
+    "test": "testStoredValue",
+    "locations": [
+      {"pc": 4, "file": "Storage.t.sol", "start": 88, "length": 12}
+    ]
+  }
+}
