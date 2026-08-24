@@ -27,21 +27,30 @@ echoevm replay ./transaction.witness.json --format json
 
 ## Optional witness import
 
-For migration or conformance, a configured trace-capable RPC may import exact
-prestate into a witness:
+For migration or fixture acquisition, a configured trace-capable RPC may import exact prestate into a witness:
 
 ```bash
 echoevm witness import-debug <transaction-hash-or-etherscan-url> \
   --out transaction.witness.json
 ```
 
-Keep credentials in `ECHOEVM_ETHEREUM_RPC` or a user-supplied `--rpc-url` and
+Keep credentials in `ETHEREUM_RPC_URL` or a user-supplied `--rpc-url` and
 never print credential-bearing URLs. The importer is a data-acquisition adapter;
 the generated witness must replay later without RPC access.
 
+For the first transaction in a block, prefer proof-verified acquisition when the provider supports the required standard RPC methods:
+
+```bash
+echoevm witness import-proof <transaction-hash-or-etherscan-url> \
+  --out transaction.witness.json \
+  --proofs-out transaction.proofs.json
+```
+
+This path verifies EIP-1186 account and storage proofs against the parent state root and fails closed for later transactions. Standard RPC does not expose their intermediate prestate.
+
 ## Interpretation
 
-- Verify the witness or online transaction chain, block, and fork provenance.
+- Verify witness chain, block, transaction, and fork provenance.
 - EchoEVM selects Cancun, Prague, or Osaka transaction/interpreter semantics
   from the Mainnet block timestamp.
 - Preserve compatibility warnings for pre-Cancun execution and absent

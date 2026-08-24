@@ -7,12 +7,12 @@ EchoEVM uses two complementary baselines:
 
 The suites must fail when the number of executed cases falls below their minimum, required metadata or behavior categories disappear, or any case is skipped. Read the current test output for exact totals; do not copy historical counts into a release report.
 
-For each relevant official fixture, validate:
+For each relevant official fixture, validate the fields supplied by the pinned state-test contract:
 
-- success, revert, or exceptional halt;
-- return or revert data;
-- gas used and comparable per-opcode gas;
-- persistent storage or post-state;
-- normalized trace identity and first divergence.
+- canonical signed transaction bytes and recovered sender;
+- exact accepted or normalized rejected category;
+- receipt status and cumulative gas;
+- ordered logs commitment;
+- post-state accounts and state root.
 
-Keep unsupported behavior explicit. Cancun through Osaka are declared for transaction/interpreter execution; pre-Cancun replay, proof-backed historical state acquisition, block-level system processing, and unexecuted fixture families are outside that claim. Official fixtures are the release oracle; no foreign execution engine is a backend for standalone replay.
+Keep unsupported behavior explicit. Cancun through Osaka are declared for transaction/interpreter execution. Pre-Cancun rules, full block processing, consensus and networking, and unexecuted fixture families are outside that claim. Proof-backed witness acquisition has its own narrower contract: it currently fails closed unless the target is the first transaction in its block. Official fixtures are the release oracle; no foreign execution engine is a backend for standalone replay.

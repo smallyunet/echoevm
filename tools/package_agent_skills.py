@@ -8,7 +8,9 @@ import stat
 import zipfile
 from pathlib import Path
 
-SKILLS = ("echoevm-debug", "echoevm-conformance")
+# The debug skill is the portable end-user workflow. Conformance remains a
+# repository-local contributor skill under .agents/skills.
+SKILLS = ("echoevm-debug",)
 
 
 def parse_args() -> argparse.Namespace:

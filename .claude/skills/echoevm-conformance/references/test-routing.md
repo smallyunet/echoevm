@@ -4,15 +4,14 @@ Select focused checks from the changed semantic surface, then run the complete c
 
 | Changed area | Focused checks |
 |---|---|
-| `internal/evm/core` | `go test ./internal/evm/core` |
-| `internal/evm/vm/op_*` or `instructions_*` | Matching VM test file, then `go test ./internal/evm/vm` |
-| CALL, STATICCALL, DELEGATECALL | `go test ./internal/evm/vm -run 'Call|Static'` and regression tests |
-| CREATE, CREATE2, rollback | `go test ./internal/evm/vm -run 'Create|Rollback'` and regression tests |
-| Gas accounting | Affected VM tests plus `make test-regression` |
-| Precompiles | Matching precompile tests plus `make test-regression` and official fixtures |
-| State, journaling, trie | State/core/trie unit tests plus integration tests |
-| Replay/witness | `go test ./internal/replay ./internal/web` plus standalone replay and optional verification service tests |
-| Execution normalization | `go test ./internal/differential ./tests/differential` |
-| CLI behavior | `go test ./cmd/echoevm ./tests/e2e` |
+| Opcode dispatch or instruction semantics under `crates/echoevm-core/src/engine/` | Closest `echoevm-core` test, then `make test-bytecode-conformance` |
+| CALL, STATICCALL, DELEGATECALL, CREATE, CREATE2, or rollback | `cargo test -p echoevm-core --locked`, then `make test-bytecode-conformance` |
+| Gas accounting or fork activation | `cargo test -p echoevm-core --locked`, bytecode conformance, then the relevant official fork |
+| Precompiles (`bls.rs`, `bn254.rs`, `kzg.rs`, or `engine/precompiles.rs`) | Matching Rust unit tests, bytecode conformance, then the relevant official fork |
+| State, transaction, authorization, or trie root | `cargo test -p echoevm-core --locked`, then the relevant official fork |
+| Replay or witness execution | Core replay tests plus `bash scripts/test-cli.sh`; acquisition-only changes also need their focused CLI tests |
+| Protocol or evidence selection | Affected crate tests plus CLI and native/Wasm bytecode compatibility checks |
+| CLI or Solidity facade | `bash scripts/test-cli.sh`; Solidity protocol changes also run `make test-integration` |
+| Wasm execution surface | `make test-bytecode-conformance` and `make test-chrome` |
 
-Use `-count=1` when checking a suspected cache-sensitive failure. Use `-race` for concurrency or shared-state changes.
+Use `ECHOEVM_OFFICIAL_FORK=Cancun`, `Prague`, or `Osaka` only for focused diagnosis. The complete release claim requires `make test-conformance-full` without a fork filter and with zero skipped cases.

@@ -1,4 +1,4 @@
 interface:
   display_name: "EchoEVM Conformance"
-  short_description: "Validate EVM semantics against fixtures and Geth"
-  default_prompt: "Use $echoevm-conformance to validate this EchoEVM semantics change against the conformance baselines."
+  short_description: "Validate Rust EVM semantics against pinned fixtures"
+  default_prompt: "Use $echoevm-conformance to validate this EchoEVM execution-semantics change against the appropriate Rust and fixture gates."

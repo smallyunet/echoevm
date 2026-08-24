@@ -44,8 +44,10 @@ Or install the Rust CLI from a clone:
 cargo install --path crates/echoevm-cli --locked
 ```
 
-Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.5.1.zip`.
+Release packaging includes native binaries for Linux, macOS, and Windows, a VS
+Code VSIX, the portable `echoevm-debug` Agent Skill, and the Chrome extension
+ZIP. The contributor-only `echoevm-conformance` skill remains in the
+repository.
 
 ## Core workflows
 

@@ -1,4 +1,3 @@
-import stat
 import subprocess
 import sys
 import tempfile
@@ -22,11 +21,10 @@ class PackageAgentSkillsTest(unittest.TestCase):
             with zipfile.ZipFile(archive_path) as archive:
                 names = archive.namelist()
                 self.assertIn("SKILL.md", names)
-                self.assertIn("scripts/compact_result.py", names)
+                self.assertFalse(any(name.startswith("scripts/") for name in names))
                 self.assertFalse(any(name.startswith("echoevm-debug/") for name in names))
-                mode = archive.getinfo("scripts/compact_result.py").external_attr >> 16
-                self.assertTrue(mode & stat.S_IXUSR)
                 self.assertEqual(archive.getinfo("SKILL.md").date_time, (1980, 1, 1, 0, 0, 0))
+            self.assertFalse((Path(temp_dir) / "echoevm-conformance.skill").exists())
 
 
 if __name__ == "__main__":

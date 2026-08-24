@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate EchoEVM's portable Agent Skills without third-party packages."""
+"""Validate EchoEVM's canonical Agent Skills without third-party packages."""
 
 from __future__ import annotations
 
@@ -10,6 +10,24 @@ from pathlib import Path
 NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"\[[^]]+\]\(([^)]+)\)")
 EXPECTED = ("echoevm-debug", "echoevm-conformance")
+FORBIDDEN_TEXT = {
+    "echoevm-debug": (
+        "echoevm diff",
+        "--around-step",
+        "--deploy-gas",
+        "ECHOEVM_ETHEREUM_RPC",
+        "connected EchoEVM MCP",
+    ),
+    "echoevm-conformance": (
+        "go test ./",
+        "GOPATH",
+        "GOCACHE",
+        "GOMODCACHE",
+        "internal/evm",
+        "against fixtures and Geth",
+        "make test-regression",
+    ),
+}
 
 
 def validate_skill(skill_dir: Path) -> list[str]:
@@ -55,6 +73,14 @@ def validate_skill(skill_dir: Path) -> list[str]:
     metadata = skill_dir / "agents" / "openai.yaml"
     if not metadata.is_file():
         errors.append(f"{metadata}: missing Codex interface metadata")
+    corpus = "\n".join(
+        item.read_text(encoding="utf-8")
+        for item in sorted(skill_dir.rglob("*"))
+        if item.is_file() and item.suffix in {".md", ".yaml"}
+    )
+    for forbidden in FORBIDDEN_TEXT.get(name, ()):
+        if forbidden in corpus:
+            errors.append(f"{skill_dir}: contains stale skill guidance {forbidden!r}")
     return errors
 
 
@@ -71,7 +97,7 @@ def main() -> int:
         for error in errors:
             print("error: " + error, file=sys.stderr)
         return 1
-    print(f"validated {len(EXPECTED)} portable Agent Skills")
+    print(f"validated {len(EXPECTED)} canonical Agent Skills")
     return 0
 
 
