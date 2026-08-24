@@ -1,6 +1,18 @@
 # EchoEVM roadmap
 
-**Current release: v1.5.0 — full declared-fork state-test conformance**
+**Current release: v1.5.1 — auditable module boundaries, unchanged A-grade semantics**
+
+## Delivered in v1.5.1
+
+- Split the execution engine, transaction processing, bytecode, replay,
+  evidence, official fixture runner, Solidity tooling, and witness acquisition
+  into responsibility-based modules while preserving public API paths.
+- Keep every hand-written Rust, TypeScript, and JavaScript source file at or
+  below the 500-line maintenance review threshold.
+- Preserve the exact 39,921-transaction Cancun-through-Osaka official fixture
+  gate, native/Wasm bytecode vectors, protocol v1, and release artifact matrix.
+- Clarify that exact traces are the execution record and bounded evidence is a
+  deterministic diagnostic selection, not an inferred causal graph.
 
 ## Delivered in v1.5.0
 
@@ -30,7 +42,7 @@
 - Add Contract Lens to verified Etherscan address pages using the displayed ABI
   and deployed bytecode without remote code execution or source recompilation.
 - ABI-encode and execute functions marked `pure` inside the packaged EchoEVM
-  Wasm engine, with decoded output, gas, trace, and bounded causal evidence.
+  Wasm engine, with decoded output, gas, trace, and bounded execution evidence.
 - Keep proxy, storage, external-contract, and Mainnet-state boundaries explicit;
   stateful historical execution continues to require a replay witness.
 

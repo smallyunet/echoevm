@@ -18,7 +18,8 @@ and execution never leaves the browser.
 4. Or open an `https://etherscan.io/tx/0x…` page and select an
    `echoevm.replay-witness.v1` JSON document. The extension validates
    it, runs EchoEVM Wasm locally, verifies that its transaction hash matches the
-   open Etherscan page, and renders execution and bounded causal evidence.
+   open Etherscan page, and renders execution and bounded evidence selected
+   from the complete trace.
 
 The ZIP is an unpacked/developer distribution. Chrome Web Store publication
 and signing remain separate release channels.

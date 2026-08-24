@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Playground](https://img.shields.io/badge/playground-GitHub_Pages-34d399)](https://smallyunet.github.io/echoevm/)
 
-**Independent Ethereum execution and bounded causal evidence, implemented in Rust.**
+**Independent Ethereum execution with exact traces and bounded evidence, implemented in Rust.**
 
 EchoEVM executes EVM bytecode, Solidity contracts, and self-contained Mainnet
 transaction witnesses. It is an executor, not a wrapper around Geth, an RPC
@@ -17,7 +17,19 @@ interpreter, state transition, call-frame, gas, fork, and precompile code.
 [Playground](https://smallyunet.github.io/echoevm/) ·
 [latest release](https://github.com/smallyunet/echoevm/releases/latest) ·
 [documentation](docs/README.md) ·
+[architecture](docs/ARCHITECTURE.md) ·
 [frozen v1 protocol](protocol/v1/README.md)
+
+Use EchoEVM when you need to:
+
+- execute raw EVM bytecode or a Solidity call without starting a JSON-RPC node;
+- inspect an exact opcode trace, or select a bounded diagnostic view from that
+  already-complete trace;
+- replay a transaction from an explicit, self-contained historical witness; or
+- embed the same Rust execution kernel in native, Wasm, Chrome, or VS Code tools.
+
+EchoEVM is not a full Ethereum node, RPC fork, static analyzer, formal verifier,
+or drop-in replacement for a production execution client.
 
 ## Quick start
 
@@ -33,7 +45,7 @@ cargo install --path crates/echoevm-cli --locked
 ```
 
 Tagged releases include native binaries for Linux, macOS, and Windows, a VS
-Code VSIX, portable Agent Skills, and `echoevm-chrome-1.5.0.zip`.
+Code VSIX, portable Agent Skills, and `echoevm-chrome-1.5.1.zip`.
 
 ## Core workflows
 
@@ -103,6 +115,10 @@ Chrome; no CLI installation is required.
 The VS Code extension compiles Solidity locally and runs the same Rust CLI,
 showing status, gas, source locations, storage output, and opcode evidence.
 
+The complete trace is the execution record. Bounded evidence is a deterministic
+post-execution selection for a chosen profile; it does not alter execution and
+does not infer causal links that the captured trace cannot establish.
+
 ## Compatibility and conformance
 
 The stable wire boundary is frozen under [`protocol/v1`](protocol/v1/README.md):
@@ -139,6 +155,7 @@ security audit or formal proof.
 | Integrate JSON or JSONL output | [Trace protocol](docs/TRACE_PROTOCOL.md) |
 | Review semantic coverage | [Bytecode compatibility](docs/BYTECODE_COMPATIBILITY.md) |
 | Audit the release conformance claim | [Conformance contract](docs/CONFORMANCE.md) |
+| Understand the internal module boundaries | [Architecture](docs/ARCHITECTURE.md) |
 | Build against stable schemas | [Protocol v1](protocol/v1/README.md) |
 
 ## Workspace

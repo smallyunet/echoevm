@@ -1326,7 +1326,7 @@ dependencies = [
 
 [[package]]
 name = "echoevm"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -1346,7 +1346,7 @@ dependencies = [
 
 [[package]]
 name = "echoevm-core"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "alloy-consensus",
  "alloy-eips",
@@ -1373,7 +1373,7 @@ dependencies = [
 
 [[package]]
 name = "echoevm-protocol"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "alloy-primitives",
  "schemars 1.2.2",
@@ -1384,7 +1384,7 @@ dependencies = [
 
 [[package]]
 name = "echoevm-wasm"
-version = "1.5.0"
+version = "1.5.1"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",

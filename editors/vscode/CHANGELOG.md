@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.5.1
+
+- Align product copy with EchoEVM's exact-trace and bounded-evidence boundary.
+- Ship the same frozen protocol and A-grade execution semantics on the
+  responsibility-based Rust module layout.
+
 ## 1.5.0
 
 - Align the extension with the EchoEVM 1.5.0 full Cancun-through-Osaka state

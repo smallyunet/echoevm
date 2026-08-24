@@ -9,7 +9,7 @@ schema version.
 ## Versioned JSON contracts
 
 - `echoevm.trace.v1` is the opcode trace document and JSONL event schema.
-- `echoevm.evidence.v1` is the bounded causal-evidence document schema.
+- `echoevm.evidence.v1` is the bounded execution-evidence document schema.
 - `echoevm.replay-witness.v1` is the strict, self-contained transaction replay
   input. Unknown fields are rejected, input is limited to 64 MiB, and one file
   contains exactly one JSON document.
@@ -40,8 +40,8 @@ The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 - `witness import-debug` is an optional acquisition adapter; its output must
   replay offline.
 - `witness import-proof` verifies EIP-1186 account/storage proofs against the
-  parent state root before writing the frozen replay witness. Its v1.5 scope is
-  limited to the first transaction in a block.
+  parent state root before writing the frozen replay witness. Its current scope
+  is limited to the first transaction in a block.
 - Cancun through Osaka are the declared transaction/interpreter rulesets.
 - Pre-Cancun replay, proof-backed acquisition for later block transactions,
   block-level system processing, and fixture families not executed by the

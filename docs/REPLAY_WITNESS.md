@@ -65,7 +65,7 @@ proved code hash. `--proofs-out` preserves the raw proof material in
 Because EIP-1186 proves block-boundary state, this path fails closed for any
 transaction whose `transactionIndex` is not zero. Supporting later transactions
 requires replaying all preceding block transactions from the proved parent
-state; EchoEVM does not claim that capability in v1.5.0.
+state; EchoEVM does not claim that capability in v1.5.1.
 
 ## Completeness responsibility
 

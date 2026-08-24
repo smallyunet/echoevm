@@ -63,7 +63,7 @@
           <dl class="ee-metrics"></dl>
           <div class="ee-result-detail"></div>
           <div class="ee-warnings" hidden></div>
-          <section class="ee-evidence" hidden><div class="ee-section-heading"><div><h3>Selected causal evidence</h3><p class="ee-evidence-note"></p></div></div><ol class="ee-events"></ol></section>
+          <section class="ee-evidence" hidden><div class="ee-section-heading"><div><h3>Selected execution evidence</h3><p class="ee-evidence-note"></p></div></div><ol class="ee-events"></ol></section>
         </section>
       </div>
       <footer class="ee-footer"><span>EchoEVM <b class="ee-version"></b> · Wasm</span><a href="https://github.com/smallyunet/echoevm/blob/main/docs/REPLAY_WITNESS.md" target="_blank" rel="noreferrer">Witness format</a></footer>
