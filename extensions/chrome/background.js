@@ -1,6 +1,6 @@
 "use strict";
 
-import initEchoEVM, { executeContract, replay } from "./wasm/engine.js";
+import initEchoEVM, { executeContract, inferBehavior, replay } from "./wasm/engine.js";
 
 const maxWitnessCharacters = 64 * 1024 * 1024;
 const enginePromise = bootEngine();
@@ -17,6 +17,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     enginePromise.then(() => {
       try {
         const encoded = executeContract(JSON.stringify(message.request || {}));
+        sendResponse(JSON.parse(encoded));
+      } catch (error) {
+        sendResponse({ ok: false, error: normalizeError(error) });
+      }
+    }, (error) => sendResponse({ ok: false, error: normalizeError(error) }));
+    return true;
+  }
+  if (message?.type === "echoevm-infer-behavior") {
+    enginePromise.then(() => {
+      try {
+        const encoded = inferBehavior(JSON.stringify(message.request || {}));
         sendResponse(JSON.parse(encoded));
       } catch (error) {
         sendResponse({ ok: false, error: normalizeError(error) });

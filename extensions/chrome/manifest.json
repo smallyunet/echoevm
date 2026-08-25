@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "EchoEVM Browser Execution",
-  "version": "1.6.0",
-  "description": "Run verified pure contract functions and replay self-contained Ethereum transaction witnesses locally on Etherscan.",
+  "version": "1.7.0",
+  "description": "Infer deployed contract behavior, run verified pure functions, and replay self-contained witnesses locally on Etherscan.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "EchoEVM Browser Execution"

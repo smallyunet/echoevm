@@ -12,10 +12,10 @@
   async function discoverContract() {
     for (let attempt = 0; attempt < 30; attempt += 1) {
       const abiNode = document.querySelector("#js-copytextarea2");
-      const codeRoot = document.querySelector("#dividcode");
-      if (abiNode && codeRoot) {
+      const codeRoot = document.querySelector("#dividcode, #ContentPlaceHolder1_contractCodeDiv");
+      if (codeRoot) {
         try {
-          const abi = helpers.parseContractAbi(abiNode.textContent || "");
+          const abi = abiNode ? helpers.parseContractAbi(abiNode.textContent || "") : [];
           const bytecode = deployedBytecode(codeRoot);
           if (!bytecode) return null;
           const summary = document.querySelector("#ContentPlaceHolder1_contractCodeDiv");
@@ -27,9 +27,9 @@
             abi,
             bytecode,
             functions,
-            verification,
+            verification: abiNode ? verification : "Runtime bytecode",
             implementation,
-            name: summaryValue(summary, "Contract Name") || "Verified contract",
+            name: summaryValue(summary, "Contract Name") || "Deployed contract",
             compiler: summaryValue(summary, "Compiler Version") || "Unknown compiler",
             sourceFiles: Math.max(1, document.querySelectorAll("[data-csource]").length)
           };
@@ -44,8 +44,10 @@
 
   function deployedBytecode(codeRoot) {
     const sections = Array.from(codeRoot.querySelectorAll(".mb-10"));
-    const section = sections.find((item) => item.querySelector("h6")?.textContent.trim() === "Deployed Bytecode");
-    return helpers.normalizeBytecode(section?.querySelector("pre")?.textContent || "");
+    const section = sections.find((item) => /^(Deployed|Runtime) Bytecode$/i.test(item.querySelector("h6")?.textContent.trim() || ""));
+    if (section) return helpers.normalizeBytecode(section.querySelector("pre")?.textContent || "");
+    const heading = Array.from(document.querySelectorAll("h5, h6")).find((item) => /^(Deployed|Runtime) Bytecode$/i.test(item.textContent.trim()));
+    return helpers.normalizeBytecode(heading?.parentElement?.parentElement?.querySelector("pre")?.textContent || "");
   }
 
   function summaryValue(summary, label) {
@@ -79,28 +81,38 @@
     root.innerHTML = `
       <button class="ee-launcher" type="button" aria-expanded="false" aria-controls="echoevm-panel">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3"/><path d="m9 9 3-2 3 2v4l-3 2-3-2V9Z"/></svg>
-        <span><strong>EchoEVM</strong><small>Contract lens</small></span>
+        <span><strong>EchoEVM</strong><small>Behavior lens</small></span>
         <span class="ee-launcher-status" aria-hidden="true"></span>
       </button>
       <aside class="ee-panel" id="echoevm-panel" aria-labelledby="echoevm-title" hidden>
         <header class="ee-header">
-          <div class="ee-brand"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3"/><path d="m9 9 3-2 3 2v4l-3 2-3-2V9Z"/></svg><div><span>Verified bytecode</span><h2 id="echoevm-title">Contract Lens</h2></div></div>
+          <div class="ee-brand"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3M8 21H5a2 2 0 0 1-2-2v-3m18 0v3a2 2 0 0 1-2 2h-3"/><path d="m9 9 3-2 3 2v4l-3 2-3-2V9Z"/></svg><div><span>Deployed bytecode</span><h2 id="echoevm-title">Behavior Lens</h2></div></div>
           <button class="ee-icon-button ee-close" type="button" aria-label="Close EchoEVM panel"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
         </header>
         <div class="ee-body">
           <section class="ee-detected" aria-label="Detected contract"><span class="ee-status-dot"></span><div><small>${escapeText(contract.name)}</small><code>${escapeText(helpers.shortHex(contract.address, 12, 10))}</code></div></section>
-          <p class="ee-boundary">EchoEVM reads the verified ABI and deployed bytecode from this Etherscan page. Pure functions run locally with empty storage and no external contract state.</p>
+          <p class="ee-boundary">EchoEVM reads deployed bytecode directly from this Etherscan page and infers bounded behavioral effects locally. A verified ABI, when present, only supplies function names.</p>
           <div class="ee-engine-status" role="status" aria-live="polite"><span class="ee-spinner" aria-hidden="true"></span><span class="ee-engine-copy">Loading local engine…</span></div>
           <dl class="ee-contract-facts">
             <div><dt>Verification</dt><dd>${escapeText(contract.verification)}</dd></div>
             <div><dt>Compiler</dt><dd title="${escapeText(contract.compiler)}">${escapeText(contract.compiler)}</dd></div>
             <div><dt>ABI functions</dt><dd>${helpers.formatInteger(contract.functions.length)}</dd></div>
-            <div><dt>Pure runnable</dt><dd>${helpers.formatInteger(pureFunctions.length)}</dd></div>
+            <div><dt>Bytecode</dt><dd>${helpers.formatInteger((contract.bytecode.length - 2) / 2)} bytes</dd></div>
           </dl>
+          <section class="ee-behavior" aria-labelledby="echoevm-behavior-title">
+            <div class="ee-section-heading"><div><h3 id="echoevm-behavior-title">Behavioral ABI</h3><p>Selectors, reachable effects, value origins, and coverage.</p></div><span class="ee-local-badge">Auto · local</span></div>
+            <div class="ee-behavior-status" role="status" aria-live="polite"><span class="ee-spinner" aria-hidden="true"></span><span>Waiting for the local engine…</span></div>
+            <div class="ee-behavior-result" hidden>
+              <dl class="ee-metrics ee-behavior-metrics"></dl>
+              <div class="ee-capabilities" aria-label="Inferred contract capabilities"></div>
+              <div class="ee-function-list"></div>
+              <div class="ee-behavior-limitations"></div>
+            </div>
+          </section>
           <section class="ee-contract-run" aria-labelledby="echoevm-function-title">
             <div class="ee-section-heading"><div><h3 id="echoevm-function-title">Local function execution</h3><p>ABI encoding and EVM execution stay inside the extension.</p></div><span class="ee-local-badge">Local only</span></div>
             ${contract.implementation ? `<div class="ee-notice ee-notice-warning"><strong>Proxy detected</strong><span>Implementation ${escapeText(helpers.shortHex(contract.implementation))}. Local execution is disabled because proxy storage context is not present.</span></div>` : ""}
-            ${pureFunctions.length === 0 ? `<div class="ee-notice"><strong>No pure function found</strong><span>The contract can still be inspected here, but stateful calls require explicit prestate.</span></div>` : ""}
+            ${pureFunctions.length === 0 ? `<div class="ee-notice"><strong>No runnable pure function</strong><span>Behavior inference still works from bytecode alone. Stateful execution requires explicit prestate.</span></div>` : ""}
             <label class="ee-field" for="echoevm-contract-function"><span>Pure function</span><select id="echoevm-contract-function" ${pureFunctions.length === 0 || contract.implementation ? "disabled" : ""}></select></label>
             <div class="ee-arguments"></div>
             <label class="ee-field" for="echoevm-contract-profile"><span>Evidence question</span><select id="echoevm-contract-profile"><option value="auto">What happened?</option><option value="revert">Why did it fail?</option><option value="arithmetic">Which values drove the result?</option><option value="abi">How was data handled?</option><option value="gas">Where was gas spent?</option></select></label>
@@ -128,6 +140,8 @@
     const engineCopy = root.querySelector(".ee-engine-copy");
     const errorBox = root.querySelector(".ee-error");
     const results = root.querySelector(".ee-results");
+    const behaviorStatus = root.querySelector(".ee-behavior-status");
+    const behaviorResult = root.querySelector(".ee-behavior-result");
     root.querySelector(".ee-version").textContent = `v${chrome.runtime.getManifest().version}`;
 
     for (const item of pureFunctions) {
@@ -154,13 +168,145 @@
       if (chrome.runtime.lastError || !response?.ready) {
         showError(response?.error || chrome.runtime.lastError?.message || "EchoEVM Wasm failed to start.");
         engineCopy.textContent = "Local engine unavailable";
+        behaviorStatus.classList.add("is-error");
+        behaviorStatus.querySelector("span:last-child").textContent = "Local behavior engine unavailable";
         return;
       }
       runnerReady = true;
       engineStatus.classList.add("is-ready");
       engineCopy.textContent = "Local engine ready";
       updateRunState();
+      runBehaviorInference();
     });
+
+    function runBehaviorInference() {
+      behaviorStatus.classList.add("is-running");
+      behaviorStatus.querySelector("span:last-child").textContent = "Inferring behavioral effects from bytecode…";
+      chrome.runtime.sendMessage({
+        type: "echoevm-infer-behavior",
+        request: { bytecode: contract.bytecode, abi: contract.abi }
+      }, (response) => {
+        behaviorStatus.classList.remove("is-running");
+        if (chrome.runtime.lastError || !response?.ok || !response.result) {
+          behaviorStatus.classList.add("is-error");
+          behaviorStatus.querySelector("span:last-child").textContent = response?.error || chrome.runtime.lastError?.message || "Behavior inference failed.";
+          return;
+        }
+        renderBehavior(response.result);
+      });
+    }
+
+    function renderBehavior(behavior) {
+      const coverage = behavior.coverage || {};
+      behaviorStatus.classList.add("is-ready");
+      behaviorStatus.querySelector("span:last-child").textContent = `Behavioral ABI ready · ${behavior.schema}`;
+      root.querySelector(".ee-behavior-metrics").replaceChildren(
+        metric("Selectors", helpers.formatInteger(coverage.recognizedSelectors)),
+        metric("Effects", helpers.formatInteger(behavior.contractEffects?.length || 0)),
+        metric("Reachable ops", helpers.formatInteger(coverage.reachableInstructions)),
+        metric("Unresolved jumps", helpers.formatInteger(coverage.unresolvedJumps))
+      );
+
+      const capabilityRoot = root.querySelector(".ee-capabilities");
+      const capabilityItems = behavior.contractCapabilities || [];
+      capabilityRoot.replaceChildren(...capabilityItems.map((capability) => {
+        const badge = document.createElement("span");
+        badge.textContent = capabilityLabel(capability);
+        return badge;
+      }));
+      capabilityRoot.hidden = capabilityItems.length === 0;
+
+      const functions = Array.isArray(behavior.functions) ? behavior.functions : [];
+      const functionRoot = root.querySelector(".ee-function-list");
+      functionRoot.replaceChildren(...functions.slice(0, 40).map(renderBehaviorFunction));
+      if (functions.length > 40) {
+        const note = document.createElement("p");
+        note.className = "ee-list-note";
+        note.textContent = `${helpers.formatInteger(functions.length - 40)} additional selectors are available in the JSON protocol output.`;
+        functionRoot.appendChild(note);
+      }
+
+      const limitations = root.querySelector(".ee-behavior-limitations");
+      limitations.replaceChildren(...(behavior.limitations || []).map((limitation) => {
+        const paragraph = document.createElement("p");
+        paragraph.textContent = limitation;
+        return paragraph;
+      }));
+      behaviorResult.hidden = false;
+    }
+
+    function renderBehaviorFunction(item) {
+      const details = document.createElement("details");
+      details.className = "ee-behavior-function";
+      const summary = document.createElement("summary");
+      const identity = document.createElement("span");
+      const title = document.createElement("strong");
+      const selector = document.createElement("code");
+      title.textContent = item.signature || item.selector;
+      selector.textContent = item.signature ? item.selector : `entry pc ${item.entryPc}`;
+      identity.append(title, selector);
+      const count = document.createElement("span");
+      count.className = "ee-effect-count";
+      count.textContent = `${item.effects?.length || 0} effects`;
+      summary.append(identity, count);
+      details.appendChild(summary);
+
+      const body = document.createElement("div");
+      body.className = "ee-behavior-function-body";
+      const capabilities = document.createElement("p");
+      capabilities.textContent = (item.capabilities || []).map(capabilityLabel).join(" · ") || "No tracked state or call effect reached";
+      body.appendChild(capabilities);
+      for (const effect of (item.effects || []).slice(0, 12)) {
+        const row = document.createElement("div");
+        const heading = document.createElement("span");
+        const location = document.createElement("code");
+        const inputs = document.createElement("code");
+        heading.textContent = effectLabel(effect.kind);
+        location.textContent = `${effect.opcode} · pc ${effect.pc}`;
+        inputs.textContent = Object.entries(effect.inputs || {}).map(([name, value]) => `${name}=${value}`).join(" · ") || "No recovered value origin";
+        row.append(heading, location, inputs);
+        body.appendChild(row);
+      }
+      if ((item.effects || []).length > 12) {
+        const note = document.createElement("p");
+        note.textContent = `${helpers.formatInteger(item.effects.length - 12)} additional effects omitted from this compact view.`;
+        body.appendChild(note);
+      }
+      details.appendChild(body);
+      return details;
+    }
+
+    function capabilityLabel(value) {
+      return ({
+        "reads-persistent-state": "Reads storage",
+        "writes-persistent-state": "Writes storage",
+        "uses-transient-state": "Uses transient storage",
+        "calls-external-code": "Calls external code",
+        "executes-delegate-code": "Delegate execution",
+        "reads-external-state": "Reads external state",
+        "creates-contracts": "Creates contracts",
+        "can-self-destruct": "Self-destruct path",
+        "emits-events": "Emits events"
+      })[value] || value;
+    }
+
+    function effectLabel(value) {
+      return ({
+        "storage-read": "Storage read",
+        "storage-write": "Storage write",
+        "transient-read": "Transient read",
+        "transient-write": "Transient write",
+        "external-call": "External call",
+        "delegate-call": "Delegate call",
+        "static-call": "Static call",
+        "contract-create": "Contract creation",
+        "contract-create2": "Deterministic creation",
+        "event-log": "Event log",
+        "self-destruct": "Self destruct",
+        "balance-read": "Balance read",
+        "external-code-read": "External code read"
+      })[value] || value;
+    }
 
     function setOpen(open) {
       panel.hidden = !open;

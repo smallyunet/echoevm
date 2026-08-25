@@ -2,7 +2,7 @@
   "name": "echoevm",
   "displayName": "EchoEVM",
   "description": "Run Solidity functions in place with source-aware EchoEVM execution evidence.",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "publisher": "smallyu",
   "icon": "images/icon.png",
   "galleryBanner": {

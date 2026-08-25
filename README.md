@@ -25,11 +25,12 @@ Use EchoEVM when you need to:
 - execute raw EVM bytecode or a Solidity call without starting a JSON-RPC node;
 - inspect an exact opcode trace, or select a bounded diagnostic view from that
   already-complete trace;
-- replay a transaction from an explicit, self-contained historical witness; or
+- replay a transaction from an explicit, self-contained historical witness;
+- infer a bounded behavioral ABI directly from deployed runtime bytecode; or
 - embed the same Rust execution kernel in native, Wasm, Chrome, or VS Code tools.
 
-EchoEVM is not a full Ethereum node, RPC fork, static analyzer, formal verifier,
-or drop-in replacement for a production execution client.
+EchoEVM is not a full Ethereum node, RPC fork, decompiler, security auditor,
+formal verifier, or drop-in replacement for a production execution client.
 
 ## Quick start
 
@@ -55,6 +56,9 @@ repository.
 # Complete opcode trace or bounded evidence
 echoevm trace 600160020100 --format jsonl
 echoevm trace 600160020100 --format evidence-json --profile arithmetic --limit 20
+
+# Infer selectors, state/call effects, value origins, and coverage
+echoevm behavior 600035631122334414600d57005b60043560015500 --format json
 
 # Compile, deploy, commit constructor state, and call a Solidity function
 echoevm solidity run ./editors/vscode/examples/Counter.sol \
@@ -142,10 +146,11 @@ is zero. It never silently substitutes post-block state.
 
 ## Browser and editor embedding
 
-The Manifest V3 Chrome extension packages the Rust engine as WebAssembly. On a
-verified Etherscan contract page, Contract Lens reads the displayed ABI and
-deployed bytecode and locally executes ABI functions marked `pure` in an
-explicit empty-state sandbox. On a transaction page, users can select a
+The Manifest V3 Chrome extension packages the Rust engine as WebAssembly. On an
+Etherscan contract page, Behavior Lens reads displayed deployed bytecode and
+automatically infers `echoevm.behavior.v1`; a verified ABI supplies labels but
+is not required for analysis. Verified ABI functions marked `pure` can also run
+in an explicit empty-state sandbox. On a transaction page, users can select a
 self-contained witness for exact standalone replay. Execution happens inside
 Chrome; no CLI installation is required.
 
@@ -163,6 +168,7 @@ The stable wire boundary is frozen under [`protocol/v1`](protocol/v1/README.md):
 
 - `echoevm.trace.v1`
 - `echoevm.evidence.v1`
+- `echoevm.behavior.v1`
 - `echoevm.replay-witness.v1`
 - Solidity/editor protocol version 1
 

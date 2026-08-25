@@ -16,6 +16,19 @@ await module.default({ module_or_path: bytes });
 assert.equal(typeof module.replay, "function", "Wasm bridge must export replay");
 assert.equal(typeof module.executeBytecode, "function", "Wasm bridge must export executeBytecode");
 assert.equal(typeof module.executeContract, "function", "Wasm bridge must export executeContract");
+assert.equal(typeof module.inferBehavior, "function", "Wasm bridge must export inferBehavior");
+
+const behavior = JSON.parse(module.inferBehavior(JSON.stringify({
+  bytecode: "600035631122334414600d57005b60043560015500",
+  abi: []
+})));
+assert.equal(behavior.ok, true);
+assert.equal(behavior.result.schema, "echoevm.behavior.v1");
+assert.equal(behavior.result.coverage.recognizedSelectors, 1);
+assert.equal(behavior.result.functions[0].selector, "0x11223344");
+assert.equal(behavior.result.functions[0].effects[0].kind, "storage-write");
+assert.equal(behavior.result.functions[0].effects[0].inputs.value, "calldata.arg0");
+console.log("EchoEVM Wasm Behavioral ABI smoke test passed (selector and storage effect inferred)");
 
 const conformance = JSON.parse(await readFile(conformancePath, "utf8"));
 assert.equal(conformance.schema, "echoevm.bytecode-conformance.v1");

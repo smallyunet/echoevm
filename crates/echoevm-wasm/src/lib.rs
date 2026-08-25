@@ -1,7 +1,8 @@
 use alloy_dyn_abi::{FunctionExt, JsonAbiExt, Specifier};
 use alloy_json_abi::Function;
 use echoevm_core::{
-    ExecuteRequest, Fork, build_evidence, decode_hex, execute, replay_witness, trace,
+    ExecuteRequest, Fork, build_evidence, decode_hex, execute, infer_behavior, replay_witness,
+    trace,
 };
 use serde::Deserialize;
 use wasm_bindgen::prelude::*;
@@ -33,6 +34,14 @@ struct ContractRequest {
     profile: String,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BehaviorRequest {
+    bytecode: String,
+    #[serde(default)]
+    abi: Vec<Function>,
+}
+
 const fn default_gas() -> u64 {
     echoevm_core::DEFAULT_GAS_LIMIT
 }
@@ -61,6 +70,33 @@ pub fn execute_json(input: &str) -> Result<String, JsValue> {
 #[wasm_bindgen(js_name = executeContract)]
 pub fn execute_contract_json(input: &str) -> Result<String, JsValue> {
     execute_contract(input).map_err(js_error)
+}
+
+#[wasm_bindgen(js_name = inferBehavior)]
+pub fn infer_behavior_json(input: &str) -> Result<String, JsValue> {
+    infer_browser_behavior(input).map_err(js_error)
+}
+
+fn infer_browser_behavior(input: &str) -> Result<String, String> {
+    let request: BehaviorRequest =
+        serde_json::from_str(input).map_err(|error| error.to_string())?;
+    let mut document =
+        infer_behavior(&decode_hex(&request.bytecode).map_err(|error| error.to_string())?);
+    let signatures = request
+        .abi
+        .iter()
+        .map(|function| {
+            (
+                format!("0x{}", hex::encode(function.selector())),
+                function.signature(),
+            )
+        })
+        .collect::<std::collections::BTreeMap<_, _>>();
+    for function in &mut document.functions {
+        function.signature = signatures.get(&function.selector).cloned();
+    }
+    serde_json::to_string(&serde_json::json!({"ok": true, "result": document}))
+        .map_err(|error| error.to_string())
 }
 
 fn execute_contract(input: &str) -> Result<String, String> {
@@ -233,6 +269,28 @@ mod tests {
             execute_contract(&input.to_string())
                 .unwrap_err()
                 .contains("marked pure")
+        );
+    }
+
+    #[test]
+    fn behavior_inference_labels_selector_from_abi() {
+        let input = serde_json::json!({
+            "bytecode": "60003563771602f714600d57005b00",
+            "abi": [{
+                "type": "function",
+                "name": "add",
+                "inputs": [{"name":"a","type":"uint256"},{"name":"b","type":"uint256"}],
+                "outputs": [{"name":"","type":"uint256"}],
+                "stateMutability": "pure"
+            }]
+        });
+        let encoded = infer_browser_behavior(&input.to_string()).expect("infer behavior");
+        let result: serde_json::Value = serde_json::from_str(&encoded).expect("decode result");
+        assert_eq!(result["ok"], true);
+        assert_eq!(result["result"]["schema"], "echoevm.behavior.v1");
+        assert_eq!(
+            result["result"]["functions"][0]["signature"],
+            "add(uint256,uint256)"
         );
     }
 }

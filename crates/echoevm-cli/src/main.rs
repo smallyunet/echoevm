@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use echoevm_core::{
     ExecuteRequest, Fork, build_evidence, decode_hex, deploy_bytecode, disassemble, execute,
-    replay_witness, trace,
+    infer_behavior, replay_witness, trace,
 };
 use std::{fs, path::PathBuf};
 
@@ -29,6 +29,8 @@ enum Command {
     Run(RunArgs),
     Trace(TraceArgs),
     Disasm(CodeArgs),
+    /// Infer a bounded behavioral ABI from deployed runtime bytecode.
+    Behavior(BehaviorArgs),
     Version(VersionArgs),
     Replay(ReplayArgs),
     Explain {
@@ -107,6 +109,14 @@ struct CodeArgs {
     bytecode: Option<String>,
     #[arg(long)]
     path: Option<PathBuf>,
+}
+
+#[derive(Args, Debug)]
+struct BehaviorArgs {
+    #[command(flatten)]
+    code: CodeArgs,
+    #[arg(long, default_value = "text")]
+    format: String,
 }
 
 #[derive(Args, Debug)]
@@ -249,6 +259,34 @@ fn main() -> Result<()> {
         Command::Disasm(args) => {
             for line in disassemble(&read_code(args.bytecode.as_deref(), args.path.as_ref())?) {
                 println!("{line}");
+            }
+            Ok(())
+        }
+        Command::Behavior(args) => {
+            let document = infer_behavior(&read_code(
+                args.code.bytecode.as_deref(),
+                args.code.path.as_ref(),
+            )?);
+            match args.format.as_str() {
+                "json" => println!("{}", serde_json::to_string_pretty(&document)?),
+                "text" => {
+                    println!("schema       {}", document.schema);
+                    println!("bytecode     {} bytes", document.bytecode.bytes);
+                    println!("selectors    {}", document.coverage.recognized_selectors);
+                    println!("entry points {}", document.coverage.analyzed_entry_points);
+                    println!("effects      {}", document.contract_effects.len());
+                    println!("unresolved   {} jumps", document.coverage.unresolved_jumps);
+                    for function in &document.functions {
+                        println!(
+                            "{} pc={} capabilities={} effects={}",
+                            function.selector,
+                            function.entry_pc,
+                            function.capabilities.join(","),
+                            function.effects.len()
+                        );
+                    }
+                }
+                other => bail!("unsupported behavior format {other:?}; use text or json"),
             }
             Ok(())
         }

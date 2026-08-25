@@ -15,10 +15,83 @@ pub use test_witness::{
 pub const TRACE_SCHEMA: &str = "echoevm.trace.v1";
 pub const EVIDENCE_SCHEMA: &str = "echoevm.evidence.v1";
 pub const EXPLANATION_SCHEMA: &str = "echoevm.explanation.v1";
+pub const BEHAVIOR_SCHEMA: &str = "echoevm.behavior.v1";
 pub const WITNESS_SCHEMA: &str = "echoevm.replay-witness.v1";
 pub const TEST_WITNESS_SCHEMA: &str = "echoevm.test-witness.v1";
 pub const PROTOCOL_VERSION: u32 = 1;
 pub const MAX_WITNESS_BYTES: usize = 64 << 20;
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorBytecode {
+    pub sha256: String,
+    pub bytes: usize,
+    pub instructions: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorCoverage {
+    pub recognized_selectors: usize,
+    pub analyzed_entry_points: usize,
+    pub reachable_instructions: usize,
+    pub unknown_opcodes: usize,
+    pub unresolved_jumps: usize,
+    pub truncated: bool,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorEffect {
+    pub kind: String,
+    pub pc: u64,
+    pub opcode: String,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub inputs: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorGuard {
+    pub pc: u64,
+    pub condition: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorFunction {
+    pub selector: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    pub entry_pc: u64,
+    #[serde(default)]
+    pub capabilities: Vec<String>,
+    #[serde(default)]
+    pub effects: Vec<BehaviorEffect>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub guards: Vec<BehaviorGuard>,
+    pub coverage: BehaviorCoverage,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BehaviorDocument {
+    pub schema: String,
+    pub engine: String,
+    pub engine_version: String,
+    pub bytecode: BehaviorBytecode,
+    pub coverage: BehaviorCoverage,
+    #[serde(default)]
+    pub functions: Vec<BehaviorFunction>,
+    #[serde(default)]
+    pub contract_capabilities: Vec<String>,
+    #[serde(default)]
+    pub contract_effects: Vec<BehaviorEffect>,
+    #[serde(default)]
+    pub limitations: Vec<String>,
+}
 
 fn bytes_is_empty(value: &Bytes) -> bool {
     value.as_ref().is_empty()
@@ -393,6 +466,7 @@ mod tests {
         assert_eq!(TRACE_SCHEMA, "echoevm.trace.v1");
         assert_eq!(EVIDENCE_SCHEMA, "echoevm.evidence.v1");
         assert_eq!(EXPLANATION_SCHEMA, "echoevm.explanation.v1");
+        assert_eq!(BEHAVIOR_SCHEMA, "echoevm.behavior.v1");
         assert_eq!(WITNESS_SCHEMA, "echoevm.replay-witness.v1");
         assert_eq!(TEST_WITNESS_SCHEMA, "echoevm.test-witness.v1");
         assert_eq!(PROTOCOL_VERSION, 1);

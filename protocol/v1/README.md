@@ -10,6 +10,9 @@ schema version.
 
 - `echoevm.trace.v1` is the opcode trace document and JSONL event schema.
 - `echoevm.evidence.v1` is the bounded execution-evidence document schema.
+- `echoevm.behavior.v1` is the additive bounded bytecode behavior document. It
+  reports inferred effects and explicit coverage limits; it is not an execution
+  result or security claim.
 - `echoevm.replay-witness.v1` is the strict, self-contained transaction replay
   input. Unknown fields are rejected, input is limited to 64 MiB, and one file
   contains exactly one JSON document.
@@ -25,7 +28,7 @@ are not normative.
 
 The Rust CLI must retain these top-level commands and their v1 meanings:
 
-`call`, `deploy`, `disasm`, `repl`, `replay`, `run`, `solidity inspect`,
+`behavior`, `call`, `deploy`, `disasm`, `repl`, `replay`, `run`, `solidity inspect`,
 `solidity run`, `trace`, `version`, `web`, `witness import-proof`, and
 `witness import-debug`.
 

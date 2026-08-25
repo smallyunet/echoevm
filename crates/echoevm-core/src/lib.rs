@@ -1,5 +1,6 @@
 //! Independent EchoEVM execution kernel.
 
+mod behavior;
 mod bls;
 mod bn254;
 mod bytecode;
@@ -11,6 +12,7 @@ pub mod opcode;
 mod replay;
 pub mod state;
 
+pub use behavior::infer_behavior;
 pub use bytecode::{assemble, disassemble};
 pub use engine::{Authorization, Environment as BlockEnv, Transaction, transact};
 pub use evidence::build_evidence;

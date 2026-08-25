@@ -8,6 +8,7 @@ exactly what EchoEVM observes, derives, and does not claim.
 | Replay a transaction from complete historical state | [Replay witnesses](REPLAY_WITNESS.md) |
 | Explain a self-contained or Foundry-prepared test | [Test witnesses](TEST_WITNESS.md) |
 | Integrate trace or evidence output | [Trace protocol](TRACE_PROTOCOL.md) |
+| Infer effects directly from deployed bytecode | [Behavioral ABI](BEHAVIOR_ABI.md) |
 | Understand supported bytecode semantics | [Bytecode compatibility](BYTECODE_COMPATIBILITY.md) |
 | Audit fixture counts and release-grade criteria | [Conformance contract](CONFORMANCE.md) |
 | Understand crate and module responsibilities | [Architecture](ARCHITECTURE.md) |

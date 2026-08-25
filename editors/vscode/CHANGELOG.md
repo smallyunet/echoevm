@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.0
+
+- Align the packaged CLI with EchoEVM's additive Behavioral ABI command and
+  `echoevm.behavior.v1` protocol.
+- Preserve existing source-aware execution and Foundry witness workflows.
+
 ## 1.6.0
 
 - Package the direct Foundry test preparation workflow for constructor,

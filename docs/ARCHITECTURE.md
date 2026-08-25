@@ -9,6 +9,9 @@ fork activation, or fixture expectations.
 
 - `lib.rs` owns the public API and re-exports bytecode, evidence, and replay
   operations from their focused modules.
+- `behavior.rs` owns the bounded Behavioral ABI facade; `behavior/` contains
+  abstract stack, memory, origin, and effect propagation without changing the
+  concrete execution engine.
 - `engine.rs` owns execution types and the `Machine` state. Its `engine/`
   modules separate opcode dispatch, instruction helpers, call/create control
   flow, transaction processing, authorization handling, precompiles, gas, and

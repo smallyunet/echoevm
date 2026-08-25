@@ -1,6 +1,6 @@
 # EchoEVM conformance contract
 
-EchoEVM v1.6.0 calls a release **A-grade** only when every gate below passes
+EchoEVM v1.7.0 calls a release **A-grade** only when every gate below passes
 without skipped or expected-failure cases. This is a project release label, not
 an Ethereum Foundation certification and not a claim of full execution-client
 equivalence.

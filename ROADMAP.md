@@ -1,6 +1,21 @@
 # EchoEVM roadmap
 
-**Current release: v1.6.0 — self-contained Foundry test explanation with replayable evidence**
+**Current release: v1.7.0 — behavioral ABI inference from deployed EVM bytecode**
+
+## Delivered in v1.7.0
+
+- Infer `echoevm.behavior.v1` directly from runtime bytecode without Solidity
+  source, an ABI, RPC access, or a concrete transaction.
+- Recover common selectors, statically reachable state/call/create/log effects,
+  compact value origins, semantic branch conditions, and explicit coverage
+  limits through bounded abstract execution.
+- Add `echoevm behavior` JSON/text output and the same Rust analysis through
+  WebAssembly.
+- Make Chrome Behavior Lens automatically recognize deployed bytecode rendered
+  on Etherscan contract pages; use a verified ABI only to label selectors and
+  preserve the existing optional pure-function sandbox.
+- Keep inferred capability distinct from exploitability, concrete execution,
+  decompilation, auditing, and formal proof.
 
 ## Delivered in v1.6.0
 
