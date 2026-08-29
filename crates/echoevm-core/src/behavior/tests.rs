@@ -22,6 +22,16 @@ fn discovers_selector_and_infers_storage_write_origin() {
             .capabilities
             .contains(&"writes-persistent-state".into())
     );
+    assert!(
+        document
+            .functions
+            .iter()
+            .find(|function| function.selector == "fallback")
+            .unwrap()
+            .effects
+            .is_empty(),
+        "selector effects should not be duplicated in the fallback summary"
+    );
 }
 
 #[test]
@@ -56,4 +66,42 @@ fn does_not_treat_dispatch_mask_as_a_selector() {
     let document = infer_behavior(&hex::decode("63ffffffff1680631122334414601157005b00").unwrap());
     assert_eq!(document.coverage.recognized_selectors, 1);
     assert_eq!(document.functions[0].selector, "0x11223344");
+}
+
+#[test]
+fn proxy_runtime_includes_fallback_delegate_call() {
+    // Runtime bytecode from 0xb07aaBc136EaB64994d3f226c88dd907dF3bf291.
+    // The public IMPL() getter uses a selector, while proxy forwarding lives in fallback.
+    let bytecode = hex::decode(concat!(
+        "608060405260043610156049575b5f36818037808036817f000000000000000000000000",
+        "9a1c1e8ebd7e50a1280a31d736388a50f3d96a4d5af43d82803e156045573d90f35b3d",
+        "90fd5b5f803560e01c6356973ee514605d5750600d565b34609f5780600319360112609f",
+        "577f0000000000000000000000009a1c1e8ebd7e50a1280a31d736388a50f3d96a4d60",
+        "01600160a01b03166080908152602090f35b80fdfea26469706673582212205ea09bd3a4e8",
+        "60c24fc3b976d42dd00080f7d4f22863c3c0627037a80672527564736f6c63430008140033"
+    ))
+    .unwrap();
+
+    let document = infer_behavior(&bytecode);
+    assert_eq!(document.coverage.recognized_selectors, 1);
+    assert!(
+        document
+            .functions
+            .iter()
+            .any(|function| function.selector == "fallback")
+    );
+    let delegate = document
+        .contract_effects
+        .iter()
+        .find(|effect| effect.kind == "delegate-call")
+        .expect("fallback delegatecall");
+    assert_eq!(
+        delegate.inputs["target"],
+        "constant(0x9a1c1e8ebd7e50a1280a31d736388a50f3d96a4d)"
+    );
+    assert!(
+        document
+            .contract_capabilities
+            .contains(&"executes-delegate-code".into())
+    );
 }

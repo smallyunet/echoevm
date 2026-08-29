@@ -77,6 +77,25 @@
     return Number.isFinite(number) ? new Intl.NumberFormat("en-US").format(number) : "—";
   }
 
+  async function pollForValue(read, attempts = 120, delayMs = 250) {
+    if (typeof read !== "function") throw new Error("pollForValue requires a reader function.");
+    let lastError = null;
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      try {
+        const value = await read();
+        if (value) return value;
+      } catch (error) {
+        // Etherscan can replace the contract tab while it is still rendering.
+        lastError = error;
+      }
+      if (attempt + 1 < attempts && delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+    if (lastError) throw lastError;
+    return null;
+  }
+
   function validateWitnessText(text, maxBytes = 64 * 1024 * 1024) {
     if (typeof text !== "string" || text.trim() === "") throw new Error("The witness file is empty.");
     if (new TextEncoder().encode(text).byteLength > maxBytes) throw new Error("The witness exceeds EchoEVM's 64 MiB limit.");
@@ -106,6 +125,7 @@
     inputHint,
     shortHex,
     formatInteger,
+    pollForValue,
     validateWitnessText,
     evidenceEvents
   });

@@ -49,7 +49,7 @@ Keep credentials in `ETHEREUM_RPC_URL` or a user-supplied `--rpc-url` and
 never print credential-bearing URLs. The importer is a data-acquisition adapter;
 the generated witness must replay later without RPC access.
 
-For the first transaction in a block, prefer proof-verified acquisition when the provider supports the required standard RPC methods:
+For any transaction position in a block, prefer proof-verified acquisition when the provider supports the required standard RPC methods. Later positions replay the preceding transaction prefix locally from proved parent state:
 
 ```bash
 echoevm witness import-proof <transaction-hash-or-etherscan-url> \

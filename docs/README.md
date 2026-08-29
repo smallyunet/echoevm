@@ -6,6 +6,7 @@ exactly what EchoEVM observes, derives, and does not claim.
 | Goal | Document |
 |---|---|
 | Replay a transaction from complete historical state | [Replay witnesses](REPLAY_WITNESS.md) |
+| Execute a complete block from frozen parent state | [Block witnesses](BLOCK_WITNESS.md) |
 | Explain a self-contained or Foundry-prepared test | [Test witnesses](TEST_WITNESS.md) |
 | Integrate trace or evidence output | [Trace protocol](TRACE_PROTOCOL.md) |
 | Infer effects directly from deployed bytecode | [Behavioral ABI](BEHAVIOR_ABI.md) |

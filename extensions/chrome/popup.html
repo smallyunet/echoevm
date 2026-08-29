@@ -12,17 +12,18 @@
       <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><path d="M12 2 5 6v5c0 5.2 2.8 9.1 7 11 4.2-1.9 7-5.8 7-11V6l-7-4Z"/><path d="m9 12 2 2 4-5"/></svg>
       <div><span>Local Ethereum semantics</span><h1>EchoEVM Browser</h1></div>
     </header>
-    <section class="status"><span></span><div><strong>Wasm engine included</strong><p>No local CLI installation is required.</p></div></section>
+    <section class="status is-running" id="activation-status" role="status" aria-live="polite" aria-busy="true"><span></span><div><strong id="activation-title">Checking current tab…</strong><p id="activation-detail">EchoEVM is looking for an Etherscan contract.</p></div></section>
     <ol>
-      <li>Open an Etherscan contract page to infer behavior from deployed bytecode.</li>
+      <li>Click the extension on an Etherscan contract page to analyze it immediately.</li>
       <li>Inspect selectors, state and call effects, value origins, and coverage locally.</li>
       <li>When verified, run ABI functions marked <code>pure</code> in the empty-state sandbox.</li>
       <li>Or open a transaction and import a self-contained witness for exact replay.</li>
     </ol>
     <p class="boundary">Behavior Lens is bounded inference, not an audit or proof. Concrete stateful execution still requires explicit prestate.</p>
-    <button id="open-etherscan" type="button">Open Etherscan</button>
+    <button id="open-etherscan" type="button" disabled>Checking current tab…</button>
     <a href="https://github.com/smallyunet/echoevm/blob/main/extensions/chrome/README.md" target="_blank" rel="noreferrer">Read the execution boundaries</a>
   </main>
+  <script src="lib.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

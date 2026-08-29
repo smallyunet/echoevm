@@ -5,8 +5,11 @@ pub use debug::import_debug;
 use alloy_primitives::{Address, B256, Bytes, U256, keccak256};
 use alloy_trie::{EMPTY_ROOT_HASH, Nibbles, TrieAccount, proof::verify_proof};
 use anyhow::{Context, Result, bail};
-use echoevm_core::{ExecuteError, replay_witness};
-use echoevm_protocol::{ReplayWitness, WITNESS_SCHEMA, WitnessAccount};
+use echoevm_core::{
+    ExecuteError, TransactionWitnessMaterialization, materialize_transaction_witness,
+    replay_witness,
+};
+use echoevm_protocol::WitnessAccount;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::{
@@ -45,12 +48,6 @@ pub fn import_proof(
             .and_then(Value::as_str)
             .context("missing transaction index")?,
     )?;
-    if transaction_index != 0 {
-        bail!(
-            "proof-backed acquisition currently requires transactionIndex 0; standard eth_getProof exposes block-boundary state, not the intermediate prestate before transaction {transaction_index}"
-        );
-    }
-
     let header = rpc(rpc_url, "eth_getBlockByHash", json!([block_hash, false]))?;
     let parent_hash: B256 = header
         .get("parentHash")
@@ -72,25 +69,24 @@ pub fn import_proof(
         .context("parent block is missing stateRoot")?
         .parse()?;
 
+    let transaction_hashes = header
+        .get("transactions")
+        .and_then(Value::as_array)
+        .context("block is missing transactions")?;
+    let prefix_hashes = transaction_hashes
+        .get(..=transaction_index as usize)
+        .context("transaction index exceeds block transaction inventory")?;
+    let mut prefix_transactions = Vec::with_capacity(prefix_hashes.len());
     let mut requested = BTreeMap::<Address, BTreeSet<B256>>::new();
-    if let Ok(value) = rpc(
-        rpc_url,
-        "eth_createAccessList",
-        json!([access_list_call(&tx)?, &parent_number]),
-    ) && let Ok(access_result) = serde_json::from_value::<RpcAccessListResult>(value)
-        && access_result.error.is_none()
-    {
-        for item in access_result.access_list {
-            requested
-                .entry(item.address)
-                .or_default()
-                .extend(item.storage_keys);
-        }
-    }
-    for field in ["from", "to"] {
-        if let Some(address) = tx.get(field).and_then(Value::as_str) {
-            requested.entry(address.parse()?).or_default();
-        }
+    for value in prefix_hashes {
+        let prefix_hash = value.as_str().context("block transaction is not a hash")?;
+        let prefix_tx = rpc(rpc_url, "eth_getTransactionByHash", json!([prefix_hash]))?;
+        seed_transaction_reads(rpc_url, &prefix_tx, &parent_number, &mut requested)?;
+        let raw: Bytes = rpc(rpc_url, "eth_getRawTransactionByHash", json!([prefix_hash]))?
+            .as_str()
+            .context("RPC does not expose eth_getRawTransactionByHash")?
+            .parse()?;
+        prefix_transactions.push(raw);
     }
     if let Some(address) = header
         .get("miner")
@@ -100,10 +96,6 @@ pub fn import_proof(
         requested.entry(address.parse()?).or_default();
     }
 
-    let raw: Bytes = rpc(rpc_url, "eth_getRawTransactionByHash", json!([hash]))?
-        .as_str()
-        .context("RPC does not expose eth_getRawTransactionByHash")?
-        .parse()?;
     let block_hashes = collect_block_hashes(rpc_url, parent, blockhash_depth)?;
     let mut discovery_rounds = 0_u8;
     let (witness, proofs) = loop {
@@ -134,22 +126,23 @@ pub fn import_proof(
             prestate.insert(*address, account);
             proofs.push(proof);
         }
-        let witness = ReplayWitness {
-            schema: WITNESS_SCHEMA.into(),
+        match materialize_transaction_witness(TransactionWitnessMaterialization {
             chain_id,
             block_hash,
-            transaction_index,
             header: header.clone(),
-            transaction: raw.clone(),
-            prestate,
+            transactions: &prefix_transactions,
+            target_index: transaction_index as usize,
+            parent_prestate: &prestate,
             block_hashes: block_hashes.clone(),
             source: Some(format!(
-                "proof-verified iterative standard RPC acquisition at parent state root {parent_state_root}"
+                "proof-verified parent-state acquisition with {} preceding transaction(s) replayed by EchoEVM at parent state root {parent_state_root}",
+                transaction_index
             )),
-        };
-        witness.validate()?;
-        match replay_witness(&witness, false) {
-            Ok(_) => break (witness, proofs),
+        }) {
+            Ok(witness) => {
+                replay_witness(&witness, false)?;
+                break (witness, proofs);
+            }
             Err(ExecuteError::IncompleteWitness { accounts, storage }) => {
                 let before = requested.values().map(BTreeSet::len).sum::<usize>() + requested.len();
                 for address in accounts {
@@ -179,6 +172,34 @@ pub fn import_proof(
         };
         fs::write(path, serde_json::to_vec_pretty(&bundle)?)
             .with_context(|| format!("write {}", path.display()))?;
+    }
+    Ok(())
+}
+
+fn seed_transaction_reads(
+    rpc_url: &str,
+    transaction: &Value,
+    parent_number: &str,
+    requested: &mut BTreeMap<Address, BTreeSet<B256>>,
+) -> Result<()> {
+    if let Ok(value) = rpc(
+        rpc_url,
+        "eth_createAccessList",
+        json!([access_list_call(transaction)?, parent_number]),
+    ) && let Ok(access_result) = serde_json::from_value::<RpcAccessListResult>(value)
+        && access_result.error.is_none()
+    {
+        for item in access_result.access_list {
+            requested
+                .entry(item.address)
+                .or_default()
+                .extend(item.storage_keys);
+        }
+    }
+    for field in ["from", "to"] {
+        if let Some(address) = transaction.get(field).and_then(Value::as_str) {
+            requested.entry(address.parse()?).or_default();
+        }
     }
     Ok(())
 }
@@ -308,13 +329,17 @@ fn verify_rpc_proof(state_root: B256, proof: &RpcProof, code: &Bytes) -> Result<
             &item.proof,
         )
         .map_err(|error| anyhow::anyhow!(error.to_string()))?;
-        storage.insert(slot, B256::from(value.to_be_bytes::<32>()));
+        if !empty {
+            storage.insert(slot, B256::from(value.to_be_bytes::<32>()));
+        }
     }
     Ok(WitnessAccount {
-        balance: Some(balance),
+        exists: Some(!empty),
+        balance: (!empty).then_some(balance),
         nonce,
         code: code.clone(),
         storage,
+        storage_complete: empty,
     })
 }
 
@@ -413,57 +438,4 @@ fn quantity_u256(value: &str) -> Result<U256> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use alloy_trie::{HashBuilder, proof::ProofRetainer};
-
-    #[test]
-    fn eip1559_access_call_does_not_mix_gas_price_models() {
-        let call = access_list_call(&json!({
-            "from": "0x0000000000000000000000000000000000000001",
-            "gasPrice": "0x9",
-            "maxFeePerGas": "0x8",
-            "maxPriorityFeePerGas": "0x2",
-            "hash": "ignored"
-        }))
-        .unwrap();
-        assert!(call.get("gasPrice").is_none());
-        assert_eq!(call["maxFeePerGas"], "0x8");
-        assert!(call.get("hash").is_none());
-    }
-
-    #[test]
-    fn verifies_an_inclusion_account_proof() {
-        let address = Address::with_last_byte(0x42);
-        let key = Nibbles::unpack(keccak256(address));
-        let account = TrieAccount {
-            nonce: 1,
-            balance: U256::from(7),
-            storage_root: EMPTY_ROOT_HASH,
-            code_hash: alloy_trie::KECCAK_EMPTY,
-        };
-        let encoded = alloy_rlp::encode(account);
-        let mut builder =
-            HashBuilder::default().with_proof_retainer(ProofRetainer::from_iter([key]));
-        builder.add_leaf(key, &encoded);
-        let root = builder.root();
-        let nodes = builder
-            .take_proof_nodes()
-            .into_nodes_sorted()
-            .into_iter()
-            .map(|(_, node)| node)
-            .collect();
-        let proof = RpcProof {
-            address,
-            account_proof: nodes,
-            balance: "0x7".into(),
-            code_hash: alloy_trie::KECCAK_EMPTY,
-            nonce: "0x1".into(),
-            storage_hash: EMPTY_ROOT_HASH,
-            storage_proof: Vec::new(),
-        };
-        let witness = verify_rpc_proof(root, &proof, &Bytes::new()).unwrap();
-        assert_eq!(witness.nonce, 1);
-        assert_eq!(witness.balance, Some(U256::from(7)));
-    }
-}
+mod tests;

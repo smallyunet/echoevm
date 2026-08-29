@@ -16,6 +16,9 @@ schema version.
 - `echoevm.replay-witness.v1` is the strict, self-contained transaction replay
   input. Unknown fields are rejected, input is limited to 64 MiB, and one file
   contains exactly one JSON document.
+- `echoevm.block-witness.v1` is the strict, self-contained sequential block
+  execution input; `echoevm.block-result.v1` reports verified block commitments
+  and per-transaction execution results.
 - Solidity editor responses use numeric `schemaVersion: 1` for inspect, run,
   summary, and error envelopes.
 
@@ -28,9 +31,9 @@ are not normative.
 
 The Rust CLI must retain these top-level commands and their v1 meanings:
 
-`behavior`, `call`, `deploy`, `disasm`, `repl`, `replay`, `run`, `solidity inspect`,
-`solidity run`, `trace`, `version`, `web`, `witness import-proof`, and
-`witness import-debug`.
+`behavior`, `block`, `call`, `deploy`, `disasm`, `repl`, `replay`, `run`,
+`solidity inspect`, `solidity run`, `trace`, `version`, `web`,
+`witness import-proof`, and `witness import-debug`.
 
 The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 `evidence-json`. Human-readable text may improve without a protocol bump.
@@ -40,15 +43,17 @@ The stable machine-facing formats are `json`, `jsonl`, `summary-json`, and
 - Standalone execution is performed by EchoEVM. A foreign execution engine is
   never a runtime backend.
 - Replay consumes only a complete witness and does not contact RPC.
+- Block execution consumes only a complete block witness and does not contact
+  RPC.
 - `witness import-debug` is an optional acquisition adapter; its output must
   replay offline.
 - `witness import-proof` verifies EIP-1186 account/storage proofs against the
-  parent state root before writing the frozen replay witness. Its current scope
-  is limited to the first transaction in a block.
+  parent state root before writing the frozen replay witness. Later transaction
+  positions are derived by locally replaying the preceding block prefix.
 - Cancun through Osaka are the declared transaction/interpreter rulesets.
-- Pre-Cancun replay, proof-backed acquisition for later block transactions,
-  block-level system processing, and fixture families not executed by the
-  release gate stay outside the compatibility claim.
+- Pre-Cancun replay, consensus-layer validation, rejected and multi-block
+  blockchain fixtures, and fixture families not executed by the release gate
+  stay outside the compatibility claim.
 - `--limit` bounds emitted evidence, not execution. Counts and `truncated` must
   continue to distinguish full execution from partial presentation.
 
@@ -62,6 +67,8 @@ protocol consumers and, at minimum, the pinned `tests@v20.0.1` executable corpus
 - 37,739 accepted transactions;
 - 2,182 consensus-invalid transactions rejected by normalized category;
 - exact receipt gas/status, logs hash, account state, and state root;
+- 41,922 accepted single-block Cancun/Prague/Osaka transitions;
+- 113 declared-invalid Cancun/Prague/Osaka transaction fixtures;
 - zero skipped execution.
 
 Independent regression vectors and curated compliance fixtures must be

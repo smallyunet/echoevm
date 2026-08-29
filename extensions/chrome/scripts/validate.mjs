@@ -10,7 +10,8 @@ const manifest = JSON.parse(await readFile(path.join(root, "manifest.json"), "ut
 assert.equal(manifest.manifest_version, 3);
 assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 assert.match(manifest.content_security_policy.extension_pages, /wasm-unsafe-eval/);
-assert.deepEqual(manifest.permissions, undefined, "the first release should not request broad permissions");
+assert.deepEqual(manifest.permissions, ["activeTab", "scripting"], "only user-initiated active-tab injection is allowed");
+assert.deepEqual(manifest.host_permissions, undefined, "the extension must not request persistent host access");
 
 const required = [
   "background.js", "content.js", "contract.js", "content.css", "lib.js", "popup.html", "popup.js", "popup.css",

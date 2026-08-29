@@ -1,4 +1,5 @@
 use super::*;
+use echoevm_protocol::{ReplayWitness, WITNESS_SCHEMA};
 
 pub fn import_debug(input: &str, rpc_url: &str, output: Option<&Path>) -> Result<()> {
     require_rpc_url(rpc_url)?;
@@ -46,6 +47,7 @@ pub fn import_debug(input: &str, rpc_url: &str, output: Option<&Path>) -> Result
             Ok((
                 address.parse::<Address>()?,
                 WitnessAccount {
+                    exists: Some(true),
                     balance: account.balance.as_deref().map(quantity_u256).transpose()?,
                     nonce: account
                         .nonce
@@ -55,6 +57,7 @@ pub fn import_debug(input: &str, rpc_url: &str, output: Option<&Path>) -> Result
                         .unwrap_or_default(),
                     code: account.code.unwrap_or_else(|| "0x".into()).parse()?,
                     storage,
+                    storage_complete: false,
                 },
             ))
         })

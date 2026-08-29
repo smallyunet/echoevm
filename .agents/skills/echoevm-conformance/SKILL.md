@@ -11,7 +11,7 @@ Validate Rust execution-semantics changes with focused evidence first, then expa
 
 1. Inspect the changed semantic surface and relevant tests.
 2. Read [references/test-routing.md](references/test-routing.md) and select the closest Rust and public-interface checks.
-3. Treat Cancun through Osaka as the declared transaction/interpreter scope; keep block-level and pre-Cancun behavior outside the claim.
+3. Treat Cancun through Osaka as the declared transaction/interpreter scope and accepted single-block fixture gate; keep pre-Cancun, rejected/multi-block, consensus, and networking behavior outside the claim.
 
 ## Validate progressively
 

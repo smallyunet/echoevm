@@ -41,8 +41,10 @@ function signatures. Bytecode analysis remains available without runnable
 `pure` functions.
 
 No Etherscan API, RPC endpoint, remote executor, or uploaded contract data is
-used. The extension requests no broad host or network permissions beyond its
-declared Etherscan content-script matches.
+used. Declarative Etherscan content-script matches handle normal page loads.
+The `activeTab` and `scripting` permissions are used only after the user clicks
+the extension icon to activate the bundled lens in that current tab; the
+extension requests no persistent host or network permissions.
 
 ## Boundary
 

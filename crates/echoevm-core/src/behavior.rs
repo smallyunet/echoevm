@@ -95,11 +95,9 @@ pub fn infer_behavior(bytecode: &[u8]) -> BehaviorDocument {
         .filter(|instruction| opcode::name(instruction.op).is_none())
         .count();
 
-    let entries = if selectors.is_empty() {
-        vec![("fallback".into(), 0usize)]
-    } else {
-        selectors
-    };
+    let has_selectors = !selectors.is_empty();
+    let mut entries = selectors;
+    entries.push(("fallback".into(), 0usize));
     let mut functions = Vec::new();
     let mut all_reachable = BTreeSet::new();
     let mut all_unresolved = BTreeSet::new();
@@ -108,16 +106,23 @@ pub fn infer_behavior(bytecode: &[u8]) -> BehaviorDocument {
     let mut truncated = false;
 
     for (selector, entry_pc) in entries {
-        let analysis = analyze_entry(&by_pc, entry_pc);
+        let mut analysis = analyze_entry(&by_pc, entry_pc);
         let recognized_selector = usize::from(selector != "fallback");
         all_reachable.extend(analysis.reachable.iter().copied());
         all_unresolved.extend(analysis.unresolved_jumps.iter().copied());
         truncated |= analysis.truncated;
+        let discovered_effects = analysis.effects.clone();
+        contract_capabilities.extend(capabilities(&discovered_effects));
+        if selector == "fallback" && has_selectors {
+            analysis
+                .effects
+                .retain(|effect| !all_effects.contains_key(&effect_key(effect)));
+            analysis.guards.clear();
+        }
         let capabilities = capabilities(&analysis.effects);
-        contract_capabilities.extend(capabilities.iter().cloned());
-        for effect in &analysis.effects {
+        for effect in &discovered_effects {
             all_effects
-                .entry((effect.pc, effect.kind.clone(), effect.opcode.clone()))
+                .entry(effect_key(effect))
                 .or_insert_with(|| effect.clone());
         }
         functions.push(BehaviorFunction {
@@ -149,7 +154,7 @@ pub fn infer_behavior(bytecode: &[u8]) -> BehaviorDocument {
     ];
     if selector_count > 0 {
         limitations.push(
-            "Selector recovery recognizes common PUSH4/EQ dispatchers; fallback and non-standard dispatch paths may be omitted from per-function summaries.".into(),
+            "Selector recovery recognizes common PUSH4/EQ dispatchers. The fallback summary starts at the runtime entry and reports additional effects not already attributed to selector entries; dispatcher-wide guards are omitted from that summary.".into(),
         );
     }
     if truncated {
@@ -178,6 +183,10 @@ pub fn infer_behavior(bytecode: &[u8]) -> BehaviorDocument {
         contract_effects: all_effects.into_values().collect(),
         limitations,
     }
+}
+
+fn effect_key(effect: &BehaviorEffect) -> (u64, String, String) {
+    (effect.pc, effect.kind.clone(), effect.opcode.clone())
 }
 
 fn decode(bytecode: &[u8]) -> Vec<Instruction> {

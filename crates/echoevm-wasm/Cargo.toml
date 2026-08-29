@@ -16,8 +16,8 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 alloy-dyn-abi.workspace = true
 alloy-json-abi.workspace = true
-echoevm-core = { version = "1.7.0", path = "../echoevm-core", default-features = false }
-echoevm-protocol = { version = "1.7.0", path = "../echoevm-protocol" }
+echoevm-core = { version = "1.8.0", path = "../echoevm-core", default-features = false }
+echoevm-protocol = { version = "1.8.0", path = "../echoevm-protocol" }
 getrandom.workspace = true
 hex.workspace = true
 serde.workspace = true

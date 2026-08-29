@@ -10,8 +10,10 @@ mod machine;
 mod math;
 mod precompiles;
 mod runtime;
+mod system;
 mod transaction;
 
+pub use system::system_call;
 pub use transaction::{deploy, deploy_and_call, execute, transact};
 
 use crate::{DEFAULT_GAS_LIMIT, ENGINE_NAME, ENGINE_VERSION, Fork, opcode, state::WorldState};

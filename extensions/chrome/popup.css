@@ -9,12 +9,20 @@ h1 { margin: 1px 0 0; font-size: 19px; line-height: 1.2; }
 .status { display: flex; align-items: center; gap: 10px; margin-top: 16px; border: 1px solid #2f855a; border-radius: 10px; padding: 10px; background: rgb(22 101 52 / .16); }
 .status > span { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px rgb(52 211 153 / .12); }
 .status strong { font-size: 12px; }.status p { margin: 1px 0 0; color: #bbf7d0; font-size: 11px; }
+.status.is-running { border-color: #466078; background: #18243b; }
+.status.is-running > span { border: 2px solid #64748b; border-top-color: var(--accent); background: transparent; box-shadow: none; animation: popup-spin .8s linear infinite; }
+.status.is-running p { color: #bfdbfe; }
+.status.is-error { border-color: #9f3850; background: rgb(136 19 55 / .2); }
+.status.is-error > span { background: #fb7185; box-shadow: 0 0 0 4px rgb(251 113 133 / .12); }
+.status.is-error p { color: #fecdd3; }
+@keyframes popup-spin { to { transform: rotate(360deg); } }
 ol { margin: 16px 0 0; padding-left: 22px; color: #dbe4f0; font-size: 12px; }
 li + li { margin-top: 7px; }
 .boundary { margin: 15px 0 0; border-top: 1px solid var(--border); padding-top: 13px; color: var(--muted); font-size: 11px; }
 button { min-height: 44px; width: 100%; margin-top: 15px; border: 1px solid #4ade80; border-radius: 9px; padding: 9px 12px; color: #052e16; background: var(--accent); font: inherit; font-size: 13px; font-weight: 800; line-height: 1.3; cursor: pointer; }
 button:hover { background: #6ee7b7; } button:active { background: #22c55e; }
+button:disabled { cursor: wait; opacity: .62; }
 button:focus-visible, a:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 a { min-height: 36px; display: flex; align-items: center; justify-content: center; margin-top: 6px; color: #93c5fd; font-size: 11px; text-decoration: none; }
 a:hover { text-decoration: underline; }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

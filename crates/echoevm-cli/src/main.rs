@@ -2,7 +2,7 @@ use anyhow::{Context, Result, bail};
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use echoevm_core::{
     ExecuteRequest, Fork, build_evidence, decode_hex, deploy_bytecode, disassemble, execute,
-    infer_behavior, replay_witness, trace,
+    execute_block_witness, infer_behavior, replay_witness, trace,
 };
 use std::{fs, path::PathBuf};
 
@@ -33,6 +33,8 @@ enum Command {
     Behavior(BehaviorArgs),
     Version(VersionArgs),
     Replay(ReplayArgs),
+    /// Execute a self-contained block witness and verify its header commitments.
+    Block(BlockArgs),
     Explain {
         #[command(subcommand)]
         command: explain::ExplainCommand,
@@ -163,6 +165,14 @@ struct ReplayArgs {
     profile: String,
     #[arg(long, default_value_t = 40)]
     limit: usize,
+}
+
+#[derive(Args, Debug)]
+struct BlockArgs {
+    witness: PathBuf,
+    /// Include an opcode trace for this zero-based transaction index.
+    #[arg(long)]
+    trace_transaction: Option<usize>,
 }
 
 fn read_code(inline: Option<&str>, path: Option<&PathBuf>) -> Result<Vec<u8>> {
@@ -327,6 +337,13 @@ fn main() -> Result<()> {
                     bail!("unsupported replay format {other:?}; use text, json, or evidence-json")
                 }
             }
+            Ok(())
+        }
+        Command::Block(args) => {
+            let bytes = fs::read(&args.witness)?;
+            let witness = echoevm_protocol::BlockWitness::decode_strict(&bytes)?;
+            let result = execute_block_witness(&witness, args.trace_transaction)?;
+            println!("{}", serde_json::to_string_pretty(&result)?);
             Ok(())
         }
         Command::Explain { command } => explain::execute(command),

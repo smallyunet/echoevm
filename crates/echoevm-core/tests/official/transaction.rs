@@ -154,7 +154,11 @@ pub(super) fn build_transaction(
                     .map(quantity_u64)
                     .transpose()?
                     .unwrap_or_default(),
-                3_338_477,
+                if gate.fork == "Cancun" {
+                    3_338_477
+                } else {
+                    5_007_716
+                },
             ),
             block_hashes,
             blob_hashes: unit

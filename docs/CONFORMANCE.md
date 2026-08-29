@@ -1,6 +1,6 @@
 # EchoEVM conformance contract
 
-EchoEVM v1.7.0 calls a release **A-grade** only when every gate below passes
+EchoEVM v1.8.0 calls a release **A-grade** only when every gate below passes
 without skipped or expected-failure cases. This is a project release label, not
 an Ethereum Foundation certification and not a claim of full execution-client
 equivalence.
@@ -36,6 +36,25 @@ The runner also pins every file, accepted, rejected, and total transaction
 count. Corpus shrinkage, a missing fork directory, or a skipped case fails the
 gate.
 
+The same pinned release adds accepted single-block transition coverage:
+
+| Fork | Files | Accepted single blocks | Declared rejected inventory |
+|---|---:|---:|---:|
+| Cancun | 2,401 | 11,930 | 748 |
+| Prague | 2,573 | 14,621 | 1,286 |
+| Osaka | 2,514 | 15,371 | 1,286 |
+| **Total** | **7,488** | **41,922** | **3,320** |
+
+Each accepted single-block case verifies signed transaction decoding, protocol
+system calls, withdrawals, and exact header commitments for transaction root,
+withdrawals root, gas used, receipts root, logs bloom, and final state root. The
+3,320 rejected cases are a pinned inventory, not an executed rejection claim.
+
+The transaction fixture gate also pins 113 declared-invalid cases: one Cancun,
+56 Prague, and 56 Osaka. It checks malformed/trailing encodings and invalid
+EIP-7702 authorization-list formats and signatures. This fixture release does
+not contain an accepted transaction case in those selected directories.
+
 ## Independent gates
 
 The release additionally requires:
@@ -57,13 +76,14 @@ diagnosis. Release evidence always runs all three without that filter.
 
 ## Boundaries
 
-A-grade covers EchoEVM's declared Cancun-through-Osaka transaction and legacy
-bytecode state-transition surface. It does not cover pre-Cancun rules, block
-assembly/import, withdrawals or Prague request processing, consensus-layer
-validation, Engine API/Hive interoperability, networking, database durability,
-sync, transaction-pool policy, or every non-state-test fixture family.
+A-grade covers EchoEVM's declared Cancun-through-Osaka transaction surface,
+legacy bytecode state transitions, and the accepted single-block fixture gate
+above. It does not cover pre-Cancun rules, rejected or multi-block blockchain
+fixture execution, consensus-layer validation, independent `requestsHash`
+recomputation, Engine API/Hive interoperability, networking, database
+durability, sync, transaction-pool policy, or every official fixture family.
 
 Passing this contract supports the scoped statement “EchoEVM passes the pinned
-official state-test corpus for its declared forks.” It does not support “the
-Ethereum Foundation certified EchoEVM” or “EchoEVM is a drop-in replacement for
-a production execution client.”
+official state-test and accepted single-block gates for its declared forks.” It
+does not support “the Ethereum Foundation certified EchoEVM” or “EchoEVM is a
+drop-in replacement for a production execution client.”

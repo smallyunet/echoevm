@@ -42,23 +42,7 @@ pub fn replay_witness(
         )));
     }
 
-    let mut world = state::WorldState::default();
-    world.enable_missing_tracking();
-    for (address, account) in &witness.prestate {
-        world.mark_known_account(*address);
-        for slot in account.storage.keys() {
-            world.mark_known_storage(*address, U256::from_be_bytes(slot.0));
-        }
-        let target = world.account_mut(*address);
-        target.balance = account.balance.unwrap_or_default();
-        target.nonce = account.nonce;
-        target.code = account.code.to_vec();
-        for (slot, value) in &account.storage {
-            target
-                .storage
-                .insert(U256::from_be_bytes(slot.0), U256::from_be_bytes(value.0));
-        }
-    }
+    let mut world = crate::block::world_from_prestate(&witness.prestate, true);
     let mut block_hashes = BTreeMap::new();
     for (number, hash) in &witness.block_hashes {
         let number = number.parse::<u64>().map_err(|error| {
@@ -68,59 +52,16 @@ pub fn replay_witness(
     }
 
     let fork = Fork::for_timestamp(header.timestamp);
-    let gas_price = U256::from(envelope.effective_gas_price(header.base_fee_per_gas));
-    let mut execution = engine::transact(
-        &mut world,
-        engine::Transaction {
-            caller,
-            to: envelope.to(),
-            value: envelope.value(),
-            data: envelope.input().to_vec(),
-            gas_limit: envelope.gas_limit(),
-            gas_price,
-            max_fee_per_gas: U256::from(envelope.max_fee_per_gas()),
-            max_priority_fee_per_gas: envelope.max_priority_fee_per_gas().map(U256::from),
-            nonce: envelope.nonce(),
-            access_list: envelope
-                .access_list()
-                .map(|list| {
-                    list.0
-                        .iter()
-                        .map(|item| {
-                            (
-                                item.address,
-                                item.storage_keys
-                                    .iter()
-                                    .map(|key| U256::from_be_bytes(key.0))
-                                    .collect(),
-                            )
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-            authorization_list: Vec::new(),
-            set_code: false,
-            max_fee_per_blob_gas: envelope.max_fee_per_blob_gas().map(U256::from),
-            fork,
-            environment: engine::Environment {
-                chain_id: witness.chain_id,
-                block_number: header.number,
-                timestamp: header.timestamp,
-                coinbase: header.beneficiary,
-                block_gas_limit: header.gas_limit,
-                base_fee: U256::from(header.base_fee_per_gas.unwrap_or_default()),
-                prevrandao: U256::from_be_bytes(header.mix_hash.0),
-                blob_base_fee: U256::ZERO,
-                block_hashes,
-                blob_hashes: envelope
-                    .blob_versioned_hashes()
-                    .unwrap_or_default()
-                    .to_vec(),
-            },
-            trace: include_trace,
-        },
-    )
-    .map_err(|error| ExecuteError::Evm(error.into()))?;
+    let transaction = crate::block::transaction_from_envelope(
+        &envelope,
+        witness.chain_id,
+        &header,
+        block_hashes,
+        fork,
+        include_trace,
+    )?;
+    let mut execution = engine::transact(&mut world, transaction)
+        .map_err(|error| ExecuteError::Evm(error.into()))?;
     let missing = world.missing_reads();
     if !missing.accounts.is_empty() || !missing.storage.is_empty() {
         return Err(ExecuteError::IncompleteWitness {

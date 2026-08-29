@@ -16,6 +16,8 @@ fork activation, or fixture expectations.
   modules separate opcode dispatch, instruction helpers, call/create control
   flow, transaction processing, authorization handling, precompiles, gas, and
   arithmetic.
+- `block.rs` owns sequential block execution and intermediate transaction
+  witness materialization; `block/system.rs` isolates fork protocol calls.
 - `tests/official.rs` remains the integration-test entry point. Parsing and
   transaction construction, assertions, and fixture traversal live under
   `tests/official/`.
@@ -24,8 +26,8 @@ fork activation, or fixture expectations.
 
 - `solidity.rs` remains the command facade. Compilation, ABI coercion, and
   source-map processing live under `solidity/`.
-- `witness.rs` owns proof-backed acquisition and shared RPC helpers, while the
-  trace-based acquisition adapter lives under `witness/`.
+- `witness.rs` owns proof-backed acquisition, prefix replay, and shared RPC
+  helpers, while the trace-based acquisition adapter lives under `witness/`.
 
 ## Maintenance rule
 

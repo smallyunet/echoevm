@@ -1,6 +1,23 @@
 # EchoEVM roadmap
 
-**Current release: v1.7.0 — behavioral ABI inference from deployed EVM bytecode**
+**Current release: v1.8.0 — self-contained block execution and arbitrary-position replay**
+
+## Delivered in v1.8.0
+
+- Execute strict `echoevm.block-witness.v1` inputs sequentially with one shared
+  prestate and verify the header hash, transaction root, withdrawals root, gas
+  used, receipts root, logs bloom, and final state root.
+- Apply Cancun beacon-root processing and Prague/Osaka history, withdrawal
+  request, consolidation request, and withdrawal transitions without using a
+  foreign execution backend.
+- Extend standard-RPC `witness import-proof` to arbitrary transaction positions
+  by proving parent state and locally replaying every preceding transaction to
+  materialize the exact intermediate target prestate.
+- Add pinned `tests@v20.0.1` gates for 41,922 accepted single-block transitions
+  and 113 declared-invalid transaction fixtures across Cancun, Prague, and Osaka,
+  while preserving the 39,921-state-test transaction gate.
+- Improve Behavioral ABI fallback inference and make Chrome Behavior Lens
+  injection explicit and test-covered.
 
 ## Delivered in v1.7.0
 
@@ -107,13 +124,11 @@
 
 ## Next
 
-- Expand into transaction and block fixture families, then later
-  execution-spec releases, without shrinking the current state-test gate.
+- Execute and classify rejected and multi-block blockchain fixtures, then track
+  later execution-spec releases without shrinking any current gate.
 - Grow the bytecode matrix around call/create rollback, warm/cold access,
   precompiles, logs, memory overflow, and transaction-type boundaries.
-- Extend proof-backed acquisition to later block transactions by replaying all
-  preceding transactions from the proved parent state.
-- Add Prague request/system-call and full block transition conformance.
+- Recompute and verify Prague/Osaka `requestsHash` from the emitted request list.
 - Add source-level stepping and richer branch/control value-flow links while
   preserving the bounded evidence schema.
 - Publish the browser extension through a signed store channel after store

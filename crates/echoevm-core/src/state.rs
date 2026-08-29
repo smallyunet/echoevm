@@ -42,6 +42,8 @@ pub struct WorldState {
     pub logs: Vec<Log>,
     track_missing: bool,
     known_accounts: BTreeSet<Address>,
+    absent_accounts: BTreeSet<Address>,
+    zero_storage_accounts: BTreeSet<Address>,
     known_slots: BTreeSet<(Address, U256)>,
     missing: Arc<Mutex<MissingReads>>,
 }
@@ -61,6 +63,16 @@ impl WorldState {
         self.known_accounts.insert(address);
     }
 
+    pub fn mark_known_absent_account(&mut self, address: Address) {
+        self.known_accounts.insert(address);
+        self.absent_accounts.insert(address);
+        self.zero_storage_accounts.insert(address);
+    }
+
+    pub fn mark_storage_complete(&mut self, address: Address) {
+        self.zero_storage_accounts.insert(address);
+    }
+
     pub fn mark_known_storage(&mut self, address: Address, key: U256) {
         self.known_slots.insert((address, key));
     }
@@ -70,6 +82,18 @@ impl WorldState {
             .lock()
             .expect("missing-read tracker lock")
             .clone()
+    }
+
+    pub(crate) fn known_storage_slots(&self) -> &BTreeSet<(Address, U256)> {
+        &self.known_slots
+    }
+
+    pub(crate) fn known_accounts(&self) -> &BTreeSet<Address> {
+        &self.known_accounts
+    }
+
+    pub(crate) fn is_storage_complete(&self, address: Address) -> bool {
+        self.zero_storage_accounts.contains(&address)
     }
 
     pub fn account(&self, address: Address) -> Option<&Account> {
@@ -87,6 +111,7 @@ impl WorldState {
     }
 
     pub fn account_mut(&mut self, address: Address) -> &mut Account {
+        self.absent_accounts.remove(&address);
         if !self.track_missing || self.created.contains(&address) {
             self.known_accounts.insert(address);
         }
@@ -108,6 +133,8 @@ impl WorldState {
     pub fn storage(&self, address: Address, key: U256) -> U256 {
         if self.track_missing
             && self.known_accounts.contains(&address)
+            && !self.absent_accounts.contains(&address)
+            && !self.zero_storage_accounts.contains(&address)
             && !self.known_slots.contains(&(address, key))
             && !self.created.contains(&address)
         {

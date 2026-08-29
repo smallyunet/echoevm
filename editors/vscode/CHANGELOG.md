@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.0
+
+- Add self-contained block witness execution with transaction, receipt, state,
+  gas, logs, withdrawal, and protocol-system-call commitment checks.
+- Extend proof-backed witness import to arbitrary transaction positions by
+  replaying every preceding transaction from verified parent state.
+- Add pinned official block and transaction fixture gates for Cancun, Prague,
+  and Osaka.
+
 ## 1.7.0
 
 - Align the packaged CLI with EchoEVM's additive Behavioral ABI command and

@@ -15,7 +15,10 @@ and execution never leaves the browser.
    deployed bytecode already rendered by Etherscan and automatically infers
    selectors, reachable effects, value origins, and coverage locally. When a
    verified ABI is present it labels inferred selectors and lists `pure`
-   functions that can run in EchoEVM's local empty-state sandbox.
+   functions that can run in EchoEVM's local empty-state sandbox. If the lens
+   does not appear after navigation, click the EchoEVM extension icon: the
+   popup activates the lens in the current Etherscan tab and reports a visible
+   loading or error state.
 4. Or open an `https://etherscan.io/tx/0x…` page and select an
    `echoevm.replay-witness.v1` JSON document. The extension validates
    it, runs EchoEVM Wasm locally, verifies that its transaction hash matches the
@@ -30,6 +33,10 @@ and signing remain separate release channels.
 Behavior Lens uses deployed bytecode displayed on the current Etherscan page.
 It does not download or execute remote JavaScript and does not recompile
 displayed Solidity source. The optional verified ABI supplies labels only.
+Declarative Etherscan content-script matches handle normal page loads. The
+`activeTab` and `scripting` permissions are used only after the user clicks the
+extension icon, allowing the popup to activate the bundled lens in that current
+tab without persistent host permissions.
 
 Behavior inference uses bounded abstract execution and emits
 `echoevm.behavior.v1`. It is not a concrete Mainnet simulation, decompilation,

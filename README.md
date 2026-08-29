@@ -9,8 +9,8 @@
 **Independent Ethereum execution with exact traces and bounded evidence, implemented in Rust.**
 
 EchoEVM executes EVM bytecode, Solidity contracts, and self-contained Mainnet
-transaction witnesses. It is an executor, not a wrapper around Geth, an RPC
-debug method, a remote service, or another EVM implementation. Native,
+transaction or block witnesses. It is an executor, not a wrapper around Geth,
+an RPC debug method, a remote service, or another EVM implementation. Native,
 WebAssembly, Chrome, CLI, and editor frontends all use EchoEVM's own Rust
 interpreter, state transition, call-frame, gas, fork, and precompile code.
 
@@ -26,6 +26,7 @@ Use EchoEVM when you need to:
 - inspect an exact opcode trace, or select a bounded diagnostic view from that
   already-complete trace;
 - replay a transaction from an explicit, self-contained historical witness;
+- execute and verify an ordered block from explicit parent state;
 - infer a bounded behavioral ABI directly from deployed runtime bytecode; or
 - embed the same Rust execution kernel in native, Wasm, Chrome, or VS Code tools.
 
@@ -126,12 +127,13 @@ echoevm witness import-debug 0x0123... \
 The adapter ends after writing the witness. Its upstream result is never used as
 the replay result or semantic oracle.
 
-For the first transaction in a block, EchoEVM can instead use standard RPC
+For any transaction position in a block, EchoEVM can instead use standard RPC
 methods only. It uses `eth_createAccessList` as an optional accelerator, then
 replays locally to discover missing reads to a bounded fixed point. Every
 account and storage value is fetched with EIP-1186 proofs from the parent block,
-verified against the parent state root, and checked against fetched code before
-the same self-contained replay contract is written:
+verified against the parent state root, and checked against fetched code. For a
+later transaction it executes every preceding transaction locally to derive the
+exact intermediate prestate before writing the standalone replay contract:
 
 ```bash
 echoevm witness import-proof 0x0123... \
@@ -141,8 +143,20 @@ echoevm witness import-proof 0x0123... \
 ```
 
 Standard RPC exposes block-boundary proofs, not intermediate state between
-transactions. `import-proof` therefore fails closed unless `transactionIndex`
-is zero. It never silently substitutes post-block state.
+transactions. `import-proof` never substitutes post-block state; its emitted
+target witness is independently replayed before the command succeeds.
+
+## Execute a self-contained block
+
+```bash
+echoevm block ./block.witness.json --trace-transaction 3
+```
+
+`echoevm.block-witness.v1` contains the full header, ordered signed
+transactions, withdrawals, parent prestate, and observable historical block
+hashes. EchoEVM executes the block offline and fails unless its transaction,
+withdrawal, gas, receipt, logs, and final-state commitments match the header.
+See the [block witness contract](docs/BLOCK_WITNESS.md) for exact scope.
 
 ## Browser and editor embedding
 

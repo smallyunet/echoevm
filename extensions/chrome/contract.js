@@ -7,39 +7,39 @@
 
   discoverContract().then((contract) => {
     if (contract) mountContractLens(contract);
-  });
+  }).catch((error) => console.warn("EchoEVM contract discovery failed", error));
 
   async function discoverContract() {
-    for (let attempt = 0; attempt < 30; attempt += 1) {
+    return helpers.pollForValue(() => {
       const abiNode = document.querySelector("#js-copytextarea2");
       const codeRoot = document.querySelector("#dividcode, #ContentPlaceHolder1_contractCodeDiv");
-      if (codeRoot) {
+      if (!codeRoot) return null;
+      const bytecode = deployedBytecode(codeRoot);
+      if (!bytecode) return null;
+      let abi = [];
+      if (abiNode?.textContent?.trim()) {
         try {
-          const abi = abiNode ? helpers.parseContractAbi(abiNode.textContent || "") : [];
-          const bytecode = deployedBytecode(codeRoot);
-          if (!bytecode) return null;
-          const summary = document.querySelector("#ContentPlaceHolder1_contractCodeDiv");
-          const functions = helpers.abiFunctions(abi);
-          const verification = verificationLabel(summary);
-          const implementation = implementationAddress();
-          return {
-            address: contractAddress,
-            abi,
-            bytecode,
-            functions,
-            verification: abiNode ? verification : "Runtime bytecode",
-            implementation,
-            name: summaryValue(summary, "Contract Name") || "Deployed contract",
-            compiler: summaryValue(summary, "Compiler Version") || "Unknown compiler",
-            sourceFiles: Math.max(1, document.querySelectorAll("[data-csource]").length)
-          };
+          abi = helpers.parseContractAbi(abiNode.textContent);
         } catch (_) {
-          return null;
+          abi = [];
         }
       }
-      await new Promise((resolve) => setTimeout(resolve, 250));
-    }
-    return null;
+      const summary = document.querySelector("#ContentPlaceHolder1_contractCodeDiv");
+      const functions = helpers.abiFunctions(abi);
+      const verification = verificationLabel(summary);
+      const implementation = implementationAddress();
+      return {
+        address: contractAddress,
+        abi,
+        bytecode,
+        functions,
+        verification: abiNode ? verification : "Runtime bytecode",
+        implementation,
+        name: summaryValue(summary, "Contract Name") || "Deployed contract",
+        compiler: summaryValue(summary, "Compiler Version") || "Unknown compiler",
+        sourceFiles: Math.max(1, document.querySelectorAll("[data-csource]").length)
+      };
+    });
   }
 
   function deployedBytecode(codeRoot) {
@@ -72,6 +72,7 @@
   }
 
   function mountContractLens(contract) {
+    if (document.getElementById("echoevm-extension-root")) return;
     let runnerReady = false;
     let selectedFunction = contract.functions.find((item) => item.stateMutability === "pure") || null;
     const pureFunctions = contract.functions.filter((item) => item.stateMutability === "pure");

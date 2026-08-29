@@ -36,3 +36,18 @@ test("display helpers keep transaction data compact", () => {
   assert.equal(helpers.formatInteger(1234567), "1,234,567");
   assert.deepEqual(helpers.evidenceEvents({ evidence: { events: [{ step: 1 }] } }), [{ step: 1 }]);
 });
+
+test("pollForValue tolerates delayed Etherscan contract markup", async () => {
+  let attempts = 0;
+  const value = await helpers.pollForValue(() => {
+    attempts += 1;
+    if (attempts === 1) throw new Error("tab replaced while rendering");
+    return attempts === 3 ? "runtime-bytecode" : null;
+  }, 4, 0);
+  assert.equal(value, "runtime-bytecode");
+  assert.equal(attempts, 3);
+  assert.equal(await helpers.pollForValue(() => null, 2, 0), null);
+  await assert.rejects(helpers.pollForValue(() => {
+    throw new Error("broken contract markup reader");
+  }, 2, 0), /broken contract markup reader/);
+});
